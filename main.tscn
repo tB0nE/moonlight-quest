@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3 uid="uid://c8y7y6x5w4v3u"]
+[gd_scene load_steps=18 format=3 uid="uid://c8y7y6x5w4v3u"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_main"]
 [ext_resource type="Shader" path="res://stereo_screen.gdshader" id="2_shader"]
@@ -8,77 +8,159 @@ render_priority = 0
 shader = ExtResource("2_shader")
 
 [sub_resource type="QuadMesh" id="QuadMesh_1"]
-size = Vector2(1.6, 0.9)
-
-[sub_resource type="Sky" id="Sky_1"]
+size = Vector2(3.2, 1.8)
 
 [sub_resource type="Environment" id="Environment_1"]
-background_mode = 2
-sky = SubResource("Sky_1")
-ambient_light_source = 2
-ambient_light_color = Color(0.647059, 0.647059, 0.647059, 1)
+background_mode = 1
+background_color = Color(0, 0, 0, 1)
+tonemap_mode = 2
+glow_enabled = true
+
+[sub_resource type="ViewportTexture" id="ViewportTexture_UI"]
+viewport_path = NodePath("UIViewport")
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_UI"]
+resource_local_to_scene = true
+transparency = 1
+shading_mode = 0
+albedo_texture = SubResource("ViewportTexture_UI")
+
+[sub_resource type="QuadMesh" id="QuadMesh_UI"]
+size = Vector2(1, 0.6)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_UI"]
+size = Vector3(1, 0.6, 0.01)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_1"]
+size = Vector2(8, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Hand"]
+size = Vector3(0.05, 0.05, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_Laser"]
+shading_mode = 0
+albedo_color = Color(1, 0, 0, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_Laser"]
+top_radius = 0.002
+bottom_radius = 0.002
+height = 5.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_GrabBar"]
+shading_mode = 0
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_GrabBar"]
+top_radius = 0.01
+bottom_radius = 0.01
+height = 0.6
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_GrabBar"]
+size = Vector3(0.6, 0.05, 0.05)
 
 [node name="Main" type="Node3D"]
 script = ExtResource("1_main")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
-
-[node name="Control" type="Control" parent="CanvasLayer"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="SubViewportContainer" type="SubViewportContainer" parent="CanvasLayer/Control"]
-layout_mode = 0
-offset_left = -2000.0
-offset_top = -2000.0
-offset_right = -80.0
-offset_bottom = -920.0
-
-[node name="SubViewport" type="SubViewport" parent="CanvasLayer/Control/SubViewportContainer"]
+[node name="StreamViewport" type="SubViewport" parent="."]
 unique_name_in_owner = true
 disable_3d = true
-size = Vector2i(1920, 1080)
+size = Vector2i(3840, 2160)
 render_target_update_mode = 4
 
-[node name="StreamTarget" type="TextureRect" parent="CanvasLayer/Control/SubViewportContainer/SubViewport"]
+[node name="StreamTarget" type="TextureRect" parent="StreamViewport"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(1920, 1080)
+custom_minimum_size = Vector2(3840, 2160)
 offset_right = 1920.0
 offset_bottom = 1080.0
 expand_mode = 1
 stretch_mode = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Control"]
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = -140.0
-offset_right = 320.0
-offset_bottom = -20.0
-grow_vertical = 0
+[node name="UIViewport" type="SubViewport" parent="."]
+unique_name_in_owner = true
+disable_3d = true
+transparent_bg = true
+handle_input_locally = true
+size = Vector2i(500, 300)
+render_target_update_mode = 4
 
-[node name="IPInput" type="LineEdit" parent="CanvasLayer/Control/VBoxContainer"]
+[node name="UIPanel" type="PanelContainer" parent="UIViewport"]
+offset_right = 500.0
+offset_bottom = 300.0
+mouse_filter = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UIViewport/UIPanel"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="UIViewport/UIPanel/VBoxContainer"]
+layout_mode = 2
+text = "Ty-Streamer Menu"
+horizontal_alignment = 1
+
+[node name="IPInput" type="LineEdit" parent="UIViewport/UIPanel/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
-placeholder_text = "Host IP (e.g. 192.168.1.10)"
+placeholder_text = "Host IP (e.g. 127.0.0.1)"
 
-[node name="PairButton" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
+[node name="PairButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 text = "Pair & Start Stream"
 
-[node name="SBSToggle" type="Button" parent="CanvasLayer/Control/VBoxContainer"]
+[node name="SBSToggle" type="Button" parent="UIViewport/UIPanel/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 text = "Enable SBS Mode"
+
+[node name="ExitButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Exit App"
+
+[node name="HSeparator" type="HSeparator" parent="UIViewport/UIPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="ModeLabel" type="Label" parent="UIViewport/UIPanel/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Mode: UI"
+horizontal_alignment = 1
+
+[node name="Label2" type="Label" parent="UIViewport/UIPanel/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "[Shift+F1] Stream | [Tab] Env"
+horizontal_alignment = 1
+
+[node name="HitDot" type="ColorRect" parent="UIViewport"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(10, 10)
+offset_left = -10.0
+offset_top = -10.0
+offset_bottom = -10.0
+mouse_filter = 2
+color = Color(0, 1, 0, 1)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Crosshair" type="TextureRect" parent="CanvasLayer"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -4.0
+offset_top = -4.0
+offset_right = 4.0
+offset_bottom = 4.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("PlaceholderTexture2D_1")
 
 [node name="XROrigin3D" type="XROrigin3D" parent="."]
 
@@ -86,15 +168,87 @@ text = "Enable SBS Mode"
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 current = true
 
+[node name="RayCast3D" type="RayCast3D" parent="XROrigin3D/XRCamera3D"]
+unique_name_in_owner = true
+target_position = Vector3(0, 0, -5)
+collision_mask = 2
+collide_with_areas = true
+
+[node name="LeftHand" type="XRController3D" parent="XROrigin3D"]
+tracker = &"left_hand"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="XROrigin3D/LeftHand"]
+mesh = SubResource("BoxMesh_Hand")
+
+[node name="RightHand" type="XRController3D" parent="XROrigin3D"]
+unique_name_in_owner = true
+tracker = &"right_hand"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="XROrigin3D/RightHand"]
+mesh = SubResource("BoxMesh_Hand")
+
+[node name="HandRayCast" type="RayCast3D" parent="XROrigin3D/RightHand"]
+unique_name_in_owner = true
+target_position = Vector3(0, 0, -5)
+collision_mask = 2
+collide_with_areas = true
+
+[node name="Laser" type="MeshInstance3D" parent="XROrigin3D/RightHand/HandRayCast"]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, -2.5)
+material_override = SubResource("StandardMaterial3D_Laser")
+mesh = SubResource("CylinderMesh_Laser")
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_1")
 
 [node name="MoonlightStream" type="MoonlightStreamCore" parent="."]
 
+[node name="StreamAudioPlayer" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, -3)
 material_override = SubResource("ShaderMaterial_1")
 mesh = SubResource("QuadMesh_1")
+
+[node name="ScreenGrabBar" type="MeshInstance3D" parent="MeshInstance3D"]
+unique_name_in_owner = true
+transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, -1, 0)
+visible = false
+material_override = SubResource("StandardMaterial3D_GrabBar")
+mesh = SubResource("CylinderMesh_GrabBar")
+
+[node name="Area3D" type="Area3D" parent="MeshInstance3D/ScreenGrabBar"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/ScreenGrabBar/Area3D"]
+shape = SubResource("BoxShape3D_GrabBar")
+
+[node name="UIPanel3D" type="MeshInstance3D" parent="."]
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -1.5)
+material_override = SubResource("StandardMaterial3D_UI")
+mesh = SubResource("QuadMesh_UI")
+
+[node name="Area3D" type="Area3D" parent="UIPanel3D"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="UIPanel3D/Area3D"]
+shape = SubResource("BoxShape3D_UI")
+
+[node name="MenuGrabBar" type="MeshInstance3D" parent="UIPanel3D"]
+unique_name_in_owner = true
+transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, -0.35, 0)
+visible = false
+material_override = SubResource("StandardMaterial3D_GrabBar")
+mesh = SubResource("CylinderMesh_GrabBar")
+
+[node name="Area3D" type="Area3D" parent="UIPanel3D/MenuGrabBar"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="UIPanel3D/MenuGrabBar/Area3D"]
+shape = SubResource("BoxShape3D_GrabBar")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, -0.5, 0.866025, 0, -0.866025, -0.5, 0, 5, 0)

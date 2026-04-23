@@ -1,119 +1,226 @@
 extends Node3D
 
+enum AppMode { UI, ENV, STREAM }
+
 @onready var moon = $MoonlightStream
 @onready var screen_mesh = $MeshInstance3D
+@onready var ui_panel_3d = %UIPanel3D
+@onready var ui_viewport = %UIViewport
+@onready var stream_viewport = %StreamViewport
+@onready var stream_target = %StreamTarget
 @onready var config_mgr = MoonlightConfigManager.new()
 @onready var comp_mgr = MoonlightComputerManager.new()
 @onready var xr_origin = $XROrigin3D
+@onready var xr_camera = $XROrigin3D/XRCamera3D
+@onready var mouse_raycast = %RayCast3D
+@onready var hand_raycast = %HandRayCast
+@onready var right_hand = %RightHand
+@onready var hit_dot = %HitDot
+@onready var audio_player = %StreamAudioPlayer
 
-# Keep references alive to prevent garbage collection
+# Keep references alive
 var stream_cfg: MoonlightStreamConfigurationResource
 var stream_opts: MoonlightAdditionalStreamOptions
 
 var current_host_id: int = -1
 var is_streaming: bool = false
-var sbs_enabled: bool = false
-var mouse_captured: bool = false
+var stereo_mode: int = 0 
+var current_mode: AppMode = AppMode.UI
+var is_xr_active: bool = false
+var was_clicking: bool = false
+
+var mouse_sensitivity: float = 0.002
 
 func _ready():
-	%PairButton.pressed.connect(_on_pair_pressed)
-	%SBSToggle.pressed.connect(_on_sbs_toggled)
+	# UI Connections
+	%PairButton.button_down.connect(_on_pair_pressed)
+	%SBSToggle.button_down.connect(_on_sbs_toggled)
+	%ExitButton.button_down.connect(func(): get_tree().quit())
 	
 	comp_mgr.set_config_manager(config_mgr)
 	moon.set_config_manager(config_mgr)
-	
 	comp_mgr.pair_completed.connect(_on_pair_completed)
 	
 	moon.connection_started.connect(func():
 		is_streaming = true
 		print("STREAM SUCCESS: Connected!")
 		_bind_texture()
+		_setup_audio()
 	)
 	moon.connection_terminated.connect(func(err, msg):
 		is_streaming = false
-		mouse_captured = false
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		print("STREAM ERROR: ", err, " - ", msg)
+		audio_player.stop()
 	)
-	moon.log_message.connect(func(msg): print("MOONLIGHT LOG: ", msg))
 	
-	_bind_texture()
-
+	# Controller Signals
+	right_hand.button_pressed.connect(_on_controller_button_pressed)
+	
 	var interface = XRServer.find_interface("OpenXR")
 	if interface and interface.is_initialized():
 		get_viewport().use_xr = true
-		$CanvasLayer.hide()
-		sbs_enabled = true
-		screen_mesh.material_override.set_shader_parameter("stereo_enabled", true)
-		print("XR Mode: Stereo Split Enabled")
+		is_xr_active = true
+		stereo_mode = 1
 	else:
-		sbs_enabled = false
-		print("Running in Flat Mode - Stereo Split Disabled")
-		screen_mesh.material_override.set_shader_parameter("stereo_enabled", false)
+		is_xr_active = false
+		stereo_mode = 0
+	
+	_bind_texture()
+	_update_mode_ui()
+	_update_stereo_shader()
+
+func _setup_audio():
+	var audio_stream = moon.get_audio_stream()
+	if audio_stream:
+		audio_player.stream = audio_stream
+		audio_player.play()
+		print("Audio Stream Started")
 
 func _bind_texture():
-	var viewport_tex = %SubViewport.get_texture()
-	screen_mesh.material_override.set_shader_parameter("main_texture", viewport_tex)
+	var stream_tex = stream_viewport.get_texture()
+	screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
+	var ui_tex = ui_viewport.get_texture()
+	ui_panel_3d.material_override.albedo_texture = ui_tex
 
 func _process(delta):
-	# Dual Navigation (WASD + Arrows)
-	var move_speed = 3.0
-	var rot_speed = 2.0
+	if Input.is_action_just_pressed("ui_focus_next"): # Tab
+		_switch_mode(AppMode.ENV if current_mode != AppMode.ENV else AppMode.UI)
 	
-	var move_dir = 0
-	if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_W):
-		move_dir -= 1
-	if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_S):
-		move_dir += 1
-		
-	var rot_dir = 0
-	if Input.is_action_pressed("ui_left") or Input.is_key_pressed(KEY_A):
-		rot_dir += 1
-	if Input.is_action_pressed("ui_right") or Input.is_key_pressed(KEY_D):
-		rot_dir -= 1
-		
-	if move_dir != 0:
-		xr_origin.global_translate(xr_origin.global_transform.basis.z * move_dir * move_speed * delta)
-	if rot_dir != 0:
-		xr_origin.rotate_y(rot_dir * rot_speed * delta)
+	if Input.is_key_pressed(KEY_SHIFT) and Input.is_key_pressed(KEY_F1):
+		if current_mode != AppMode.UI:
+			_switch_mode(AppMode.UI)
+
+	match current_mode:
+		AppMode.UI:
+			_handle_ui_interaction()
+		AppMode.ENV:
+			_handle_env_movement(delta)
+		AppMode.STREAM:
+			pass
+
+func _switch_mode(new_mode: AppMode):
+	current_mode = new_mode
+	_update_mode_ui()
+	
+	if not is_xr_active:
+		if current_mode == AppMode.STREAM or current_mode == AppMode.ENV:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		else:
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	
+	print("Switched to Mode: ", AppMode.keys()[current_mode])
+
+func _update_mode_ui():
+	%ModeLabel.text = "Mode: " + AppMode.keys()[current_mode]
+	%Crosshair.visible = (current_mode == AppMode.UI and not is_xr_active)
+	%Laser.visible = (current_mode == AppMode.UI and is_xr_active)
+	if current_mode != AppMode.UI:
+		hit_dot.position = Vector2(-20, -20)
+
+func _handle_ui_interaction():
+	var active_raycast = hand_raycast if is_xr_active else mouse_raycast
+	if active_raycast.is_colliding():
+		var collider = active_raycast.get_collider()
+		if collider.get_parent() == ui_panel_3d:
+			var hit_pos = active_raycast.get_collision_point()
+			var local_pos = ui_panel_3d.to_local(hit_pos)
+			var pixel_pos = Vector2((local_pos.x + 0.5) * 500, (0.3 - local_pos.y) * (300 / 0.6))
+			hit_dot.position = pixel_pos - (hit_dot.size / 2.0)
+			var is_now_clicking = right_hand.get_float("trigger") > 0.5 if is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+			hit_dot.color = Color(1, 0, 0) if is_now_clicking else Color(0, 1, 0)
+			
+			var motion = InputEventMouseMotion.new()
+			motion.position = pixel_pos
+			motion.global_position = pixel_pos
+			motion.button_mask = MOUSE_BUTTON_MASK_LEFT if is_now_clicking else 0
+			ui_viewport.push_input(motion)
+			
+			if is_now_clicking and not was_clicking:
+				_push_click(pixel_pos, true)
+				was_clicking = true
+			elif not is_now_clicking and was_clicking:
+				_push_click(pixel_pos, false)
+				was_clicking = false
+			return
+	if was_clicking:
+		_push_click(hit_dot.position + (hit_dot.size/2.0), false)
+		was_clicking = false
+	hit_dot.position = Vector2(-20, -20)
+
+func _push_click(pos: Vector2, pressed: bool):
+	var event = InputEventMouseButton.new()
+	event.position = pos
+	event.global_position = pos
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+	ui_viewport.push_input(event)
+
+func _on_controller_button_pressed(button_name: String):
+	match button_name:
+		"by_button": _switch_mode(AppMode.UI)
+		"ax_button": _switch_mode(AppMode.ENV)
+		"trigger_click":
+			if current_mode != AppMode.UI and current_mode != AppMode.STREAM:
+				_switch_mode(AppMode.STREAM)
+
+func _handle_env_movement(delta):
+	var move_speed = 3.0
+	var move_dir = Vector3.ZERO
+	if Input.is_key_pressed(KEY_W): move_dir -= xr_origin.global_transform.basis.z
+	if Input.is_key_pressed(KEY_S): move_dir += xr_origin.global_transform.basis.z
+	if Input.is_key_pressed(KEY_A): move_dir -= xr_origin.global_transform.basis.x
+	if Input.is_key_pressed(KEY_D): move_dir += xr_origin.global_transform.basis.x
+	if move_dir != Vector3.ZERO:
+		xr_origin.global_translate(move_dir.normalized() * move_speed * delta)
 
 func _input(event):
-	# Mouse Capture Logic
-	if event is InputEventMouseButton and event.pressed:
-		if not mouse_captured:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-			mouse_captured = true
-			print("Mouse Captured - Controlling Host PC")
+	if is_streaming:
+		# Forward Gamepad Events
+		if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+			if moon.has_method("send_controller_event"):
+				_forward_gamepad_input(event)
+				return # Don't process further
+		
+		# Forward Mouse/Keyboard if in STREAM mode
+		if current_mode == AppMode.STREAM:
+			if event is InputEventMouseMotion:
+				moon.send_mouse_move_event(event.relative.x, event.relative.y)
+			elif event is InputEventMouseButton:
+				moon.send_mouse_button_event(1 if event.pressed else 2, event.button_index)
+			elif event is InputEventKey:
+				if not (event.keycode == KEY_F1 and Input.is_key_pressed(KEY_SHIFT)):
+					moon.send_keyboard_event(event.keycode, 1 if event.pressed else 2, 0)
 	
-	# Mouse Release Logic (Shift + Escape)
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_ESCAPE and Input.is_key_pressed(KEY_SHIFT):
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			mouse_captured = false
-			print("Mouse Released - Controlling Godot UI")
+	if current_mode != AppMode.STREAM and not is_xr_active:
+		if event is InputEventMouseMotion:
+			xr_origin.rotate_y(-event.relative.x * mouse_sensitivity)
+			xr_camera.rotate_x(-event.relative.y * mouse_sensitivity)
+			xr_camera.rotation.x = clamp(xr_camera.rotation.x, -PI/2, PI/2)
 
-	# Forward input to Moonlight ONLY when captured
-	if is_streaming and mouse_captured:
-		if moon.has_method("handle_input"):
-			moon.handle_input(event)
+func _forward_gamepad_input(event):
+	# Map Godot Joypad to Moonlight Controller Event
+	# Based on Moonlight protocol: controller_id, button_flags, left_trigger, right_trigger, left_stick_x, left_stick_y, etc.
+	# For simplicity, we forward the event to the extension's handler if it exists
+	if moon.has_method("handle_input"):
+		moon.handle_input(event)
+	elif moon.has_method("send_controller_event"):
+		# Fallback to manual mapping if needed, but handle_input is preferred for Joypads
+		pass
 
 func _on_pair_pressed():
 	var ip = %IPInput.text
-	if ip.is_empty():
-		ip = "127.0.0.1"
-		%IPInput.text = ip
-	
+	if ip.is_empty(): ip = "127.0.0.1"
 	config_mgr.load_config()
 	var paired_host_id = -1
 	for h in config_mgr.get_hosts():
 		if h.has("localaddress") and h.localaddress == ip:
 			paired_host_id = h.id
 			break
-			
 	if paired_host_id != -1:
 		start_stream(paired_host_id, 881448767)
+		_switch_mode(AppMode.STREAM)
 	else:
-		print("Starting pair with: ", ip)
 		var pin = comp_mgr.start_pair(ip, 47989)
 		print("PIN: ", pin)
 
@@ -123,41 +230,34 @@ func _on_pair_completed(success: bool, _msg: String):
 		var ip = %IPInput.text
 		for h in config_mgr.get_hosts():
 			if h.localaddress == ip:
-				var apps = config_mgr.get_apps(int(h.id))
-				var desktop_app_id = -1
-				for app in apps:
-					if app.get("name", "").to_lower().find("desktop") != -1:
-						desktop_app_id = int(app["id"])
-				if desktop_app_id != -1:
-					start_stream(int(h.id), desktop_app_id)
+				start_stream(h.id, 881448767)
+				_switch_mode(AppMode.STREAM)
 				break
 
 func start_stream(host_id: int, app_id: int):
-	print("Starting Performance Mode stream (1080p, HW Decode, Color)...")
-	
+	print("Starting 4K Performance Stream (3840x2160, 50Mbps)...")
 	stream_cfg = MoonlightStreamConfigurationResource.new()
-	stream_cfg.set_width(1920)
-	stream_cfg.set_height(1080)
+	stream_cfg.set_width(3840)
+	stream_cfg.set_height(2160)
 	stream_cfg.set_fps(60)
-	stream_cfg.set_bitrate(20000)
+	stream_cfg.set_bitrate(50000)
 	
 	stream_opts = MoonlightAdditionalStreamOptions.new()
 	stream_opts.set_disable_hw_acceleration(false)
-	stream_opts.set_disable_audio(false)
+	stream_opts.set_disable_audio(false) # Audio Enabled
 	stream_opts.set_disable_video(false)
-	stream_opts.set_verbose(true)
 	
-	moon.set_render_target(%StreamTarget)
+	moon.set_render_target(stream_target)
 	moon.start_play_stream(host_id, app_id, stream_cfg, stream_opts)
+	await get_tree().create_timer(0.1).timeout
 	_bind_texture()
 
 func _on_sbs_toggled():
-	sbs_enabled = !sbs_enabled
-	screen_mesh.material_override.set_shader_parameter("stereo_enabled", sbs_enabled)
-	
-	if sbs_enabled:
-		%SBSToggle.text = "Disable SBS Mode"
-		print("SBS Mode Enabled")
-	else:
-		%SBSToggle.text = "Enable SBS Mode"
-		print("SBS Mode Disabled (2D)")
+	stereo_mode = (stereo_mode + 1) % 3
+	_update_stereo_shader()
+
+func _update_stereo_shader():
+	screen_mesh.material_override.set_shader_parameter("stereo_mode", stereo_mode)
+	var mode_names = ["2D Mode", "SBS Stretch", "SBS Crop"]
+	%SBSToggle.text = "Mode: " + mode_names[stereo_mode]
+	print("Switched to 3D Mode: ", mode_names[stereo_mode])

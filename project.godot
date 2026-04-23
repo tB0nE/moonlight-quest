@@ -21,7 +21,6 @@ config/icon="res://icon.svg"
 
 [rendering]
 
-renderer/rendering_method="forward_plus"
 textures/vram_compression/import_etc2_astc=true
 
 [xr]
