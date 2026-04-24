@@ -19,6 +19,11 @@ run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[display]
+
+window/size/viewport_width=2880
+window/size/viewport_height=1620
+
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true
