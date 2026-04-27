@@ -30,3 +30,5 @@ android/build/
 
 # Binaries
 *.a
+android/libs/
+android/src/instrumented/assets/main.tscn
