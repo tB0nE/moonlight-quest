@@ -37,7 +37,7 @@ var was_clicking: bool = false
 var mouse_captured_by_stream: bool = false
 var suppress_input_frames: int = 0
 
-var auto_detect_enabled: bool = true
+var auto_detect_enabled: bool = false
 var auto_detect_timer: float = 0.0
 var auto_detect_running: bool = false
 var detection_history: Array = []
@@ -51,6 +51,20 @@ var grabbed_bar: MeshInstance3D = null
 
 var pad_buttons: int = 0
 var pad_active: int = 0
+
+var _BTN_MAP = {
+	JOY_BUTTON_A: 0x1000,
+	JOY_BUTTON_B: 0x2000,
+	JOY_BUTTON_X: 0x4000,
+	JOY_BUTTON_Y: 0x8000,
+	JOY_BUTTON_LEFT_SHOULDER: 0x0100,
+	JOY_BUTTON_RIGHT_SHOULDER: 0x0200,
+	JOY_BUTTON_BACK: 0x0400,
+	JOY_BUTTON_START: 0x0800,
+	JOY_BUTTON_LEFT_STICK: 0x0040,
+	JOY_BUTTON_RIGHT_STICK: 0x0080,
+	JOY_BUTTON_GUIDE: 0x0400,
+}
 
 func _log(msg: String):
 	var f = FileAccess.open("user://debug.log", FileAccess.READ_WRITE)
@@ -116,13 +130,13 @@ func _ready():
 		var cam_fwd = -xr_camera.global_transform.basis.z
 		var cam_right = xr_camera.global_transform.basis.x
 		screen_mesh.global_position = cam_pos + cam_fwd * 2.0
-		screen_mesh.global_position.y -= 0.2
+		screen_mesh.global_position.y -= 0.5
 		var screen_to_cam = (cam_pos - screen_mesh.global_position).normalized()
 		screen_mesh.rotation = Vector3.ZERO
 		screen_mesh.rotation.y = atan2(screen_to_cam.x, screen_to_cam.z)
 		var ui_dir = (cam_fwd - cam_right).normalized()
 		ui_panel_3d.global_position = cam_pos + ui_dir * 1.8
-		ui_panel_3d.global_position.y -= 0.4
+		ui_panel_3d.global_position.y -= 0.7
 		var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
 		ui_panel_3d.rotation = Vector3.ZERO
 		ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
@@ -431,9 +445,14 @@ func _send_controller(device: int):
 	var ly = Input.get_joy_axis(device, JOY_AXIS_LEFT_Y)
 	var rx = Input.get_joy_axis(device, JOY_AXIS_RIGHT_X)
 	var ry = Input.get_joy_axis(device, JOY_AXIS_RIGHT_Y)
-	var _lt = Input.get_joy_axis(device, JOY_AXIS_TRIGGER_LEFT)
-	var _rt = Input.get_joy_axis(device, JOY_AXIS_TRIGGER_RIGHT)
-	moon.send_controller_event(pad_active, pad_buttons, device, _float_to_short(lx), _float_to_short(ly), _float_to_short(rx), _float_to_short(ry))
+	var lt = Input.get_joy_axis(device, JOY_AXIS_TRIGGER_LEFT)
+	var rt = Input.get_joy_axis(device, JOY_AXIS_TRIGGER_RIGHT)
+	var mapped_buttons = 0
+	for btn in _BTN_MAP:
+		if Input.is_joy_button_pressed(device, btn):
+			mapped_buttons |= _BTN_MAP[btn]
+	var active_mask = 1 << device
+	moon.send_multi_controller_event(device, active_mask, mapped_buttons, int(lt * 255.0), int(rt * 255.0), _float_to_short(lx), -_float_to_short(ly), _float_to_short(rx), -_float_to_short(ry))
 
 func _capture_stream_mouse():
 	mouse_captured_by_stream = true
