@@ -22,3 +22,11 @@ export_presets.godot
 *.swp
 *.tmp
 *.log
+
+# Android build artifacts
+android/build/
+*.apk
+*.idsig
+
+# Binaries
+*.a

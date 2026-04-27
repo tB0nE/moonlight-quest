@@ -26,10 +26,10 @@ shading_mode = 0
 albedo_texture = SubResource("ViewportTexture_UI")
 
 [sub_resource type="QuadMesh" id="QuadMesh_UI"]
-size = Vector2(1, 0.6)
+size = Vector2(1, 1)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_UI"]
-size = Vector3(1, 0.6, 0.01)
+size = Vector3(1, 1, 0.01)
 
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_1"]
 size = Vector2(8, 8)
@@ -85,8 +85,8 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(20, 20)
 offset_left = -20.0
 offset_top = -20.0
-offset_right = -20.0
-offset_bottom = -20.0
+offset_right = 0.0
+offset_bottom = 0.0
 mouse_filter = 2
 color = Color(0, 1, 0, 1)
 
@@ -94,7 +94,7 @@ color = Color(0, 1, 0, 1)
 unique_name_in_owner = true
 disable_3d = true
 size = Vector2i(64, 32)
-render_target_update_mode = 4
+render_target_update_mode = 0
 
 [node name="DetectionTarget" type="TextureRect" parent="DetectionViewport"]
 unique_name_in_owner = true
@@ -109,7 +109,7 @@ unique_name_in_owner = true
 disable_3d = true
 transparent_bg = true
 handle_input_locally = true
-size = Vector2i(500, 300)
+size = Vector2i(500, 500)
 render_target_update_mode = 4
 
 [node name="UIPanel" type="PanelContainer" parent="UIViewport"]
@@ -130,6 +130,15 @@ horizontal_alignment = 1
 unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "Host IP (e.g. 127.0.0.1)"
+editable = false
+
+[node name="Numpad" type="GridContainer" parent="UIViewport/UIPanel/VBoxContainer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+columns = 3
+theme_override_constants/v_separation = 2
+theme_override_constants/h_separation = 2
 
 [node name="PairButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer"]
 unique_name_in_owner = true
@@ -155,6 +164,19 @@ unique_name_in_owner = true
 layout_mode = 2
 focus_mode = 0
 text = "Exit App"
+
+[node name="PinLabel" type="Label" parent="UIViewport/UIPanel/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+visible = false
+
+[node name="StatusLabel" type="Label" parent="UIViewport/UIPanel/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+text = "Ready"
 
 [node name="HSeparator" type="HSeparator" parent="UIViewport/UIPanel/VBoxContainer"]
 layout_mode = 2
@@ -270,7 +292,7 @@ shape = SubResource("BoxShape3D_GrabBar")
 
 [node name="UIPanel3D" type="MeshInstance3D" parent="."]
 unique_name_in_owner = true
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, -1.5)
 material_override = SubResource("StandardMaterial3D_UI")
 mesh = SubResource("QuadMesh_UI")
 
@@ -282,7 +304,7 @@ shape = SubResource("BoxShape3D_UI")
 
 [node name="MenuGrabBar" type="MeshInstance3D" parent="UIPanel3D"]
 unique_name_in_owner = true
-transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, -0.35, 0)
+transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, -0.55, 0)
 visible = false
 material_override = SubResource("StandardMaterial3D_GrabBar")
 mesh = SubResource("CylinderMesh_GrabBar")
