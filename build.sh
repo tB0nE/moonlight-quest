@@ -64,7 +64,13 @@ cp ../src/main/java/com/godot/game/GodotApp.java src/main/java/com/godot/game/Go
 cd "$SCRIPT_DIR"
 
 echo "Exporting $PRESET..."
-JAVA_HOME="$JAVA_HOME" "$GODOT" --headless --path "$SCRIPT_DIR" --export-debug "$PRESET" "$SCRIPT_DIR/$OUTPUT" 2>&1
+EXPORT_FLAG="--export-debug"
+
+if [ "$PRESET" = "NightfallRelease" ]; then
+  EXPORT_FLAG="--export-release"
+fi
+
+JAVA_HOME="$JAVA_HOME" "$GODOT" --headless --path "$SCRIPT_DIR" $EXPORT_FLAG "$PRESET" "$SCRIPT_DIR/$OUTPUT" 2>&1
 
 if [ ! -f "$OUTPUT" ]; then
   echo "Error: $OUTPUT not created"
