@@ -1,6 +1,7 @@
 # Godot-specific ignores
 .godot/
 *.import
+*.uid
 export_presets.godot
 
 # Build artifacts
@@ -27,11 +28,7 @@ bin/
 android/build/
 *.apk
 *.idsig
-
-# Binaries
 *.a
 android/libs/
-android/src/instrumented/assets/main.tscn
-android/src/instrumented/assets/project.godot
 android/.gradle/
-.gitattributes
+android/src/instrumented/

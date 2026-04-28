@@ -1,3 +1,0 @@
-addons/moonlight-godot/bin/android/*.so filter=lfs diff=lfs merge=lfs -text
-addons/moonlight-godot/bin/android/libmoonlight-godot.android.template_debug.arm64.so filter=lfs diff=lfs merge=lfs -text
-addons/moonlight-godot/bin/android/libmoonlight-godot.android.template_release.arm64.so filter=lfs diff=lfs merge=lfs -text
