@@ -11,6 +11,7 @@ import androidx.core.splashscreen.SplashScreen;
 
 public class GodotApp extends GodotActivity {
 	public static native void initializeMoonlightJNI();
+	public static native void setAndroidContext(Object context);
 
 	public static String jniResult = "NOT_RUN";
 
@@ -46,6 +47,7 @@ public class GodotApp extends GodotActivity {
 		SplashScreen.installSplashScreen(this);
 		EdgeToEdge.enable(this);
 		super.onCreate(savedInstanceState);
+		setAndroidContext(getApplicationContext());
 		try {
 			java.io.FileOutputStream fos = openFileOutput("jni_result.txt", MODE_PRIVATE);
 			fos.write(jniResult.getBytes());

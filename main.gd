@@ -52,6 +52,11 @@ var grabbed_bar: MeshInstance3D = null
 var pad_buttons: int = 0
 var pad_active: int = 0
 
+var stats_timer: float = 0.0
+var stats_fps: float = 0.0
+var stats_frame_times: Array = []
+var stats_network_events: int = 0
+
 var _BTN_MAP = {
 	JOY_BUTTON_A: 0x1000,
 	JOY_BUTTON_B: 0x2000,
@@ -98,11 +103,15 @@ func _ready():
 	comp_mgr.set_config_manager(config_mgr)
 	moon.set_config_manager(config_mgr)
 	comp_mgr.pair_completed.connect(_on_pair_completed)
+	moon.log_message.connect(func(msg):
+		if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
+			stats_network_events += 1
+	)
 	
 	# 4. Handle Streaming Lifecycle
 	moon.connection_started.connect(func():
 		is_streaming = true
-		%StatusLabel.text = "Connected!"
+		%StatusLabel.text = "Connecting..."
 		_log("[STREAM] Connection started!")
 		_bind_texture()
 		_setup_audio()
@@ -130,13 +139,12 @@ func _ready():
 		var cam_fwd = -xr_camera.global_transform.basis.z
 		var cam_right = xr_camera.global_transform.basis.x
 		screen_mesh.global_position = cam_pos + cam_fwd * 2.0
-		screen_mesh.global_position.y -= 0.5
 		var screen_to_cam = (cam_pos - screen_mesh.global_position).normalized()
 		screen_mesh.rotation = Vector3.ZERO
 		screen_mesh.rotation.y = atan2(screen_to_cam.x, screen_to_cam.z)
 		var ui_dir = (cam_fwd - cam_right).normalized()
 		ui_panel_3d.global_position = cam_pos + ui_dir * 1.8
-		ui_panel_3d.global_position.y -= 0.7
+		ui_panel_3d.global_position.y -= 0.4
 		var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
 		ui_panel_3d.rotation = Vector3.ZERO
 		ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
@@ -211,6 +219,20 @@ func _process(delta):
 			_run_auto_detection()
 	elif not is_streaming:
 		auto_detect_timer = 0.0
+
+	if is_streaming:
+		stats_frame_times.append(delta)
+		stats_timer += delta
+		if stats_timer >= 0.5:
+			var avg = 0.0
+			for t in stats_frame_times:
+				avg += t
+			if stats_frame_times.size() > 0:
+				avg /= stats_frame_times.size()
+			stats_fps = 1.0 / avg if avg > 0 else 0.0
+			_update_stats()
+			stats_timer = 0.0
+			stats_frame_times.clear()
 			
 	# Global Grab Logic
 	if grabbed_node:
@@ -518,10 +540,10 @@ func _on_pair_completed(success: bool, _msg: String):
 func start_stream(host_id: int, app_id: int):
 	_log("[STREAM] Starting stream host_id=%d app_id=%d" % [host_id, app_id])
 	stream_cfg = MoonlightStreamConfigurationResource.new()
-	stream_cfg.set_width(1920)
-	stream_cfg.set_height(1080)
-	stream_cfg.set_fps(60)
-	stream_cfg.set_bitrate(20000)
+	stream_cfg.set_width(1280)
+	stream_cfg.set_height(720)
+	stream_cfg.set_fps(30)
+	stream_cfg.set_bitrate(5000)
 	stream_opts = MoonlightAdditionalStreamOptions.new()
 	stream_opts.set_disable_hw_acceleration(false)
 	stream_opts.set_disable_audio(false)
@@ -547,6 +569,18 @@ func _update_stereo_shader():
 	screen_mesh.material_override.set_shader_parameter("stereo_mode", stereo_mode)
 	var mode_names = ["2D Mode", "SBS Stretch", "SBS Crop"]
 	%SBSToggle.text = "Mode: " + mode_names[stereo_mode]
+
+func _update_stats():
+	if not is_streaming or not moon.has_method("get_decoder_name"):
+		return
+	var decoder = moon.get_decoder_name()
+	var vw = moon.get_video_width()
+	var vh = moon.get_video_height()
+	var hw = "HW" if moon.is_hw_decode() else "SW"
+	var queue = moon.get_decode_queue_size()
+	var decoded = moon.get_frames_decoded()
+	var dropped = moon.get_frames_dropped()
+	%StatusLabel.text = "%dx%d %s %.0ffps\n%s q:%d dec:%d drop:%d net:%d" % [vw, vh, hw, stats_fps, decoder, queue, decoded, dropped, stats_network_events]
 
 func _run_auto_detection():
 	detection_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
