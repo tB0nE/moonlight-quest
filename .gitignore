@@ -3,12 +3,12 @@
 *.import
 export_presets.godot
 
-# Build artifacts (Commented out to include Moonlight binaries for now)
-# bin/
-# *.so
-# *.dylib
-# *.dll
-# *.exe
+# Build artifacts
+bin/
+*.so
+*.dylib
+*.dll
+*.exe
 
 # Mono/C# ignores
 .mono/
@@ -32,3 +32,6 @@ android/build/
 *.a
 android/libs/
 android/src/instrumented/assets/main.tscn
+android/src/instrumented/assets/project.godot
+android/.gradle/
+.gitattributes
