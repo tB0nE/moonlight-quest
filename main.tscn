@@ -165,6 +165,18 @@ layout_mode = 2
 focus_mode = 0
 text = "Exit App"
 
+[node name="PassthroughButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Passthrough: On"
+
+[node name="FPSButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Refresh: 60Hz"
+
 [node name="PinLabel" type="Label" parent="UIViewport/UIPanel/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2

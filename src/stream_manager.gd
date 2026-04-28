@@ -2,17 +2,25 @@ class_name StreamManager
 extends RefCounted
 
 var main: Node3D
+var http_request: HTTPRequest
 
 func _init(owner: Node3D):
 	main = owner
 
 func start_stream(host_id: int, app_id: int):
-	main._log("[STREAM] Starting stream host_id=%d app_id=%d" % [host_id, app_id])
+	main._log("[STREAM] Starting stream host_id=%d app_id=%d res=%dx%d@%d" % [host_id, app_id, main.host_resolution.x, main.host_resolution.y, main.stream_fps])
+	var w = main.host_resolution.x
+	var h = main.host_resolution.y
+	var bitrate = 20000
+	if w >= 3840:
+		bitrate = 80000
+	elif w >= 2560:
+		bitrate = 40000
 	var stream_cfg = MoonlightStreamConfigurationResource.new()
-	stream_cfg.set_width(1920)
-	stream_cfg.set_height(1080)
-	stream_cfg.set_fps(60)
-	stream_cfg.set_bitrate(20000)
+	stream_cfg.set_width(w)
+	stream_cfg.set_height(h)
+	stream_cfg.set_fps(main.stream_fps)
+	stream_cfg.set_bitrate(bitrate)
 	var stream_opts = MoonlightAdditionalStreamOptions.new()
 	stream_opts.set_disable_hw_acceleration(false)
 	stream_opts.set_disable_audio(false)
@@ -20,9 +28,52 @@ func start_stream(host_id: int, app_id: int):
 	stream_opts.set_video_codec(0)
 	main.moon.set_render_target(main.stream_target)
 	main.moon.start_play_stream(host_id, app_id, stream_cfg, stream_opts)
-	main._log("[STREAM] start_play_stream called")
+	main._log("[STREAM] start_play_stream called (%dx%d@%d %dMbps)" % [w, h, main.stream_fps, bitrate])
 	await main.get_tree().create_timer(0.1).timeout
 	bind_texture()
+
+func query_host_resolution(ip: String):
+	if http_request == null:
+		http_request = HTTPRequest.new()
+		main.add_child(http_request)
+		http_request.request_completed.connect(_on_serverinfo_response)
+	var url = "http://%s:47989/serverinfo" % ip
+	main._log("[RES] Querying host resolution: %s" % url)
+	http_request.request(url)
+
+func _on_serverinfo_response(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray):
+	if code != 200:
+		main._log("[RES] serverinfo request failed (code=%d)" % code)
+		return
+	var xml = body.get_string_from_utf8()
+	var display_data = _extract_display_info(xml)
+	if display_data != Vector2i.ZERO:
+		main.host_resolution = display_data
+		main._log("[RES] Detected host resolution: %dx%d" % [display_data.x, display_data.y])
+		main.get_node("%StatusLabel").text = "Host: %dx%d" % [display_data.x, display_data.y]
+	else:
+		main._log("[RES] Could not detect resolution, using default 1920x1080")
+
+func _extract_display_info(xml: String) -> Vector2i:
+	var display_idx = 0
+	while true:
+		var tag = "<Display%d>" % display_idx
+		var start = xml.find(tag)
+		if start == -1:
+			break
+		start += tag.length()
+		var end = xml.find("</Display%d>" % display_idx, start)
+		if end == -1:
+			break
+		var value = xml.substr(start, end - start).strip_edges()
+		var parts = value.split("x")
+		if parts.size() >= 2:
+			var w = parts[0].to_int()
+			var h = parts[1].to_int()
+			if w > 0 and h > 0:
+				return Vector2i(w, h)
+		display_idx += 1
+	return Vector2i.ZERO
 
 func on_pair_pressed():
 	var ip = main.get_node("%IPInput").text
@@ -32,6 +83,7 @@ func on_pair_pressed():
 	save.set_value("connection", "ip", ip)
 	save.save("user://last_connection.cfg")
 	main.config_mgr.load_config()
+	query_host_resolution(ip)
 	var paired_host_id = -1
 	for h in main.config_mgr.get_hosts():
 		if h.has("localaddress") and h.localaddress == ip:

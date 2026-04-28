@@ -19,6 +19,7 @@ enum AppMode { STREAM, ENV }
 @onready var right_hand = %RightHand
 @onready var hit_dot = %HitDot
 @onready var audio_player = %StreamAudioPlayer
+@onready var world_env = $WorldEnvironment
 
 var current_host_id: int = -1
 var is_streaming: bool = false
@@ -41,6 +42,9 @@ var stats_timer: float = 0.0
 var stats_fps: float = 0.0
 var stats_frame_times: Array = []
 var stats_network_events: int = 0
+var passthrough_enabled: bool = false
+var stream_fps: int = 60
+var host_resolution: Vector2i = Vector2i(1920, 1080)
 
 var stream_manager: StreamManager
 var xr_interaction: XRInteraction
@@ -77,6 +81,8 @@ func _ready():
 	%SBSToggle.button_down.connect(func(): ui_controller.on_sbs_toggled())
 	%ResumeAutoButton.button_down.connect(func(): ui_controller.on_resume_auto_pressed())
 	%ExitButton.pressed.connect(func(): get_tree().quit())
+	%PassthroughButton.button_down.connect(func(): _toggle_passthrough())
+	%FPSButton.button_down.connect(func(): _cycle_fps())
 	%IPInput.gui_input.connect(func(e): ui_controller.on_ipinput_gui_input(e))
 	ui_controller.setup_numpad()
 
@@ -108,6 +114,9 @@ func _ready():
 
 	var interface = XRServer.find_interface("OpenXR")
 	if interface and interface.is_initialized():
+		var render_size = interface.get_render_target_size()
+		_log("[XR] OpenXR render target: %dx%d" % [render_size.x, render_size.y])
+		get_viewport().size = render_size
 		get_viewport().use_xr = true
 		is_xr_active = true
 		stereo_mode = 1
@@ -130,6 +139,7 @@ func _ready():
 		await get_tree().process_frame
 		screen_mesh.visible = true
 		ui_panel_3d.visible = true
+		_toggle_passthrough()
 	else:
 		is_xr_active = false
 		stereo_mode = 0
@@ -201,3 +211,27 @@ func _on_controller_button_pressed(button_name: String):
 	match button_name:
 		"by_button": _switch_mode(AppMode.STREAM)
 		"ax_button": _switch_mode(AppMode.ENV)
+
+func _toggle_passthrough():
+	if not is_xr_active:
+		return
+	var interface = XRServer.find_interface("OpenXR")
+	if not interface:
+		return
+	if passthrough_enabled:
+		interface.stop_passthrough()
+		world_env.environment.background_mode = Environment.BG_MODE_COLOR
+		world_env.environment.background_color = Color(0, 0, 0, 1)
+		passthrough_enabled = false
+		%PassthroughButton.text = "Passthrough: Off"
+	else:
+		if interface.start_passthrough():
+			world_env.environment.background_mode = Environment.BG_MODE_KEEP
+			passthrough_enabled = true
+			%PassthroughButton.text = "Passthrough: On"
+
+func _cycle_fps():
+	var rates = [60, 90, 120]
+	var idx = rates.find(stream_fps)
+	stream_fps = rates[(idx + 1) % rates.size()]
+	%FPSButton.text = "Refresh: %dHz" % stream_fps
