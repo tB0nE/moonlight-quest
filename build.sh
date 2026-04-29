@@ -61,6 +61,11 @@ mkdir -p android/build
 cd android/build
 unzip -q "$TEMPLATES"
 cp ../src/main/java/com/godot/game/GodotApp.java src/main/java/com/godot/game/GodotApp.java
+if [ "$PRESET" = "NightfallDev" ]; then
+  cp "$SCRIPT_DIR/addons/godotopenxrvendors/.bin/android/debug/godotopenxr-meta-debug.aar" libs/debug/ 2>/dev/null || true
+else
+  cp "$SCRIPT_DIR/addons/godotopenxrvendors/.bin/android/release/godotopenxr-meta-release.aar" libs/release/ 2>/dev/null || true
+fi
 cd "$SCRIPT_DIR"
 
 echo "Exporting $PRESET..."

@@ -47,15 +47,17 @@ bottom_radius = 0.002
 height = 5.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_GrabBar"]
+transparency = 1
 shading_mode = 0
+albedo_color = Color(1, 1, 1, 0.01)
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_GrabBar"]
 top_radius = 0.01
 bottom_radius = 0.01
-height = 0.6
+height = 0.3
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_GrabBar"]
-size = Vector3(0.6, 0.05, 0.05)
+size = Vector3(0.3, 0.1, 0.1)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_Screen"]
 size = Vector3(3.2, 1.8, 0.01)

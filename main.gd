@@ -35,6 +35,9 @@ var grabbed_node: Node3D = null
 var grab_distance: float = 0.0
 var grab_offset: Vector3 = Vector3.ZERO
 var grabbed_bar: MeshInstance3D = null
+var grab_start_hand_pos: Vector3 = Vector3.ZERO
+var grab_start_node_pos: Vector3 = Vector3.ZERO
+var grab_forward: Vector3 = Vector3.FORWARD
 var stats_timer: float = 0.0
 var stats_fps: float = 0.0
 var stats_frame_times: Array = []
@@ -43,19 +46,33 @@ var passthrough_enabled: bool = false
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
 
+var corner_handles: Array = []
+var grabbed_corner_idx: int = -1
+var corner_anchor_world: Vector3 = Vector3.ZERO
+
 var stream_manager: StreamManager
 var xr_interaction: XRInteraction
 var input_handler: InputHandler
 var ui_controller: UIController
 var auto_detect: AutoDetect
 
+var _log_lines: PackedStringArray = []
+
 func _log(msg: String):
-	var f = FileAccess.open("user://debug.log", FileAccess.READ_WRITE)
+	_log_lines.append(msg)
+	push_warning("NF: %s" % msg)
+	var f = FileAccess.open("user://debug.log", FileAccess.WRITE)
 	if f:
-		f.seek_end()
-		f.store_line(msg)
+		for line in _log_lines:
+			f.store_line(line)
 		f.close()
-	print(msg)
+
+func _flush_log():
+	var f = FileAccess.open("user://debug.log", FileAccess.WRITE)
+	if f:
+		for line in _log_lines:
+			f.store_line(line)
+		f.close()
 
 func _ready():
 	OS.set_environment("CURL_CA_BUNDLE", "/system/etc/security/cacerts/")
@@ -71,6 +88,7 @@ func _ready():
 
 	%ScreenGrabBar.material_override = %ScreenGrabBar.material_override.duplicate()
 	%MenuGrabBar.material_override = %MenuGrabBar.material_override.duplicate()
+	_create_corner_handles()
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -111,24 +129,25 @@ func _ready():
 	if interface and interface.is_initialized():
 		var render_size = interface.get_render_target_size()
 		_log("[XR] OpenXR render target: %dx%d" % [render_size.x, render_size.y])
+		_log("[XR] Interface caps: %d" % interface.get_capabilities())
+		_log("[XR] System info: %s" % str(interface.get_system_info()))
+		var fb_pt = Engine.get_singleton("OpenXRFbPassthroughExtension")
+		_log("[XR] OpenXRFbPassthroughExtension singleton: %s" % str(fb_pt))
+		if fb_pt:
+			_log("[XR] FB passthrough methods: %s" % str(fb_pt.get_method_list().map(func(m): return m.name).slice(0, 20)))
+			_log("[XR] is_passthrough_preferred: %s" % str(fb_pt.is_passthrough_preferred()))
+		_log("[XR] Blend modes on init: %s" % str(interface.get_supported_environment_blend_modes()))
+		var blend_ok = interface.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND)
+		_log("[XR] Set ALPHA_BLEND before use_xr: %s" % str(blend_ok))
 		get_viewport().size = render_size
+		get_viewport().transparent_bg = true
 		get_viewport().use_xr = true
 		is_xr_active = true
 		stereo_mode = 1
+		world_env.environment.background_mode = Environment.BG_CLEAR_COLOR
+		get_viewport().transparent_bg = true
 		await get_tree().create_timer(0.5).timeout
-		var cam_pos = xr_camera.global_position
-		var cam_fwd = -xr_camera.global_transform.basis.z
-		var cam_right = xr_camera.global_transform.basis.x
-		screen_mesh.global_position = cam_pos + cam_fwd * 2.0
-		var screen_to_cam = (cam_pos - screen_mesh.global_position).normalized()
-		screen_mesh.rotation = Vector3.ZERO
-		screen_mesh.rotation.y = atan2(screen_to_cam.x, screen_to_cam.z)
-		var ui_dir = (cam_fwd - cam_right).normalized()
-		ui_panel_3d.global_position = cam_pos + ui_dir * 1.8
-		ui_panel_3d.global_position.y -= 0.4
-		var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
-		ui_panel_3d.rotation = Vector3.ZERO
-		ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
+		_reposition_screen_and_ui()
 		screen_mesh.visible = false
 		ui_panel_3d.visible = false
 		await get_tree().process_frame
@@ -156,6 +175,8 @@ func _ready():
 		print("[GAMEPAD] Found device %d: %s" % [pad, Input.get_joy_name(pad)])
 
 func _process(delta):
+	if Engine.get_frames_drawn() % 120 == 0:
+		_flush_log()
 	if Input.is_action_just_pressed("ui_focus_next"):
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
@@ -186,6 +207,9 @@ func _process(delta):
 	if grabbed_node:
 		xr_interaction.handle_grab()
 
+	if grabbed_corner_idx >= 0:
+		xr_interaction.handle_corner_resize()
+
 func _input(event):
 	input_handler.handle_input(event)
 
@@ -194,21 +218,122 @@ func _toggle_passthrough():
 		return
 	var interface = XRServer.find_interface("OpenXR")
 	if not interface:
+		_log("[PT] No OpenXR interface")
 		return
+	_log("[PT] Interface class: %s" % interface.get_class())
+	_log("[PT] has start_passthrough: %s" % str(interface.has_method("start_passthrough")))
+	_log("[PT] has is_passthrough_supported: %s" % str(interface.has_method("is_passthrough_supported")))
 	if passthrough_enabled:
-		interface.stop_passthrough()
-		world_env.environment.background_mode = Environment.BG_MODE_COLOR
+		if interface.has_method("stop_passthrough"):
+			interface.stop_passthrough()
+		interface.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_OPAQUE)
+		world_env.environment.background_mode = Environment.BG_COLOR
 		world_env.environment.background_color = Color(0, 0, 0, 1)
+		get_viewport().transparent_bg = false
 		passthrough_enabled = false
 		%PassthroughButton.text = "Passthrough: Off"
+		_log("[PT] Passthrough disabled")
+		return
+	var started = false
+	if interface.has_method("start_passthrough"):
+		started = interface.start_passthrough()
+		_log("[PT] start_passthrough result: %s" % str(started))
+	if not started:
+		started = interface.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_ADDITIVE)
+		_log("[PT] set_environment_blend_mode ADDITIVE: %s" % str(started))
+	if not started:
+		started = interface.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND)
+		_log("[PT] set_environment_blend_mode ALPHA_BLEND: %s" % str(started))
+	if started:
+		world_env.environment.background_mode = Environment.BG_CLEAR_COLOR
+		get_viewport().transparent_bg = true
+		passthrough_enabled = true
+		%PassthroughButton.text = "Passthrough: On"
+		_log("[PT] Passthrough enabled via %s" % ("start_passthrough" if interface.is_passthrough_enabled() else "blend_mode"))
 	else:
-		if interface.start_passthrough():
-			world_env.environment.background_mode = Environment.BG_MODE_KEEP
-			passthrough_enabled = true
-			%PassthroughButton.text = "Passthrough: On"
+		_log("[PT] All methods failed")
+		_log("[PT] Supported blend modes: %s" % str(interface.get_supported_environment_blend_modes()))
 
 func _cycle_fps():
 	var rates = [60, 90, 120]
 	var idx = rates.find(stream_fps)
 	stream_fps = rates[(idx + 1) % rates.size()]
 	%FPSButton.text = "Refresh: %dHz" % stream_fps
+	if is_streaming and current_host_id >= 0:
+		_log("[FPS] Restarting stream at %dHz" % stream_fps)
+		moon.stop_play_stream()
+		await get_tree().create_timer(0.5).timeout
+		stream_manager.start_stream(current_host_id, 881448767)
+
+func _reposition_screen_and_ui():
+	if not is_xr_active:
+		return
+	var cam_pos = xr_camera.global_position
+	var cam_fwd = -xr_camera.global_transform.basis.z
+	var cam_right = xr_camera.global_transform.basis.x
+	screen_mesh.global_position = cam_pos + cam_fwd * 2.0
+	var screen_to_cam = (cam_pos - screen_mesh.global_position).normalized()
+	screen_mesh.rotation = Vector3.ZERO
+	screen_mesh.rotation.y = atan2(screen_to_cam.x, screen_to_cam.z)
+	var ui_dir = (cam_fwd - cam_right).normalized()
+	ui_panel_3d.global_position = cam_pos + ui_dir * 1.8
+	ui_panel_3d.global_position.y -= 0.4
+	var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
+	ui_panel_3d.rotation = Vector3.ZERO
+	ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
+	_log("[POS] Screen at %s, UI at %s, Cam at %s" % [str(screen_mesh.global_position), str(ui_panel_3d.global_position), str(cam_pos)])
+
+func _create_corner_handles():
+	var offsets = [
+		Vector2(-0.5, 0.5),
+		Vector2(0.5, 0.5),
+		Vector2(-0.5, -0.5),
+		Vector2(0.5, -0.5),
+	]
+	var mesh_size = screen_mesh.mesh.size
+	for i in range(4):
+		var handle = MeshInstance3D.new()
+		handle.name = "Corner%d" % i
+		var mat = StandardMaterial3D.new()
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = Color(1, 1, 1, 0.01)
+		var h_bar = MeshInstance3D.new()
+		h_bar.name = "HBar"
+		var h_mesh = BoxMesh.new()
+		h_mesh.size = Vector3(0.15, 0.008, 0.008)
+		h_bar.mesh = h_mesh
+		h_bar.material_override = mat.duplicate()
+		h_bar.position = Vector3(-offsets[i].x * 0.075, 0, 0)
+		var v_bar = MeshInstance3D.new()
+		v_bar.name = "VBar"
+		var v_mesh = BoxMesh.new()
+		v_mesh.size = Vector3(0.008, 0.15, 0.008)
+		v_bar.mesh = v_mesh
+		v_bar.material_override = mat.duplicate()
+		v_bar.position = Vector3(0, -offsets[i].y * 0.075, 0)
+		var area = Area3D.new()
+		area.collision_layer = 2
+		var shape = CollisionShape3D.new()
+		var col = BoxShape3D.new()
+		col.size = Vector3(0.2, 0.2, 0.05)
+		shape.shape = col
+		shape.position = Vector3(0, 0, -0.03)
+		area.add_child(shape)
+		handle.add_child(h_bar)
+		handle.add_child(v_bar)
+		handle.add_child(area)
+		handle.position = Vector3(offsets[i].x * (mesh_size.x + 0.08), offsets[i].y * (mesh_size.y + 0.08), 0)
+		screen_mesh.add_child(handle)
+		corner_handles.append(handle)
+
+func update_corner_positions():
+	var mesh_size = screen_mesh.mesh.size
+	var offsets = [
+		Vector2(-0.5, 0.5),
+		Vector2(0.5, 0.5),
+		Vector2(-0.5, -0.5),
+		Vector2(0.5, -0.5),
+	]
+	for i in range(4):
+		corner_handles[i].position = Vector3(offsets[i].x * (mesh_size.x + 0.08), offsets[i].y * (mesh_size.y + 0.08), 0)
