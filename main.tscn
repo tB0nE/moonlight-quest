@@ -6,9 +6,6 @@
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_1"]
 size = Vector2(8, 8)
 
-[sub_resource type="BoxMesh" id="BoxMesh_Hand"]
-size = Vector3(0.05, 0.05, 0.1)
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_Laser"]
 shading_mode = 0
 albedo_color = Color(1, 0, 0, 1)
@@ -270,15 +267,9 @@ collide_with_areas = true
 [node name="LeftHand" type="XRController3D" parent="XROrigin3D" unique_id=1911895087]
 tracker = &"left_hand"
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="XROrigin3D/LeftHand" unique_id=207382139]
-mesh = SubResource("BoxMesh_Hand")
-
 [node name="RightHand" type="XRController3D" parent="XROrigin3D" unique_id=1701602183]
 unique_name_in_owner = true
 tracker = &"right_hand"
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="XROrigin3D/RightHand" unique_id=1803332906]
-mesh = SubResource("BoxMesh_Hand")
 
 [node name="HandRayCast" type="RayCast3D" parent="XROrigin3D/RightHand" unique_id=2127667232]
 unique_name_in_owner = true

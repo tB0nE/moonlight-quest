@@ -16,6 +16,7 @@ extends Node3D
 @onready var mouse_raycast = %RayCast3D
 @onready var hand_raycast = %HandRayCast
 @onready var right_hand = %RightHand
+@onready var left_hand = %LeftHand
 @onready var audio_player = %StreamAudioPlayer
 @onready var world_env = $WorldEnvironment
 
@@ -104,6 +105,8 @@ func _ready():
 	_create_bezel()
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+	_load_controller_models()
 
 	%PairButton.button_down.connect(func(): stream_manager.on_pair_pressed())
 	%SBSToggle.button_down.connect(func(): ui_controller.on_sbs_toggled())
@@ -450,3 +453,19 @@ func _update_shader_for_mesh(mesh_size: Vector2):
 	update_corner_positions()
 	if bezel_mesh:
 		_update_bezel_size()
+
+func _load_controller_models():
+	var left_scene = load("res://models/controllers/MetaQuestTouchPlus_Left.fbx")
+	var right_scene = load("res://models/controllers/MetaQuestTouchPlus_Right.fbx")
+	if left_scene:
+		var left_model = left_scene.instantiate()
+		left_hand.add_child(left_model)
+		_scale_and_position_controller(left_model)
+	if right_scene:
+		var right_model = right_scene.instantiate()
+		right_hand.add_child(right_model)
+		_scale_and_position_controller(right_model)
+
+func _scale_and_position_controller(model: Node3D):
+	model.scale = Vector3(0.01, 0.01, 0.01)
+	model.rotation = Vector3(0, PI, 0)
