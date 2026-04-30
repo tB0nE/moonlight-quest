@@ -1,18 +1,25 @@
 # Nightfall
 
-A Godot 4 XR Moonlight streaming client for Meta Quest 3 with HEVC hardware decoding and stereoscopic 3D support.
+A Godot 4 XR Moonlight streaming client for Meta Quest 3/3S with HEVC hardware decoding, stereoscopic 3D, passthrough, and AI-based 2D-to-3D conversion.
 
 ## Project Status
 - [x] GDExtension compilation and loading
 - [x] Moonlight pairing and streaming
-- [x] OpenXR integration (Quest 3)
+- [x] OpenXR integration (Quest 3/3S)
 - [x] HEVC hardware decoding via NDK MediaCodec
-- [x] Stereo SBS shader (2D / SBS Stretch / SBS Crop modes)
+- [x] Stereo SBS shader (2D / SBS Stretch / SBS Crop / AI 3D modes)
+- [x] AI 3D: MiDaS v2 TFLite depth estimation with DIBR stereo rendering
 - [x] SBS auto-detection
-- [x] XR pointer interaction with grab bars
+- [x] XR pointer interaction with grab bars and corner resize
 - [x] Gamepad/controller passthrough
 - [x] Mouse/keyboard passthrough with stream capture mode
 - [x] Numpad UI for IP entry and pairing
+- [x] Passthrough (Meta OpenXR vendor plugin)
+- [x] Resolution selector (Auto / 1080p / 1440p / 4K)
+- [x] Refresh rate selector (60 / 90 / 120 Hz)
+- [x] Host resolution auto-detect via Sunshine HTTP API
+- [x] Bitrate auto-scaling by resolution
+- [x] Stats overlay (decoder, fps, bitrate, queue, frame drops)
 
 ## How to Run (Desktop)
 
@@ -40,8 +47,8 @@ The last used IP is saved and restored on next launch.
 - **Hand raycasts** point at the stream screen and UI panel
 - **Trigger** clicks on UI elements or captures mouse to stream
 - **Grab bars** (green on hover, blue when grabbed) let you reposition screens
+- **Corner handles** resize the stream screen (16:9 locked, symmetric)
 - **Ctrl+Alt+Shift** releases captured mouse back to pointer mode
-- **B button** switches to Stream mode, **A button** to Env mode
 
 ### Desktop
 - **Mouse** aims at screens (non-XR mode uses camera rotation)
@@ -54,14 +61,31 @@ The last used IP is saved and restored on next launch.
 - All gamepad inputs (buttons, sticks, triggers) are forwarded to the remote host during streaming
 - Multi-controller support with Xbox button mapping
 
-## SBS Stereo Modes
+## Stereo Modes
 
 - **2D**: Standard display
 - **SBS Stretch**: Side-by-side content stretched to full screen
 - **SBS Crop**: Side-by-side content with letterbox bars cropped
+- **AI 3D**: Real-time depth estimation (MiDaS v2 TFLite) with DIBR stereo rendering
 
-Toggle modes with the **SBS Mode** button. Enable **Auto-Detect** to automatically switch based on content analysis.
+Toggle modes with the **Mode** button. Enable **Auto-Detect** to automatically switch between 2D and SBS based on content analysis.
+
+## AI 3D Pipeline
+
+The AI 3D mode converts any 2D stream into stereoscopic 3D:
+
+1. Video frame captured to 256x256 SubViewport
+2. Frame submitted via JNI to `DepthEstimator.java` (async, non-blocking)
+3. MiDaS v2 INT8 TFLite inference on background thread (NNAPI accelerated)
+4. Depth map post-processed: contrast stretch + box blur + temporal smoothing
+5. Result returned to GDScript, uploaded as ImageTexture
+6. DIBR shader shifts pixels per-eye based on depth values
+
+Parameters (matching Artemis/moonlight-android defaults):
+- **Parallax depth** (0-1): Maximum pixel shift per eye
+- **Convergence** (0-1): Zero-parallax depth plane
+- **Balance shift** (0-1): Left/right eye balance
 
 ## Shader
 
-`src/stereo_screen.gdshader` handles YUV→RGB conversion and SBS stereo splitting based on `VIEW_INDEX` (Multiview). This enables true stereoscopic 3D for games using ReShade/SuperDepth3D.
+`src/stereo_screen.gdshader` handles stereo rendering for all 4 modes using `VIEW_INDEX` (Multiview). Modes 1-2 split SBS content, mode 3 performs DIBR with the depth texture.
