@@ -24,6 +24,15 @@ func handle_pointer_interaction():
 	elif main.grabbed_corner_idx >= 0:
 		_set_corner_color(main.corner_handles[main.grabbed_corner_idx], Color.WHITE, 0.3)
 
+	var laser = main.get_node("%Laser")
+	if active_raycast.is_colliding():
+		var hit_dist = (active_raycast.get_collision_point() - active_raycast.global_position).length()
+		laser.scale.y = hit_dist / 5.0
+		laser.visible = true
+	else:
+		laser.scale.y = 1.0
+		laser.visible = main.is_xr_active
+
 	if active_raycast.is_colliding():
 		var collider = active_raycast.get_collider()
 		var parent = collider.get_parent()
@@ -39,8 +48,6 @@ func handle_pointer_interaction():
 			var hit_pos = active_raycast.get_collision_point()
 			var local_pos = main.ui_panel_3d.to_local(hit_pos)
 			var pixel_pos = Vector2((local_pos.x + 0.5) * 500, (0.5 - local_pos.y) * 500)
-			main.hit_dot.position = pixel_pos - (main.hit_dot.size / 2.0)
-			main.hit_dot.color = Color(1, 0, 0) if is_now_clicking else Color(0, 1, 0)
 
 			var motion = InputEventMouseMotion.new()
 			motion.position = pixel_pos
@@ -114,9 +121,6 @@ func handle_pointer_interaction():
 
 	elif main.was_clicking:
 		main.was_clicking = false
-
-	main.hit_dot.position = Vector2(-20, -20)
-	main.get_node("%StreamHitDot").position = Vector2(-30, -30)
 
 func handle_grab():
 	if not main.grabbed_node:

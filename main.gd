@@ -15,7 +15,6 @@ extends Node3D
 @onready var mouse_raycast = %RayCast3D
 @onready var hand_raycast = %HandRayCast
 @onready var right_hand = %RightHand
-@onready var hit_dot = %HitDot
 @onready var audio_player = %StreamAudioPlayer
 @onready var world_env = $WorldEnvironment
 
