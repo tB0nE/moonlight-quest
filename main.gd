@@ -43,6 +43,7 @@ var stats_fps: float = 0.0
 var stats_frame_times: Array = []
 var stats_network_events: int = 0
 var passthrough_enabled: bool = false
+var ui_visible: bool = false
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
 var resolution_idx: int = -1
@@ -155,7 +156,7 @@ func _ready():
 		ui_panel_3d.visible = false
 		await get_tree().process_frame
 		screen_mesh.visible = true
-		ui_panel_3d.visible = true
+		ui_visible = false
 	else:
 		is_xr_active = false
 		stereo_mode = 0
@@ -187,6 +188,9 @@ func _process(delta):
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
 
+	if Input.is_action_just_pressed("ui_cancel"):
+		_toggle_ui()
+
 	if not mouse_captured_by_stream:
 		xr_interaction.handle_pointer_interaction()
 
@@ -217,6 +221,12 @@ func _process(delta):
 
 func _input(event):
 	input_handler.handle_input(event)
+
+func _toggle_ui():
+	ui_visible = not ui_visible
+	ui_panel_3d.visible = ui_visible
+	if ui_visible and is_xr_active:
+		_reposition_screen_and_ui()
 
 func _toggle_passthrough():
 	if not is_xr_active:
