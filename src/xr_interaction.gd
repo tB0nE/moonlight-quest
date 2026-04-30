@@ -72,18 +72,24 @@ func handle_pointer_interaction():
 			var host_x = int(uv_x * main.stream_viewport.size.x)
 			var host_y = int(uv_y * main.stream_viewport.size.y)
 
-			main.get_node("%StreamHitDot").position = Vector2(host_x - 10, host_y - 10)
-			main.get_node("%StreamHitDot").size = Vector2(20, 20)
-			main.get_node("%StreamHitDot").color = Color(0, 1, 0)
-
 			if main.is_xr_active:
-				main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
-				if is_now_clicking and not main.was_clicking:
-					main.moon.send_mouse_button_event(7, MOUSE_BUTTON_LEFT)
-					main.was_clicking = true
-				elif not is_now_clicking and main.was_clicking:
-					main.moon.send_mouse_button_event(8, MOUSE_BUTTON_LEFT)
-					main.was_clicking = false
+				var grip_value = main.right_hand.get_float("grip") if main.right_hand else 0.0
+				var is_gripping = grip_value > 0.5
+				if is_now_clicking or is_gripping:
+					main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
+					if is_now_clicking and not main.was_clicking:
+						main.moon.send_mouse_button_event(7, MOUSE_BUTTON_LEFT)
+						main.was_clicking = true
+					if is_gripping and not main.was_right_clicking:
+						main.moon.send_mouse_button_event(7, MOUSE_BUTTON_RIGHT)
+						main.was_right_clicking = true
+				elif main.was_clicking or main.was_right_clicking:
+					if main.was_clicking:
+						main.moon.send_mouse_button_event(8, MOUSE_BUTTON_LEFT)
+						main.was_clicking = false
+					if main.was_right_clicking:
+						main.moon.send_mouse_button_event(8, MOUSE_BUTTON_RIGHT)
+						main.was_right_clicking = false
 			else:
 				if is_now_clicking and not main.was_clicking:
 					main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
@@ -205,3 +211,12 @@ func _set_corner_color(handle: MeshInstance3D, color: Color, alpha: float = 1.0)
 	for child in handle.get_children():
 		if child is MeshInstance3D:
 			child.material_override.albedo_color = c
+
+func handle_scroll():
+	if not main.is_xr_active or not main.is_streaming:
+		return
+	var right_stick_y = Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+	if absf(right_stick_y) > 0.3:
+		var clicks = int(right_stick_y * 3.0)
+		if clicks != 0:
+			main.moon.send_scroll_event(clicks)

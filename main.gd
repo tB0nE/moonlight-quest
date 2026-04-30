@@ -23,6 +23,7 @@ var is_streaming: bool = false
 var stereo_mode: int = 0
 var is_xr_active: bool = false
 var was_clicking: bool = false
+var was_right_clicking: bool = false
 var mouse_captured_by_stream: bool = false
 var suppress_input_frames: int = 0
 var auto_detect_enabled: bool = false
@@ -195,6 +196,8 @@ func _process(delta):
 
 	if not mouse_captured_by_stream:
 		xr_interaction.handle_pointer_interaction()
+
+	xr_interaction.handle_scroll()
 
 	auto_detect.process(delta)
 
