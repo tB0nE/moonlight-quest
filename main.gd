@@ -44,6 +44,8 @@ var stats_frame_times: Array = []
 var stats_network_events: int = 0
 var passthrough_enabled: bool = false
 var ui_visible: bool = false
+var bezel_enabled: bool = true
+var bezel_mesh: MeshInstance3D
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
 var resolution_idx: int = -1
@@ -96,6 +98,7 @@ func _ready():
 	%ScreenGrabBar.material_override = %ScreenGrabBar.material_override.duplicate()
 	%MenuGrabBar.material_override = %MenuGrabBar.material_override.duplicate()
 	_create_corner_handles()
+	_create_bezel()
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -352,3 +355,29 @@ func update_corner_positions():
 	for i in range(4):
 		corner_handles[i].position = Vector3(offsets[i].x * (mesh_size.x + 0.08), offsets[i].y * (mesh_size.y + 0.08), 0)
 	%ScreenGrabBar.position.y = -mesh_size.y / 2.0 - 0.05
+
+func _create_bezel():
+	bezel_mesh = MeshInstance3D.new()
+	bezel_mesh.name = "Bezel"
+	var bezel_quad = QuadMesh.new()
+	bezel_mesh.mesh = bezel_quad
+	var bezel_mat = StandardMaterial3D.new()
+	bezel_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bezel_mat.albedo_color = Color(0, 0, 0, 1)
+	bezel_mesh.material_override = bezel_mat
+	bezel_mesh.position = Vector3(0, 0, 0.005)
+	screen_mesh.add_child(bezel_mesh)
+	_update_bezel_size()
+
+func _update_bezel_size():
+	if not bezel_mesh:
+		return
+	var mesh_size = screen_mesh.mesh.size
+	var bezel_pad = 0.04
+	bezel_mesh.mesh.size = mesh_size + Vector2(bezel_pad, bezel_pad)
+	bezel_mesh.position = Vector3(0, 0, 0.005)
+
+func _toggle_bezel():
+	bezel_enabled = not bezel_enabled
+	if bezel_mesh:
+		bezel_mesh.visible = bezel_enabled
