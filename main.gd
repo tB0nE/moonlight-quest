@@ -465,6 +465,51 @@ func _load_controller_models():
 		var right_model = right_scene.instantiate()
 		right_hand.add_child(right_model)
 		_scale_and_position_controller(right_model)
+	var xbox_scene = load("res://models/xbox/xbox_one_controller.fbx")
+	if xbox_scene:
+		var xbox_model = xbox_scene.instantiate()
+		xbox_model.name = "XboxController"
+		xbox_model.scale = Vector3(0.3, 0.3, 0.3)
+		xbox_model.rotation = Vector3(-0.3, PI, 0)
+		xbox_model.position = Vector3(0.8, 1.0, -1.5)
+		add_child(xbox_model)
+
+	_create_starfield()
+
+func _create_starfield():
+	var particles = GPUParticles3D.new()
+	particles.name = "Starfield"
+	particles.emitting = true
+	particles.amount = 2000
+	particles.lifetime = 20.0
+	particles.explosiveness = 0.0
+	particles.randomness = 1.0
+	particles.local_coords = false
+	var process_mat = ParticleProcessMaterial.new()
+	process_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	process_mat.emission_box_extents = Vector3(80, 80, 80)
+	process_mat.direction = Vector3(0, 0, -1)
+	process_mat.spread = 2.0
+	process_mat.initial_velocity_min = 0.5
+	process_mat.initial_velocity_max = 2.0
+	process_mat.gravity = Vector3.ZERO
+	particles.process_material = process_mat
+	var star_mesh = QuadMesh.new()
+	star_mesh.size = Vector2(0.03, 0.03)
+	var star_mat = StandardMaterial3D.new()
+	star_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	star_mat.albedo_color = Color(1, 1, 1, 0.8)
+	star_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	star_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	star_mat.billboard_mode = BaseMaterial3D.BILLBOARD_Y
+	particles.draw_pass_1 = null
+	var draw_mesh = MeshInstance3D.new()
+	draw_mesh.mesh = star_mesh
+	draw_mesh.material_override = star_mat
+	particles.draw_passes = 1
+	particles.draw_pass_1 = star_mesh
+	particles.position = xr_camera.global_position if is_xr_active else Vector3(0, 2, 0)
+	add_child(particles)
 
 func _scale_and_position_controller(model: Node3D):
 	model.scale = Vector3(0.01, 0.01, 0.01)
