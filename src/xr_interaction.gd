@@ -130,7 +130,7 @@ func handle_grab():
 	var hand_delta = hand_pos - main.grab_start_hand_pos
 	var depth = hand_delta.dot(main.grab_forward) * main.grab_forward
 	var lateral = hand_delta - depth
-	main.grabbed_node.global_position = main.grab_start_node_pos + lateral * 4.0 + depth * 8.0
+	main.grabbed_node.global_position = main.grab_start_node_pos + lateral + depth * 8.0
 	var cam_pos = main.xr_camera.global_position
 	main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
 
