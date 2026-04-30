@@ -95,6 +95,45 @@ offset_bottom = 32.0
 expand_mode = 1
 stretch_mode = 5
 
+[node name="WelcomeViewport" type="SubViewport" parent="." unique_id=501234567]
+unique_name_in_owner = true
+disable_3d = true
+size = Vector2i(1920, 1080)
+render_target_update_mode = 4
+
+[node name="WelcomeBG" type="ColorRect" parent="WelcomeViewport"]
+offset_right = 1920.0
+offset_bottom = 1080.0
+color = Color(0.05, 0.05, 0.15, 1)
+
+[node name="WelcomeTitle" type="Label" parent="WelcomeViewport"]
+offset_left = 100.0
+offset_top = 200.0
+offset_right = 1820.0
+offset_bottom = 400.0
+theme_override_font_sizes/font_size = 96
+text = "Nightfall"
+horizontal_alignment = 1
+
+[node name="WelcomeSub" type="Label" parent="WelcomeViewport"]
+offset_left = 100.0
+offset_top = 420.0
+offset_right = 1820.0
+offset_bottom = 520.0
+theme_override_font_sizes/font_size = 40
+text = "Moonlight Streaming for Quest"
+horizontal_alignment = 1
+
+[node name="WelcomeLastIP" type="Label" parent="WelcomeViewport" unique_id=501234568]
+unique_name_in_owner = true
+offset_left = 100.0
+offset_top = 600.0
+offset_right = 1820.0
+offset_bottom = 680.0
+theme_override_font_sizes/font_size = 36
+text = ""
+horizontal_alignment = 1
+
 [node name="UIViewport" type="SubViewport" parent="." unique_id=2132881604]
 unique_name_in_owner = true
 disable_3d = true

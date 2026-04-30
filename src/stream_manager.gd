@@ -156,10 +156,11 @@ func setup_audio():
 
 func bind_texture():
 	var stream_tex = main.stream_viewport.get_texture()
-	main.screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
 	main.detection_target.texture = stream_tex
 	if main.depth_estimator:
 		main.depth_estimator.bind_stream_texture()
+	if main.is_streaming:
+		main.screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
 	var ui_tex = main.ui_viewport.get_texture()
 	main.ui_panel_3d.material_override.albedo_texture = ui_tex
 

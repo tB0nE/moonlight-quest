@@ -8,6 +8,7 @@ extends Node3D
 @onready var stream_target = %StreamTarget
 @onready var detection_viewport = %DetectionViewport
 @onready var detection_target = %DetectionTarget
+@onready var welcome_viewport = %WelcomeViewport
 @onready var config_mgr = MoonlightConfigManager.new()
 @onready var comp_mgr = MoonlightComputerManager.new()
 @onready var xr_origin = $XROrigin3D
@@ -130,11 +131,13 @@ func _ready():
 		_log("[STREAM] Connection started!")
 		stream_manager.bind_texture()
 		stream_manager.setup_audio()
+		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
 	)
 	moon.connection_terminated.connect(func(_err, msg):
 		is_streaming = false
 		%StatusLabel.text = "Disconnected: " + str(msg)
 		_log("[STREAM] Connection terminated: %s" % str(msg))
+		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
 		audio_player.stop()
@@ -173,8 +176,10 @@ func _ready():
 		var saved_ip = save.get_value("connection", "ip", "")
 		if saved_ip != "":
 			%IPInput.text = saved_ip
+			%WelcomeLastIP.text = "Last: %s" % saved_ip
 
 	stream_manager.bind_texture()
+	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
 	ui_controller.update_ui()
 	ui_controller.update_stereo_shader()
 
