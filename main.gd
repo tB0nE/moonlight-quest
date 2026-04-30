@@ -46,6 +46,8 @@ var passthrough_enabled: bool = false
 var ui_visible: bool = false
 var bezel_enabled: bool = true
 var bezel_mesh: MeshInstance3D
+var curvature: int = 0
+var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
 var resolution_idx: int = -1
@@ -383,3 +385,59 @@ func _toggle_bezel():
 	bezel_enabled = not bezel_enabled
 	if bezel_mesh:
 		bezel_mesh.visible = bezel_enabled
+
+func _cycle_curvature():
+	curvature = (curvature + 1) % 3
+	_apply_curvature()
+
+func _apply_curvature():
+	var mesh_size = screen_mesh.mesh.size
+	var subdivide = 32 if curvature > 0 else 0
+	if curvature == 0:
+		var quad = QuadMesh.new()
+		quad.size = mesh_size
+		screen_mesh.mesh = quad
+		_update_shader_for_mesh(mesh_size)
+		return
+	var radius = 10.0 if curvature == 1 else 4.0
+	var angle = mesh_size.x / radius
+	var steps = subdivide
+	var verts = PackedVector3Array()
+	var uvs = PackedVector2Array()
+	var indices = PackedInt32Array()
+	for j in range(steps + 1):
+		for i in range(2):
+			var t = float(j) / steps
+			var u = float(i)
+			var a = -angle * 0.5 + angle * t
+			var x = sin(a) * radius
+			var z = cos(a) * radius - radius
+			var y = (u - 0.5) * mesh_size.y
+			verts.append(Vector3(x, y, z))
+			uvs.append(Vector2(t, u))
+	for j in range(steps):
+		for i in range(1):
+			var idx = j * 2 + i
+			indices.append(idx)
+			indices.append(idx + 1)
+			indices.append(idx + 2)
+			indices.append(idx + 1)
+			indices.append(idx + 3)
+			indices.append(idx + 2)
+	var arr = []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_TEX_UV] = uvs
+	arr[Mesh.ARRAY_INDEX] = indices
+	var arr_mesh = ArrayMesh.new()
+	arr_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	screen_mesh.mesh = arr_mesh
+	_update_shader_for_mesh(mesh_size)
+
+func _update_shader_for_mesh(mesh_size: Vector2):
+	var col_shape = screen_mesh.get_node("Area3D/CollisionShape3D")
+	if col_shape:
+		col_shape.shape.size = Vector3(mesh_size.x, mesh_size.y, 0.01)
+	update_corner_positions()
+	if bezel_mesh:
+		_update_bezel_size()
