@@ -111,6 +111,8 @@ func _ready():
 	%PassthroughButton.button_down.connect(func(): _toggle_passthrough())
 	%FPSButton.button_down.connect(func(): _cycle_fps())
 	%ResButton.button_down.connect(func(): _cycle_resolution())
+	%CurvatureButton.button_down.connect(func(): _cycle_curvature())
+	%BezelButton.button_down.connect(func(): _toggle_bezel())
 	%IPInput.gui_input.connect(func(e): ui_controller.on_ipinput_gui_input(e))
 	ui_controller.setup_numpad()
 
@@ -385,10 +387,12 @@ func _toggle_bezel():
 	bezel_enabled = not bezel_enabled
 	if bezel_mesh:
 		bezel_mesh.visible = bezel_enabled
+	%BezelButton.text = "Bezel: %s" % ("On" if bezel_enabled else "Off")
 
 func _cycle_curvature():
 	curvature = (curvature + 1) % 3
 	_apply_curvature()
+	%CurvatureButton.text = "Curve: %s" % curvature_labels[curvature]
 
 func _apply_curvature():
 	var mesh_size = screen_mesh.mesh.size

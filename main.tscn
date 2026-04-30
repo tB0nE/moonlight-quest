@@ -81,15 +81,6 @@ grow_vertical = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="StreamHitDot" type="ColorRect" parent="StreamViewport/StreamTarget" unique_id=1044377949]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(20, 20)
-layout_mode = 0
-offset_left = -20.0
-offset_top = -20.0
-mouse_filter = 2
-color = Color(0, 1, 0, 1)
-
 [node name="DetectionViewport" type="SubViewport" parent="." unique_id=843900632]
 unique_name_in_owner = true
 disable_3d = true
@@ -182,6 +173,18 @@ layout_mode = 2
 focus_mode = 0
 text = "Res: Auto"
 
+[node name="CurvatureButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=990011122]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Curve: Flat"
+
+[node name="BezelButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=990011123]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Bezel: On"
+
 [node name="PinLabel" type="Label" parent="UIViewport/UIPanel/VBoxContainer" unique_id=1525647552]
 unique_name_in_owner = true
 visible = false
@@ -194,15 +197,6 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Ready"
 horizontal_alignment = 1
-
-[node name="HitDot" type="ColorRect" parent="UIViewport" unique_id=1637103960]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(10, 10)
-offset_left = -10.0
-offset_top = -10.0
-offset_bottom = -10.0
-mouse_filter = 2
-color = Color(0, 1, 0, 1)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1258475814]
 
