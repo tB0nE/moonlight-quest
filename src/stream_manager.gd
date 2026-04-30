@@ -75,18 +75,7 @@ func _on_serverinfo_response(_result: int, code: int, _headers: PackedStringArra
 
 func _extract_display_info(xml: String) -> Vector2i:
 	if xml.find("<Display0>") == -1 and xml.find("<display0>") == -1:
-		main._log("[RES] No Display0 tag in XML")
-		var hevc_match = xml.find("<MaxLumaPixelsHEVC>")
-		if hevc_match >= 0:
-			var start = hevc_match + len("<MaxLumaPixelsHEVC>")
-			var end = xml.find("</MaxLumaPixelsHEVC>", start)
-			if end > start:
-				var pixels = xml.substr(start, end - start).to_int()
-				main._log("[RES] MaxLumaPixelsHEVC: %d" % pixels)
-				if pixels >= 8847360:
-					return Vector2i(3840, 2160)
-				elif pixels >= 3686400:
-					return Vector2i(2560, 1440)
+		main._log("[RES] No Display0 tag in XML, cannot auto-detect resolution")
 		return Vector2i.ZERO
 	var display_idx = 0
 	while true:

@@ -254,9 +254,10 @@ func _cycle_fps():
 		stream_manager.start_stream(current_host_id, 881448767)
 
 func _cycle_resolution():
-	resolution_idx = (resolution_idx + 1) % resolutions.size()
-	if resolution_idx == 0:
+	resolution_idx += 1
+	if resolution_idx >= resolutions.size():
 		resolution_idx = -1
+	if resolution_idx == -1:
 		host_resolution = Vector2i(1920, 1080)
 		%ResButton.text = "Res: Auto"
 	else:
