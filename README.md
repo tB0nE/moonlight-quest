@@ -1,91 +1,179 @@
+<div align="center">
+
+<img src="src/nightfall_github_banner.png" width="600" alt="Nightfall" />
+
 # Nightfall
 
-A Godot 4 XR Moonlight streaming client for Meta Quest 3/3S with HEVC hardware decoding, stereoscopic 3D, passthrough, and AI-based 2D-to-3D conversion.
+**VR-first GameStream client for Meta Quest.**
 
-## Project Status
-- [x] GDExtension compilation and loading
-- [x] Moonlight pairing and streaming
-- [x] OpenXR integration (Quest 3/3S)
-- [x] HEVC hardware decoding via NDK MediaCodec
-- [x] Stereo SBS shader (2D / SBS Stretch / SBS Crop / AI 3D modes)
-- [x] AI 3D: MiDaS v2 TFLite depth estimation with DIBR stereo rendering
-- [x] SBS auto-detection
-- [x] XR pointer interaction with grab bars and corner resize
-- [x] Gamepad/controller passthrough
-- [x] Mouse/keyboard passthrough with stream capture mode
-- [x] Numpad UI for IP entry and pairing
-- [x] Passthrough (Meta OpenXR vendor plugin)
-- [x] Resolution selector (Auto / 1080p / 1440p / 4K)
-- [x] Refresh rate selector (60 / 90 / 120 Hz)
-- [x] Host resolution auto-detect via Sunshine HTTP API
-- [x] Bitrate auto-scaling by resolution
-- [x] Stats overlay (decoder, fps, bitrate, queue, frame drops)
+Stream your PC games into a virtual living room — repositionable screens, stereoscopic 3D,
+passthrough, and AI depth estimation, all built native on Godot 4 and OpenXR.
 
-## How to Run (Desktop)
+[![Stars](https://img.shields.io/github/stars/tB0nE/nightfall?style=for-the-badge&color=7c73ff&labelColor=1a1a2e)](https://github.com/tB0nE/nightfall/stargazers)
+[![License](https://img.shields.io/github/license/tB0nE/nightfall?style=for-the-badge&color=4c5265&labelColor=1a1a2e)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/tB0nE/nightfall?style=for-the-badge&color=4ade80&labelColor=1a1a2e&label=latest)](https://github.com/tB0nE/nightfall/releases/latest)
+
+[Features](#features) · [Why Nightfall](#why-nightfall) · [Downloads](#downloads) · [Usage](#usage-and-requirements) · [Building](#building) · [Donate](#donate) · [License](#license)
+
+</div>
+
+---
+
+## Features
+
+- **VR-native streaming** — floating screen in 3D space with grab bars, corner resize, and curvature options
+- **HEVC hardware decoding** — NDK MediaCodec pipeline for low-latency H.265 on Quest 3/3S
+- **Stereoscopic 3D** — four modes: 2D, SBS Stretch, SBS Crop, and AI 3D
+- **AI depth estimation** — MiDaS v2 TFLite converts any 2D stream into stereoscopic 3D via DIBR
+- **Touch-style pointer** — laser pointer with trigger-to-click, grip for right-click, thumbstick scroll
+- **Passthrough** — see your real room with the stream floating in front of you
+- **Curved screen** — flat, slight curve, or full curve with a single button press
+- **Bezel toggle** — optional dark border around the screen for a monitor feel
+- **Quest Touch Plus models** — real controller models instead of placeholder boxes
+- **Starfield environment** — ambient particle starfield for immersion
+- **Resolution selector** — Auto/1080p/1440p/4K with host auto-detect
+- **Refresh rate selector** — 60/90/120 Hz
+- **Stats overlay** — decoder, FPS, bitrate, queue depth, frame drops at a glance
+- **SBS auto-detect** — automatically switches stereo mode based on content analysis
+
+## Why Nightfall
+
+Artemis and Moonlight Android are excellent flat-screen clients. Nightfall answers a different question: **what does game streaming look like when VR is the primary interface, not an afterthought?**
+
+| | Nightfall | Artemis | Moonlight Android |
+|---|---|---|---|
+| **Platform** | Meta Quest 3/3S (native XR) | Android flat | Android flat |
+| **Screen** | Floating 3D panel, resizable, curved | Fixed display | Fixed display |
+| **Stereo 3D** | AI depth estimation + SBS | SBS only | SBS only |
+| **Passthrough** | Full AR passthrough | N/A | N/A |
+| **Input** | Laser pointer, trigger/grip/thumbstick | Touch + virtual buttons | Touch + virtual buttons |
+| **Environment** | Starfield, 3D positioning | N/A | N/A |
+| **HEVC HW** | NDK MediaCodec | MediaCodec | MediaCodec |
+| **Custom resolution** | Auto/1080p/1440p/4K | Arbitrary | 720p–4K presets |
+| **Custom bitrate** | Auto-scaled by resolution | Yes | Yes |
+| **Virtual display** | Planned | Apollo integration | None |
+| **Clipboard sync** | Planned | Apollo integration | None |
+| **Portrait mode** | N/A | Yes | Yes |
+
+Nightfall trades flat-screen flexibility for the VR experience: spatial screen placement,
+curved displays, passthrough awareness, and stereoscopic AI. If you're on a Quest and want
+your PC games to feel like a home theater, this is it.
+
+> [!NOTE]
+> Nightfall is still early. Some features from mature flat clients (virtual buttons, multi-touch,
+> portrait mode, clipboard sync) are not yet available. See the roadmap below.
+
+### Roadmap
+
+- [ ] Virtual button overlays on the 3D screen
+- [ ] Multi-touch gesture support
+- [ ] Clipboard sync (with Apollo)
+- [ ] Server list (discovered + paired hosts)
+- [ ] Xbox controller model (gamepad passthrough visualization)
+- [ ] Ambient environments (space, cinema, living room)
+- [ ] Audio spatialization
+- [ ] Keyboard overlay for text input
+
+## Downloads
+
+[![Latest Release](https://img.shields.io/github/v/release/tB0nE/nightfall?style=for-the-badge&color=4ade80&labelColor=1a1a2e&label=download)](https://github.com/tB0nE/nightfall/releases/latest)
+
+Download the latest APK from [GitHub Releases](https://github.com/tB0nE/nightfall/releases/latest).
+
+Two build variants are published:
+
+| Variant | Package | Debug OpenGL | Notes |
+|---|---|---|---|
+| **Debug** | `app.nightfall.quest.debug` | Yes | For development and testing |
+| **Release** | `app.nightfall.quest` | No | For daily use, smaller APK |
+
+Both variants can coexist on the same device.
+
+> [!TIP]
+> Use [Obtainium](https://github.com/ImranR98/Obtainium) to auto-update from GitHub releases:
+> ```
+> https://github.com/tB0nE/nightfall
+> ```
+
+## Usage and Requirements
+
+### Host (PC)
+
+Nightfall streams from any GameStream-compatible server on your local network:
+
+- **[Sunshine](https://github.com/LizardByte/Sunshine)** — open source GameStream host (recommended)
+- **[Apollo](https://github.com/ClassicOldSong/Apollo)** — Sunshine fork with virtual display and extra features
+
+Setup:
+1. Install and configure Sunshine on your PC
+2. Open the Sunshine web UI at `https://<your-pc-ip>:47990`
+3. Create a username and password
+4. Add your games/apps to the Sunshine library
+
+### Client (Quest)
+
+1. Install Nightfall on your Quest 3 or 3S
+2. Launch the app — you'll see the welcome screen with your last server IP
+3. Press **B** to open the menu
+4. Enter your Sunshine host IP using the numpad
+5. Press **Pair & Start Stream**
+6. Enter the displayed PIN in the Sunshine web UI
+7. The stream starts automatically
+
+### Controls
+
+| Input | Action |
+|---|---|
+| **Trigger** | Left-click / interact |
+| **Grip** | Right-click |
+| **Right thumbstick Y** | Scroll |
+| **B button** | Toggle menu |
+| **Grab bars** | Drag to reposition screen/menu |
+| **Corner handles** | Resize screen (locked 16:9) |
+
+## Building
+
+See [BUILD.md](BUILD.md) for full build instructions including:
+
+- GDExtension compilation (cmake + ninja, not manual clang++)
+- vcpkg dependency setup
+- APK export via Godot headless
+- Quest deployment via ADB
+
+Quick start:
 
 ```bash
-"/var/home/tyrone/.local/share/Steam/steamapps/common/Godot Engine/godot.x11.opt.tools.64" --xr-mode on --path .
+# 1. Build the GDExtension
+git clone -b quest-hw-decode https://github.com/tB0nE/Moonlight-Godot.git ~/moonlight-godot-src
+cd ~/moonlight-godot-src
+cp CmakeLists.txt CMakeLists.txt
+cmake --preset android
+ninja -C build/android
+cp build/android/bin/android/libmoonlight-godot.android.template_debug.arm64.so \
+   <project-root>/addons/moonlight-godot/bin/android/
+
+# 2. Export the APK
+./build.sh --debug
+
+# 3. Install to Quest
+adb install -r Nightfall-Android-arm64-v8a-debug.apk
 ```
 
-## How to Build (Quest)
+> [!WARNING]
+> Always use cmake + ninja to build the GDExtension. Manual clang++ compilation produces `.so` files
+> that depend on `libc++_shared.so`, which isn't in the APK and causes `UnsatisfiedLinkError` crashes.
 
-See [BUILD.md](BUILD.md) for full build instructions including GDExtension compilation, APK export, and Quest deployment.
+## Donate
 
-## Pairing
+Nightfall is a spare-time project built to make VR game streaming feel native
+instead of bolted on. If it becomes part of your setup, that alone makes my day.
+Donations help keep the coffee flowing and the commits coming.
 
-1. Launch the app on Quest
-2. Enter your Sunshine host IP using the numpad
-3. Press **Pair & Start Stream**
-4. Enter the displayed PIN in the Sunshine web UI
-5. The stream starts automatically after pairing
+[![PayPal](https://img.shields.io/badge/PayPal-Support-7c73ff?style=for-the-badge&logo=paypal&labelColor=1a1a2e)](https://www.paypal.com/paypalme/fadecomics)
 
-The last used IP is saved and restored on next launch.
+## License
 
-## Controls
+Nightfall is licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for the full text.
 
-### XR (Quest Headset)
-- **Hand raycasts** point at the stream screen and UI panel
-- **Trigger** clicks on UI elements or captures mouse to stream
-- **Grab bars** (green on hover, blue when grabbed) let you reposition screens
-- **Corner handles** resize the stream screen (16:9 locked, symmetric)
-- **Ctrl+Alt+Shift** releases captured mouse back to pointer mode
-
-### Desktop
-- **Mouse** aims at screens (non-XR mode uses camera rotation)
-- **Left click** interacts with UI or captures mouse to stream
-- **Ctrl+Alt+Esc** releases captured mouse
-- **Tab** toggles between Stream and Env modes
-- **WASD** moves the XR origin in Env mode
-
-### Gamepad
-- All gamepad inputs (buttons, sticks, triggers) are forwarded to the remote host during streaming
-- Multi-controller support with Xbox button mapping
-
-## Stereo Modes
-
-- **2D**: Standard display
-- **SBS Stretch**: Side-by-side content stretched to full screen
-- **SBS Crop**: Side-by-side content with letterbox bars cropped
-- **AI 3D**: Real-time depth estimation (MiDaS v2 TFLite) with DIBR stereo rendering
-
-Toggle modes with the **Mode** button. Enable **Auto-Detect** to automatically switch between 2D and SBS based on content analysis.
-
-## AI 3D Pipeline
-
-The AI 3D mode converts any 2D stream into stereoscopic 3D:
-
-1. Video frame captured to 256x256 SubViewport
-2. Frame submitted via JNI to `DepthEstimator.java` (async, non-blocking)
-3. MiDaS v2 INT8 TFLite inference on background thread (NNAPI accelerated)
-4. Depth map post-processed: contrast stretch + box blur + temporal smoothing
-5. Result returned to GDScript, uploaded as ImageTexture
-6. DIBR shader shifts pixels per-eye based on depth values
-
-Parameters (matching Artemis/moonlight-android defaults):
-- **Parallax depth** (0-1): Maximum pixel shift per eye
-- **Convergence** (0-1): Zero-parallax depth plane
-- **Balance shift** (0-1): Left/right eye balance
-
-## Shader
-
-`src/stereo_screen.gdshader` handles stereo rendering for all 4 modes using `VIEW_INDEX` (Multiview). Modes 1-2 split SBS content, mode 3 performs DIBR with the depth texture.
+Built on [Moonlight-Godot](https://github.com/html5syt/Moonlight-Godot) and compatible with
+[Apollo](https://github.com/ClassicOldSong/Apollo) and [Sunshine](https://github.com/LizardByte/Sunshine).
