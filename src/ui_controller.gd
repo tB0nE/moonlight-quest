@@ -32,6 +32,7 @@ func on_sbs_toggled():
 	main.auto_detect_enabled = false
 	main.stereo_mode = (main.stereo_mode + 1) % 4
 	update_stereo_shader()
+	main._save_state()
 
 func on_resume_auto_pressed():
 	main.auto_detect_enabled = true

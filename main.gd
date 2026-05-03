@@ -86,6 +86,95 @@ func _log(msg: String):
 			f.store_line(line)
 		f.close()
 
+func _save_state():
+	var save = ConfigFile.new()
+	save.set_value("screen", "pos_x", screen_mesh.global_position.x)
+	save.set_value("screen", "pos_y", screen_mesh.global_position.y)
+	save.set_value("screen", "pos_z", screen_mesh.global_position.z)
+	save.set_value("screen", "rot_x", screen_mesh.rotation.x)
+	save.set_value("screen", "rot_y", screen_mesh.rotation.y)
+	save.set_value("screen", "size_x", _mesh_size.x)
+	save.set_value("screen", "size_y", _mesh_size.y)
+	save.set_value("screen", "bezel", bezel_enabled)
+	save.set_value("screen", "curvature", curvature)
+	save.set_value("screen", "passthrough", passthrough_mode)
+	if is_xr_active and xr_camera:
+		var ui_offset = ui_panel_3d.global_position - xr_camera.global_position
+		save.set_value("ui", "offset_x", ui_offset.x)
+		save.set_value("ui", "offset_y", ui_offset.y)
+		save.set_value("ui", "offset_z", ui_offset.z)
+		save.set_value("ui", "rot_y", ui_panel_3d.rotation.y - xr_camera.rotation.y)
+	save.save("user://app_state.cfg")
+	_save_host_state()
+
+func _save_host_state():
+	var ip = %IPInput.text
+	if ip.is_empty():
+		return
+	var save = ConfigFile.new()
+	save.load("user://host_state.cfg")
+	save.set_value(ip, "fps", stream_fps)
+	save.set_value(ip, "resolution_idx", resolution_idx)
+	save.set_value(ip, "stereo_mode", stereo_mode)
+	save.save("user://host_state.cfg")
+
+func _load_host_state(ip: String):
+	if ip.is_empty():
+		return
+	var save = ConfigFile.new()
+	if save.load("user://host_state.cfg") != OK:
+		return
+	if not save.has_section(ip):
+		return
+	stream_fps = save.get_value(ip, "fps", 60)
+	resolution_idx = save.get_value(ip, "resolution_idx", -1)
+	stereo_mode = save.get_value(ip, "stereo_mode", 0)
+	screen_mesh.material_override.set_shader_parameter("stereo_mode", stereo_mode)
+	var mode_names = ["2D Mode", "SBS Stretch", "SBS Crop", "AI 3D"]
+	%SBSToggle.text = "Mode: " + mode_names[stereo_mode]
+	%FPSButton.text = "Refresh: %dHz" % stream_fps
+	%ResButton.text = "Res: %s" % resolution_labels[resolution_idx]
+	if depth_estimator:
+		depth_estimator.set_enabled(stereo_mode == 3)
+
+func _load_state():
+	var save = ConfigFile.new()
+	if save.load("user://app_state.cfg") != OK:
+		return
+	if save.has_section_key("screen", "pos_x"):
+		screen_mesh.global_position = Vector3(
+			save.get_value("screen", "pos_x"),
+			save.get_value("screen", "pos_y"),
+			save.get_value("screen", "pos_z"))
+		screen_mesh.rotation.x = save.get_value("screen", "rot_x", 0.0)
+		screen_mesh.rotation.y = save.get_value("screen", "rot_y", 0.0)
+	bezel_enabled = save.get_value("screen", "bezel", true)
+	curvature = save.get_value("screen", "curvature", 0)
+	passthrough_mode = save.get_value("screen", "passthrough", 0)
+	if save.has_section_key("screen", "size_x"):
+		_mesh_size = Vector2(save.get_value("screen", "size_x"), save.get_value("screen", "size_y"))
+		if _mesh_size.x > 0.1 and _mesh_size.y > 0.1:
+			if curvature == 0:
+				screen_mesh.mesh.size = _mesh_size
+			else:
+				_apply_curvature()
+			var col_shape = screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
+			if col_shape:
+				col_shape.shape.size = Vector3(_mesh_size.x, _mesh_size.y, 0.01)
+			update_corner_positions()
+	if bezel_mesh:
+		bezel_mesh.visible = bezel_enabled
+	%BezelButton.text = "Bezel: %s" % ("On" if bezel_enabled else "Off")
+	%CurvatureButton.text = "Curve: %s" % curvature_labels[curvature]
+	%PassthroughButton.text = passthrough_labels[passthrough_mode]
+	_update_bezel_size()
+	if save.has_section_key("ui", "offset_x") and is_xr_active and xr_camera:
+		ui_panel_3d.global_position = xr_camera.global_position + Vector3(
+			save.get_value("ui", "offset_x"),
+			save.get_value("ui", "offset_y"),
+			save.get_value("ui", "offset_z"))
+		ui_panel_3d.rotation.y = xr_camera.rotation.y + save.get_value("ui", "rot_y", 0.0)
+
 func _flush_log():
 	var f = FileAccess.open("user://debug.log", FileAccess.WRITE)
 	if f:
@@ -200,6 +289,15 @@ func _ready():
 		screen_mesh.visible = false
 		await get_tree().process_frame
 		screen_mesh.visible = true
+
+		_load_state()
+
+		if passthrough_mode > 0:
+			var saved_pt = passthrough_mode
+			passthrough_mode = 0
+			for i in range(saved_pt):
+				_toggle_passthrough()
+
 		ui_visible = false
 		ui_panel_3d.visible = false
 	else:
@@ -212,6 +310,7 @@ func _ready():
 		if saved_ip != "":
 			%IPInput.text = saved_ip
 			%WelcomeLastIP.text = "Last: %s" % saved_ip
+			_load_host_state(saved_ip)
 
 	stream_manager.bind_texture()
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
@@ -280,6 +379,10 @@ func _process(delta):
 	if grabbed_corner_idx >= 0:
 		xr_interaction.handle_corner_resize()
 
+func _notification(what):
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save_state()
+
 func _input(event):
 	input_handler.handle_input(event)
 
@@ -314,12 +417,14 @@ func _toggle_passthrough():
 		get_viewport().transparent_bg = false
 		if starfield: starfield.visible = true
 	%PassthroughButton.text = passthrough_labels[passthrough_mode]
+	_save_state()
 
 func _cycle_fps():
 	var rates = [60, 90, 120]
 	var idx = rates.find(stream_fps)
 	stream_fps = rates[(idx + 1) % rates.size()]
 	%FPSButton.text = "Refresh: %dHz" % stream_fps
+	_save_state()
 	if is_streaming and current_host_id >= 0:
 		_log("[FPS] Restarting stream at %dHz" % stream_fps)
 		moon.stop_play_stream()
@@ -336,6 +441,7 @@ func _cycle_resolution():
 	else:
 		host_resolution = resolutions[resolution_idx]
 		%ResButton.text = "Res: %s" % resolution_labels[resolution_idx]
+	_save_state()
 	if is_streaming and current_host_id >= 0:
 		_log("[RES] Restarting stream at %dx%d" % [host_resolution.x, host_resolution.y])
 		moon.stop_play_stream()
@@ -504,11 +610,13 @@ func _toggle_bezel():
 	if bezel_mesh:
 		bezel_mesh.visible = bezel_enabled
 	%BezelButton.text = "Bezel: %s" % ("On" if bezel_enabled else "Off")
+	_save_state()
 
 func _cycle_curvature():
 	curvature = (curvature + 1) % 3
 	_apply_curvature()
 	%CurvatureButton.text = "Curve: %s" % curvature_labels[curvature]
+	_save_state()
 
 func _apply_curvature():
 	var mesh_size = _mesh_size
