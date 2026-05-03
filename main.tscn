@@ -56,7 +56,7 @@ albedo_texture = SubResource("ViewportTexture_UI")
 [sub_resource type="QuadMesh" id="QuadMesh_UI"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_UI"]
-size = Vector3(1, 1, 0.01)
+size = Vector3(1.6, 0.7, 0.01)
 
 [node name="Main" type="Node3D" unique_id=883381453]
 script = ExtResource("1_main")
@@ -154,104 +154,33 @@ text = "Options"
 unique_name_in_owner = true
 disable_3d = true
 transparent_bg = true
-size = Vector2i(500, 500)
+size = Vector2i(800, 350)
 render_target_update_mode = 4
 
-[node name="UIPanel" type="PanelContainer" parent="UIViewport" unique_id=1507459344]
-offset_right = 500.0
-offset_bottom = 300.0
-mouse_filter = 2
-
-[node name="VBoxContainer" type="VBoxContainer" parent="UIViewport/UIPanel" unique_id=1789250075]
-layout_mode = 2
-mouse_filter = 2
-
-[node name="Label" type="Label" parent="UIViewport/UIPanel/VBoxContainer" unique_id=1200091338]
-layout_mode = 2
-text = "Nightfall"
-horizontal_alignment = 1
-
-[node name="IPInput" type="LineEdit" parent="UIViewport/UIPanel/VBoxContainer" unique_id=762880080]
+[node name="UIRoot" type="Control" parent="UIViewport" unique_id=1507459344]
 unique_name_in_owner = true
-layout_mode = 2
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="IPInput" type="LineEdit" parent="UIViewport/UIRoot" unique_id=762880080]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+offset_right = 1.0
+offset_bottom = 1.0
 placeholder_text = "Host IP (e.g. 127.0.0.1)"
 editable = false
 
-[node name="Numpad" type="GridContainer" parent="UIViewport/UIPanel/VBoxContainer" unique_id=317926051]
+[node name="Numpad" type="GridContainer" parent="UIViewport/UIRoot" unique_id=317926051]
 unique_name_in_owner = true
 visible = false
-layout_mode = 2
+layout_mode = 0
 theme_override_constants/h_separation = 2
 theme_override_constants/v_separation = 2
 columns = 3
-
-[node name="PairButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=262041013]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-text = "Pair & Start Stream"
-
-[node name="SBSToggle" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=775742785]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-text = "Enable SBS Mode"
-
-[node name="ResumeAutoButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=519581559]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-focus_mode = 0
-text = "Resume Auto 3D"
-
-[node name="ExitButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=1768513668]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-text = "Exit App"
-
-[node name="PassthroughButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=733833149]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-text = "Passthrough: On"
-
-[node name="FPSButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=1356863738]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-text = "Refresh: 60Hz"
-
-[node name="ResButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=2468101213]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-text = "Res: Auto"
-
-[node name="CurvatureButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=990011122]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-text = "Curve: Flat"
-
-[node name="BezelButton" type="Button" parent="UIViewport/UIPanel/VBoxContainer" unique_id=990011123]
-unique_name_in_owner = true
-layout_mode = 2
-focus_mode = 0
-text = "Bezel: On"
-
-[node name="PinLabel" type="Label" parent="UIViewport/UIPanel/VBoxContainer" unique_id=1525647552]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-horizontal_alignment = 1
-
-[node name="StatusLabel" type="Label" parent="UIViewport/UIPanel/VBoxContainer" unique_id=1039010610]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Ready"
-horizontal_alignment = 1
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=1258475814]
 

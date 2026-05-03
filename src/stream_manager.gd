@@ -69,7 +69,7 @@ func _on_serverinfo_response(_result: int, code: int, _headers: PackedStringArra
 		if main.resolution_idx == -1:
 			main.host_resolution = display_data
 		main._log("[RES] Detected host resolution: %dx%d" % [display_data.x, display_data.y])
-		main.get_node("%StatusLabel").text = "Host: %dx%d" % [display_data.x, display_data.y]
+		main._ui_status_label.text = "Host: %dx%d" % [display_data.x, display_data.y]
 	else:
 		main._log("[RES] Could not detect resolution from XML, using default 1920x1080")
 
@@ -115,36 +115,30 @@ func on_pair_pressed():
 			break
 	if paired_host_id != -1:
 		main.current_host_id = paired_host_id
-		main.get_node("%StatusLabel").text = "Already paired, starting stream..."
+		main._ui_status_label.text = "Already paired, starting stream..."
 		await start_stream(paired_host_id, 881448767)
 	else:
-		main.get_node("%StatusLabel").text = "Pairing with " + ip + "..."
+		main._ui_status_label.text = "Pairing with " + ip + "..."
 		main._log("[PAIR] Starting pair with %s:47989..." % ip)
 		var pin = main.comp_mgr.start_pair(ip, 47989)
 		main._log("[PAIR] start_pair returned: %s (type=%s)" % [str(pin), str(typeof(pin))])
 		if str(pin) == "" or str(pin) == "0":
-			main.get_node("%StatusLabel").text = "Failed to connect to " + ip
-			main.get_node("%PairButton").text = "Pair & Start Stream"
-			main.get_node("%PairButton").disabled = false
+			main._ui_status_label.text = "Failed to connect to " + ip
 			main.get_node("%WelcomeConnect").text = "Connect"
 			main.get_node("%WelcomeConnect").disabled = false
 			main._log("[PAIR] FAILED - no pin returned")
 			return
-		main.get_node("%StatusLabel").text = "PIN: " + str(pin) + "\nEnter on Sunshine host"
-		main.get_node("%PairButton").text = "Waiting for pair..."
-		main.get_node("%PairButton").disabled = true
+		main._ui_status_label.text = "PIN: " + str(pin) + "\nEnter on Sunshine host"
 		main.get_node("%WelcomeConnect").text = "Pairing..."
 		main.get_node("%WelcomeConnect").disabled = true
 
 func on_pair_completed(success: bool, _msg: String):
 	main._log("[PAIR] pair_completed: success=%s msg=%s" % [str(success), str(_msg)])
-	main.get_node("%StatusLabel").text = "Pair " + ("OK" if success else "FAILED: " + str(_msg))
-	main.get_node("%PairButton").text = "Pair & Start Stream"
-	main.get_node("%PairButton").disabled = false
+	main._ui_status_label.text = "Pair " + ("OK" if success else "FAILED: " + str(_msg))
 	main.get_node("%WelcomeConnect").text = "Connect"
 	main.get_node("%WelcomeConnect").disabled = false
 	if success:
-		main.get_node("%StatusLabel").text = "Pairing successful, starting stream..."
+		main._ui_status_label.text = "Pairing successful, starting stream..."
 		main.config_mgr.load_config()
 		var ip = main.get_node("%IPInput").text
 		for h in main.config_mgr.get_hosts():
@@ -180,4 +174,6 @@ func update_stats():
 	var queue = main.moon.get_decode_queue_size()
 	var decoded = main.moon.get_frames_decoded()
 	var dropped = main.moon.get_frames_dropped()
-	main.get_node("%StatusLabel").text = "%dx%d %s %.0ffps/%dHz %dMbps\n%s q:%d dec:%d drop:%d net:%d" % [vw, vh, hw, main.stats_fps, main.stream_fps, bitrate / 1000, decoder, queue, decoded, dropped, main.stats_network_events]
+	var ip = main.get_node("%IPInput").text
+	var ip_display = ip if not ip.is_empty() else "?"
+	main._ui_status_label.text = "Connected to %s \u2022 %dx%d %s \u2022 %.0ffps \u2022 %dms q:%d drop:%d" % [ip_display, vw, vh, hw, main.stats_fps, queue, dropped]

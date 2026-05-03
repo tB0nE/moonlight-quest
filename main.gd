@@ -51,7 +51,7 @@ var stats_fps: float = 0.0
 var stats_frame_times: Array = []
 var stats_network_events: int = 0
 var passthrough_mode: int = 0
-var passthrough_labels: Array = ["Passthrough: On", "Passthrough: Off", "Starfield"]
+var passthrough_labels: Array = ["On", "Off", "Starfield"]
 var ui_visible: bool = false
 var bezel_enabled: bool = true
 var bezel_mesh: MeshInstance3D
@@ -76,6 +76,18 @@ var auto_detect: AutoDetect
 var depth_estimator: DepthEstimatorModule
 
 var _log_lines: PackedStringArray = []
+var _ui_host_label: Label
+var _ui_status_label: Label
+var _ui_pt_btn: Button
+var _ui_curve_btn: Button
+var _ui_bezel_btn: Button
+var _ui_mode_btn: Button
+var _ui_res_btn: Button
+var _ui_fps_btn: Button
+var _ui_exit_btn: Button
+
+var _btn_style: StyleBoxFlat
+var _btn_hover: StyleBoxFlat
 
 func _log(msg: String):
 	_log_lines.append(msg)
@@ -85,6 +97,210 @@ func _log(msg: String):
 		for line in _log_lines:
 			f.store_line(line)
 		f.close()
+
+func _build_ui():
+	ui_panel_3d.mesh.size = Vector2(1.6, 0.7)
+	var root = %UIRoot
+	for child in root.get_children():
+		if child.name != "IPInput" and child.name != "Numpad":
+			child.queue_free()
+
+	_btn_style = StyleBoxFlat.new()
+	_btn_style.bg_color = Color(1, 1, 1, 0.06)
+	_btn_style.border_color = Color(1, 1, 1, 0.1)
+	_btn_style.set_border_width_all(1)
+	_btn_style.set_corner_radius_all(12)
+	_btn_style.set_content_margin_all(10)
+
+	_btn_hover = StyleBoxFlat.new()
+	_btn_hover.bg_color = Color(1, 1, 1, 0.12)
+	_btn_hover.border_color = Color(1, 1, 1, 0.2)
+	_btn_hover.set_border_width_all(1)
+	_btn_hover.set_corner_radius_all(12)
+	_btn_hover.set_content_margin_all(10)
+
+	var panel_bg = StyleBoxFlat.new()
+	panel_bg.bg_color = Color(0.06, 0.06, 0.1, 0.92)
+	panel_bg.set_corner_radius_all(24)
+	panel_bg.set_content_margin_all(0)
+	panel_bg.border_color = Color(1, 1, 1, 0.08)
+	panel_bg.set_border_width_all(1)
+
+	var panel = PanelContainer.new()
+	panel.name = "Panel"
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.add_theme_stylebox_override("panel", panel_bg)
+	root.add_child(panel)
+
+	var vbox = VBoxContainer.new()
+	vbox.name = "VBox"
+	vbox.add_theme_constant_override("separation", 0)
+	panel.add_child(vbox)
+
+	var top_row = HBoxContainer.new()
+	top_row.name = "TopRow"
+	top_row.add_theme_constant_override("separation", 0)
+	vbox.add_child(top_row)
+
+	var host_spacer = HBoxContainer.new()
+	host_spacer.name = "HostSpacer"
+	host_spacer.add_theme_constant_override("separation", 4)
+	var host_margin = HBoxContainer.new()
+	host_margin.add_theme_constant_override("separation", 0)
+	host_margin.custom_minimum_size = Vector2(14, 0)
+	host_spacer.add_child(host_margin)
+	_ui_host_label = Label.new()
+	_ui_host_label.name = "HostLabel"
+	_ui_host_label.add_theme_font_size_override("font_size", 14)
+	_ui_host_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
+	_ui_host_label.custom_minimum_size = Vector2(0, 52)
+	_ui_host_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	host_spacer.add_child(_ui_host_label)
+	top_row.add_child(host_spacer)
+
+	var center_spacer = Control.new()
+	center_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(center_spacer)
+
+	var brand = Label.new()
+	brand.name = "Brand"
+	brand.text = "Nightfall"
+	brand.add_theme_font_size_override("font_size", 16)
+	brand.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	top_row.add_child(brand)
+
+	var right_spacer = Control.new()
+	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(right_spacer)
+
+	_ui_exit_btn = Button.new()
+	_ui_exit_btn.name = "ExitBtn"
+	_ui_exit_btn.text = "Exit"
+	_ui_exit_btn.add_theme_font_size_override("font_size", 13)
+	_ui_exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+	_ui_exit_btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
+	var exit_style = _btn_style.duplicate()
+	exit_style.content_margin_left = 16
+	exit_style.content_margin_right = 16
+	exit_style.content_margin_top = 6
+	exit_style.content_margin_bottom = 6
+	var exit_hover = _btn_hover.duplicate()
+	exit_hover.content_margin_left = 16
+	exit_hover.content_margin_right = 16
+	exit_hover.content_margin_top = 6
+	exit_hover.content_margin_bottom = 6
+	exit_hover.bg_color = Color(0.86, 0.2, 0.2, 0.3)
+	exit_hover.border_color = Color(0.86, 0.2, 0.2, 0.5)
+	_ui_exit_btn.add_theme_stylebox_override("normal", exit_style)
+	_ui_exit_btn.add_theme_stylebox_override("hover", exit_hover)
+	_ui_exit_btn.add_theme_stylebox_override("pressed", exit_hover)
+	var exit_margin = MarginContainer.new()
+	exit_margin.add_theme_constant_override("margin_right", 8)
+	exit_margin.add_child(_ui_exit_btn)
+	top_row.add_child(exit_margin)
+
+	var center_row = HBoxContainer.new()
+	center_row.name = "CenterRow"
+	center_row.add_theme_constant_override("separation", 16)
+	center_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var center_vpad = VBoxContainer.new()
+	center_vpad.add_theme_constant_override("separation", 0)
+	var cpad_top = Control.new()
+	cpad_top.custom_minimum_size = Vector2(0, 6)
+	center_vpad.add_child(cpad_top)
+	center_vpad.add_child(center_row)
+	var cpad_bot = Control.new()
+	cpad_bot.custom_minimum_size = Vector2(0, 6)
+	center_vpad.add_child(cpad_bot)
+	vbox.add_child(center_vpad)
+
+	_ui_pt_btn = _make_option_btn("Passthrough", "On")
+	center_row.add_child(_ui_pt_btn)
+	_ui_curve_btn = _make_option_btn("Curve", "Flat")
+	center_row.add_child(_ui_curve_btn)
+	_ui_bezel_btn = _make_option_btn("Bezel", "On")
+	center_row.add_child(_ui_bezel_btn)
+
+	var gap = Control.new()
+	gap.custom_minimum_size = Vector2(0, 8)
+	vbox.add_child(gap)
+
+	var bottom_row = HBoxContainer.new()
+	bottom_row.name = "BottomRow"
+	bottom_row.add_theme_constant_override("separation", 16)
+	bottom_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(bottom_row)
+
+	_ui_mode_btn = _make_option_btn("Mode", "2D")
+	bottom_row.add_child(_ui_mode_btn)
+	_ui_res_btn = _make_option_btn("Resolution", "Auto")
+	bottom_row.add_child(_ui_res_btn)
+	_ui_fps_btn = _make_option_btn("Refresh", "60Hz")
+	bottom_row.add_child(_ui_fps_btn)
+
+	_ui_status_label = Label.new()
+	_ui_status_label.name = "StatusLabel"
+	_ui_status_label.text = "Ready"
+	_ui_status_label.add_theme_font_size_override("font_size", 12)
+	_ui_status_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.35))
+	_ui_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ui_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_ui_status_label.custom_minimum_size = Vector2(0, 40)
+	vbox.add_child(_ui_status_label)
+
+	_ui_exit_btn.pressed.connect(func(): get_tree().quit())
+	_ui_pt_btn.button_down.connect(func(): _toggle_passthrough())
+	_ui_curve_btn.button_down.connect(func(): _cycle_curvature())
+	_ui_bezel_btn.button_down.connect(func(): _toggle_bezel())
+	_ui_mode_btn.button_down.connect(func(): ui_controller.on_sbs_toggled())
+	_ui_res_btn.button_down.connect(func(): _cycle_resolution())
+	_ui_fps_btn.button_down.connect(func(): _cycle_fps())
+
+func _make_option_btn(label_text: String, value_text: String) -> Button:
+	var btn = Button.new()
+	btn.focus_mode = Control.FOCUS_NONE
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	var lbl = Label.new()
+	lbl.text = label_text
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(lbl)
+	var val = Label.new()
+	val.text = value_text
+	val.add_theme_font_size_override("font_size", 14)
+	val.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(val)
+	btn.add_child(vbox)
+	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	btn.add_theme_stylebox_override("normal", _btn_style)
+	btn.add_theme_stylebox_override("hover", _btn_hover)
+	var pressed_style = _btn_hover.duplicate()
+	pressed_style.bg_color = Color(1, 1, 1, 0.18)
+	btn.add_theme_stylebox_override("pressed", pressed_style)
+	btn.custom_minimum_size = Vector2(120, 52)
+	return btn
+
+func _update_option_btn(btn: Button, value: String):
+	for child in btn.get_children():
+		if child is VBoxContainer:
+			var labels = child.get_children()
+			if labels.size() >= 2:
+				labels[1].text = value
+
+func _update_host_label():
+	var ip = %IPInput.text
+	var host_name = ""
+	for h in config_mgr.get_hosts():
+		if h.has("localaddress") and h.localaddress == ip:
+			host_name = h.name if h.has("name") else ""
+			break
+	if _ui_host_label:
+		_ui_host_label.text = host_name if not host_name.is_empty() else ip
 
 func _save_state():
 	var save = ConfigFile.new()
@@ -130,10 +346,10 @@ func _load_host_state(ip: String):
 	resolution_idx = save.get_value(ip, "resolution_idx", -1)
 	stereo_mode = save.get_value(ip, "stereo_mode", 0)
 	screen_mesh.material_override.set_shader_parameter("stereo_mode", stereo_mode)
-	var mode_names = ["2D Mode", "SBS Stretch", "SBS Crop", "AI 3D"]
-	%SBSToggle.text = "Mode: " + mode_names[stereo_mode]
-	%FPSButton.text = "Refresh: %dHz" % stream_fps
-	%ResButton.text = "Res: %s" % resolution_labels[resolution_idx]
+	var mode_names = ["2D", "SBS Stretch", "SBS Crop", "AI 3D"]
+	_update_option_btn(_ui_mode_btn, mode_names[stereo_mode])
+	_update_option_btn(_ui_fps_btn, "%dHz" % stream_fps)
+	_update_option_btn(_ui_res_btn, resolution_labels[resolution_idx])
 	if depth_estimator:
 		depth_estimator.set_enabled(stereo_mode == 3)
 
@@ -164,9 +380,9 @@ func _load_state():
 			update_corner_positions()
 	if bezel_mesh:
 		bezel_mesh.visible = bezel_enabled
-	%BezelButton.text = "Bezel: %s" % ("On" if bezel_enabled else "Off")
-	%CurvatureButton.text = "Curve: %s" % curvature_labels[curvature]
-	%PassthroughButton.text = passthrough_labels[passthrough_mode]
+	_update_option_btn(_ui_bezel_btn, "On" if bezel_enabled else "Off")
+	_update_option_btn(_ui_curve_btn, curvature_labels[curvature])
+	_update_option_btn(_ui_pt_btn, passthrough_labels[passthrough_mode])
 	_update_bezel_size()
 	if save.has_section_key("ui", "offset_x") and is_xr_active and xr_camera:
 		ui_panel_3d.global_position = xr_camera.global_position + Vector3(
@@ -207,15 +423,8 @@ func _ready():
 
 	_load_controller_models()
 
-	%PairButton.button_down.connect(func(): stream_manager.on_pair_pressed())
-	%SBSToggle.button_down.connect(func(): ui_controller.on_sbs_toggled())
-	%ResumeAutoButton.button_down.connect(func(): ui_controller.on_resume_auto_pressed())
-	%ExitButton.pressed.connect(func(): get_tree().quit())
-	%PassthroughButton.button_down.connect(func(): _toggle_passthrough())
-	%FPSButton.button_down.connect(func(): _cycle_fps())
-	%ResButton.button_down.connect(func(): _cycle_resolution())
-	%CurvatureButton.button_down.connect(func(): _cycle_curvature())
-	%BezelButton.button_down.connect(func(): _toggle_bezel())
+	_build_ui()
+
 	%WelcomeConnect.pressed.connect(func():
 		%WelcomeConnect.text = "Connecting..."
 		%WelcomeConnect.disabled = true
@@ -235,7 +444,8 @@ func _ready():
 
 	moon.connection_started.connect(func():
 		is_streaming = true
-		%StatusLabel.text = "Connecting..."
+		_ui_status_label.text = "Connecting..."
+		_update_host_label()
 		_log("[STREAM] Connection started!")
 		stream_manager.bind_texture()
 		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
@@ -249,7 +459,7 @@ func _ready():
 	)
 	moon.connection_terminated.connect(func(_err, msg):
 		is_streaming = false
-		%StatusLabel.text = "Disconnected: " + str(msg)
+		_ui_status_label.text = "Disconnected: " + str(msg)
 		_log("[STREAM] Connection terminated: %s" % str(msg))
 		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
 		if mouse_captured_by_stream:
@@ -311,6 +521,7 @@ func _ready():
 			%IPInput.text = saved_ip
 			%WelcomeLastIP.text = "Last: %s" % saved_ip
 			_load_host_state(saved_ip)
+			_update_host_label()
 
 	stream_manager.bind_texture()
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
@@ -416,14 +627,14 @@ func _toggle_passthrough():
 		world_env.environment.background_color = Color(0, 0, 0, 0)
 		get_viewport().transparent_bg = false
 		if starfield: starfield.visible = true
-	%PassthroughButton.text = passthrough_labels[passthrough_mode]
+	_update_option_btn(_ui_pt_btn, passthrough_labels[passthrough_mode])
 	_save_state()
 
 func _cycle_fps():
 	var rates = [60, 90, 120]
 	var idx = rates.find(stream_fps)
 	stream_fps = rates[(idx + 1) % rates.size()]
-	%FPSButton.text = "Refresh: %dHz" % stream_fps
+	_update_option_btn(_ui_fps_btn, "%dHz" % stream_fps)
 	_save_state()
 	if is_streaming and current_host_id >= 0:
 		_log("[FPS] Restarting stream at %dHz" % stream_fps)
@@ -437,10 +648,10 @@ func _cycle_resolution():
 		resolution_idx = -1
 	if resolution_idx == -1:
 		host_resolution = Vector2i(1920, 1080)
-		%ResButton.text = "Res: Auto"
+		_update_option_btn(_ui_res_btn, "Auto")
 	else:
 		host_resolution = resolutions[resolution_idx]
-		%ResButton.text = "Res: %s" % resolution_labels[resolution_idx]
+		_update_option_btn(_ui_res_btn, resolution_labels[resolution_idx])
 	_save_state()
 	if is_streaming and current_host_id >= 0:
 		_log("[RES] Restarting stream at %dx%d" % [host_resolution.x, host_resolution.y])
@@ -609,13 +820,13 @@ func _toggle_bezel():
 	bezel_enabled = not bezel_enabled
 	if bezel_mesh:
 		bezel_mesh.visible = bezel_enabled
-	%BezelButton.text = "Bezel: %s" % ("On" if bezel_enabled else "Off")
+	_update_option_btn(_ui_bezel_btn, "On" if bezel_enabled else "Off")
 	_save_state()
 
 func _cycle_curvature():
 	curvature = (curvature + 1) % 3
 	_apply_curvature()
-	%CurvatureButton.text = "Curve: %s" % curvature_labels[curvature]
+	_update_option_btn(_ui_curve_btn, curvature_labels[curvature])
 	_save_state()
 
 func _apply_curvature():
