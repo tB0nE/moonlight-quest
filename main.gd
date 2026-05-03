@@ -26,6 +26,8 @@ var stereo_mode: int = 0
 var is_xr_active: bool = false
 var was_clicking: bool = false
 var was_right_clicking: bool = false
+var right_click_cooldown: float = 0.0
+var _was_b_pressed: bool = false
 var mouse_captured_by_stream: bool = false
 var suppress_input_frames: int = 0
 var auto_detect_enabled: bool = false
@@ -35,21 +37,27 @@ var detection_history: Array = []
 var mouse_sensitivity: float = 0.002
 var grabbed_node: Node3D = null
 var grab_distance: float = 0.0
+var grab_depth: float = 0.0
 var grab_offset: Vector3 = Vector3.ZERO
 var grabbed_bar: MeshInstance3D = null
 var grab_start_hand_pos: Vector3 = Vector3.ZERO
 var grab_start_node_pos: Vector3 = Vector3.ZERO
 var grab_forward: Vector3 = Vector3.FORWARD
+var grab_start_hand_basis: Basis = Basis()
+var grab_start_node_basis: Basis = Basis()
+var grab_start_node_euler: Vector3 = Vector3.ZERO
 var stats_timer: float = 0.0
 var stats_fps: float = 0.0
 var stats_frame_times: Array = []
 var stats_network_events: int = 0
-var passthrough_enabled: bool = false
+var passthrough_mode: int = 0
+var passthrough_labels: Array = ["Passthrough: On", "Passthrough: Off", "Starfield"]
 var ui_visible: bool = false
 var bezel_enabled: bool = true
 var bezel_mesh: MeshInstance3D
 var curvature: int = 0
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
+var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
 var resolution_idx: int = -1
@@ -101,8 +109,10 @@ func _ready():
 
 	%ScreenGrabBar.material_override = %ScreenGrabBar.material_override.duplicate()
 	%MenuGrabBar.material_override = %MenuGrabBar.material_override.duplicate()
+	_mesh_size = screen_mesh.mesh.size
 	_create_corner_handles()
 	_create_bezel()
+	_create_contact_dot()
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -117,6 +127,12 @@ func _ready():
 	%ResButton.button_down.connect(func(): _cycle_resolution())
 	%CurvatureButton.button_down.connect(func(): _cycle_curvature())
 	%BezelButton.button_down.connect(func(): _toggle_bezel())
+	%WelcomeConnect.pressed.connect(func():
+		%WelcomeConnect.text = "Connecting..."
+		%WelcomeConnect.disabled = true
+		stream_manager.on_pair_pressed()
+	)
+	%WelcomeOptions.pressed.connect(func(): _toggle_ui())
 	%IPInput.gui_input.connect(func(e): ui_controller.on_ipinput_gui_input(e))
 	ui_controller.setup_numpad()
 
@@ -133,8 +149,14 @@ func _ready():
 		%StatusLabel.text = "Connecting..."
 		_log("[STREAM] Connection started!")
 		stream_manager.bind_texture()
-		stream_manager.setup_audio()
 		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
+		stream_manager.setup_audio()
+		ui_visible = false
+		ui_panel_3d.visible = false
+		var starfield = get_node_or_null("Starfield")
+		if starfield:
+			starfield.emitting = false
+			starfield.visible = false
 	)
 	moon.connection_terminated.connect(func(_err, msg):
 		is_streaming = false
@@ -144,6 +166,14 @@ func _ready():
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
 		audio_player.stop()
+		ui_visible = false
+		ui_panel_3d.visible = false
+		var starfield = get_node_or_null("Starfield")
+		if starfield and passthrough_mode == 2:
+			starfield.emitting = true
+			starfield.visible = true
+		%WelcomeConnect.text = "Connect"
+		%WelcomeConnect.disabled = false
 	)
 
 	var interface = XRServer.find_interface("OpenXR")
@@ -160,16 +190,18 @@ func _ready():
 		get_viewport().size = render_size
 		get_viewport().use_xr = true
 		is_xr_active = true
-		stereo_mode = 1
-		passthrough_enabled = true
+		stereo_mode = 0
+		passthrough_mode = 0
+
+		_create_starfield()
 
 		await get_tree().create_timer(0.5).timeout
 		_reposition_screen_and_ui()
 		screen_mesh.visible = false
-		ui_panel_3d.visible = false
 		await get_tree().process_frame
 		screen_mesh.visible = true
 		ui_visible = false
+		ui_panel_3d.visible = false
 	else:
 		is_xr_active = false
 		stereo_mode = 0
@@ -187,14 +219,25 @@ func _ready():
 	ui_controller.update_stereo_shader()
 
 	Input.joy_connection_changed.connect(func(device, connected):
-		print("[GAMEPAD] Device %d %s: %s" % [device, "connected" if connected else "disconnected", Input.get_joy_name(device)])
+		_on_joy_changed(device, connected)
 	)
-	for pad in Input.get_connected_joypads():
-		print("[GAMEPAD] Found device %d: %s" % [pad, Input.get_joy_name(pad)])
+
+func _on_joy_changed(device: int, connected: bool):
+	pass
 
 func _process(delta):
 	if Engine.get_frames_drawn() % 120 == 0:
 		_flush_log()
+
+	if is_xr_active:
+		var b_pressed = right_hand.is_button_pressed("by_button")
+		if b_pressed and not _was_b_pressed:
+			_toggle_ui()
+		_was_b_pressed = b_pressed
+
+	if right_click_cooldown > 0.0:
+		right_click_cooldown -= delta
+
 	if Input.is_action_just_pressed("ui_focus_next"):
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
@@ -203,13 +246,14 @@ func _process(delta):
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
 
-	if Input.is_action_just_pressed("ui_cancel"):
-		_toggle_ui()
-
 	if not mouse_captured_by_stream:
 		xr_interaction.handle_pointer_interaction()
 
 	xr_interaction.handle_scroll()
+
+	var starfield = get_node_or_null("Starfield")
+	if starfield and is_xr_active:
+		starfield.global_position = xr_camera.global_position
 
 	auto_detect.process(delta)
 
@@ -242,32 +286,34 @@ func _input(event):
 func _toggle_ui():
 	ui_visible = not ui_visible
 	ui_panel_3d.visible = ui_visible
-	if ui_visible and is_xr_active:
-		_reposition_screen_and_ui()
 
 func _toggle_passthrough():
 	if not is_xr_active:
 		return
 	var interface = XRServer.find_interface("OpenXR")
 	if not interface:
-		_log("[PT] No OpenXR interface")
 		return
-	if passthrough_enabled:
+	passthrough_mode = (passthrough_mode + 1) % 3
+	var starfield = get_node_or_null("Starfield")
+	_log("[PT] mode=%d starfield=%s" % [passthrough_mode, str(starfield != null)])
+	_flush_log()
+	if passthrough_mode == 0:
+		get_viewport().transparent_bg = true
+		world_env.environment.background_mode = Environment.BG_COLOR
+		world_env.environment.background_color = Color(0, 0, 0, 0)
+		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+		if starfield: starfield.visible = false
+	elif passthrough_mode == 1:
 		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
 		world_env.environment.background_color = Color(0, 0, 0, 1)
 		get_viewport().transparent_bg = false
-		passthrough_enabled = false
-		%PassthroughButton.text = "Passthrough: Off"
-		_log("[PT] Passthrough disabled")
-		return
-	get_viewport().transparent_bg = true
-	world_env.environment.background_mode = Environment.BG_COLOR
-	world_env.environment.background_color = Color(0, 0, 0, 0)
-	interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
-	passthrough_enabled = true
-	%PassthroughButton.text = "Passthrough: On"
-	_log("[PT] Passthrough enabled via blend mode")
-	_log("[PT] Blend modes: %s" % str(interface.get_supported_environment_blend_modes()))
+		if starfield: starfield.visible = false
+	else:
+		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
+		world_env.environment.background_color = Color(0, 0, 0, 0)
+		get_viewport().transparent_bg = false
+		if starfield: starfield.visible = true
+	%PassthroughButton.text = passthrough_labels[passthrough_mode]
 
 func _cycle_fps():
 	var rates = [60, 90, 120]
@@ -321,7 +367,7 @@ func _create_corner_handles():
 		Vector2(-0.5, -0.5),
 		Vector2(0.5, -0.5),
 	]
-	var mesh_size = screen_mesh.mesh.size
+	var mesh_size = _mesh_size
 	for i in range(4):
 		var handle = MeshInstance3D.new()
 		handle.name = "Corner%d" % i
@@ -347,9 +393,9 @@ func _create_corner_handles():
 		area.collision_layer = 2
 		var shape = CollisionShape3D.new()
 		var col = BoxShape3D.new()
-		col.size = Vector3(0.2, 0.2, 0.05)
+		col.size = Vector3(0.2, 0.2, 0.1)
 		shape.shape = col
-		shape.position = Vector3(0, 0, -0.03)
+		shape.position = Vector3(0, 0, 0)
 		area.add_child(shape)
 		handle.add_child(h_bar)
 		handle.add_child(v_bar)
@@ -359,7 +405,21 @@ func _create_corner_handles():
 		corner_handles.append(handle)
 
 func update_corner_positions():
-	var mesh_size = screen_mesh.mesh.size
+	var mesh_size = _mesh_size
+	var corner_z = 0.0
+	var extra_out = 0.0
+	if curvature > 0:
+		var radius = 10.0 if curvature == 1 else 4.0
+		var angle = mesh_size.x / radius
+		var half_angle = angle * 0.5
+		var chord_half = sin(half_angle) * radius
+		var extra = chord_half - mesh_size.x * 0.5
+		if curvature == 2:
+			extra += 0.06
+		else:
+			extra += 0.04
+		extra_out = extra
+		corner_z = -(cos(half_angle) * radius - radius)
 	var offsets = [
 		Vector2(-0.5, 0.5),
 		Vector2(0.5, 0.5),
@@ -367,7 +427,14 @@ func update_corner_positions():
 		Vector2(0.5, -0.5),
 	]
 	for i in range(4):
-		corner_handles[i].position = Vector3(offsets[i].x * (mesh_size.x + 0.08), offsets[i].y * (mesh_size.y + 0.08), 0)
+		var cx = offsets[i].x * (mesh_size.x + 0.08)
+		if curvature > 0:
+			var radius = 10.0 if curvature == 1 else 4.0
+			var half_angle = mesh_size.x / radius * 0.5
+			var a = -half_angle if offsets[i].x < 0 else half_angle
+			cx = sin(a) * radius
+			cx += -extra_out if offsets[i].x < 0 else extra_out
+		corner_handles[i].position = Vector3(cx, offsets[i].y * (mesh_size.y + 0.08), corner_z)
 	%ScreenGrabBar.position.y = -mesh_size.y / 2.0 - 0.05
 
 func _create_bezel():
@@ -379,17 +446,58 @@ func _create_bezel():
 	bezel_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	bezel_mat.albedo_color = Color(0, 0, 0, 1)
 	bezel_mesh.material_override = bezel_mat
-	bezel_mesh.position = Vector3(0, 0, 0.005)
+	bezel_mesh.position = Vector3(0, 0, -0.005)
 	screen_mesh.add_child(bezel_mesh)
 	_update_bezel_size()
 
 func _update_bezel_size():
 	if not bezel_mesh:
 		return
-	var mesh_size = screen_mesh.mesh.size
+	var mesh_size = _mesh_size
 	var bezel_pad = 0.04
-	bezel_mesh.mesh.size = mesh_size + Vector2(bezel_pad, bezel_pad)
-	bezel_mesh.position = Vector3(0, 0, 0.005)
+	var bezel_size = mesh_size + Vector2(bezel_pad, bezel_pad)
+	if curvature == 0:
+		var bezel_quad = QuadMesh.new()
+		bezel_quad.size = bezel_size
+		bezel_mesh.mesh = bezel_quad
+		bezel_mesh.position = Vector3(0, 0, -0.005)
+	else:
+		var radius = 10.0 if curvature == 1 else 4.0
+		var subdivide = 32
+		var v_subdivide = 16
+		var angle = bezel_size.x / radius
+		var verts = PackedVector3Array()
+		var uvs = PackedVector2Array()
+		var indices = PackedInt32Array()
+		for j in range(subdivide + 1):
+			for i in range(v_subdivide + 1):
+				var t = float(j) / subdivide
+				var u = float(i) / v_subdivide
+				var a = -angle * 0.5 + angle * t
+				var x = sin(a) * radius
+				var z = -(cos(a) * radius - radius) - 0.005
+				var y = (u - 0.5) * bezel_size.y
+				verts.append(Vector3(x, y, z))
+				uvs.append(Vector2(t, 1.0 - u))
+		var cols = v_subdivide + 1
+		for j in range(subdivide):
+			for i in range(v_subdivide):
+				var idx = j * cols + i
+				indices.append(idx)
+				indices.append(idx + 1)
+				indices.append(idx + cols)
+				indices.append(idx + 1)
+				indices.append(idx + cols + 1)
+				indices.append(idx + cols)
+		var arr = []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = verts
+		arr[Mesh.ARRAY_TEX_UV] = uvs
+		arr[Mesh.ARRAY_INDEX] = indices
+		var arr_mesh = ArrayMesh.new()
+		arr_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		bezel_mesh.mesh = arr_mesh
+		bezel_mesh.position = Vector3.ZERO
 
 func _toggle_bezel():
 	bezel_enabled = not bezel_enabled
@@ -403,39 +511,40 @@ func _cycle_curvature():
 	%CurvatureButton.text = "Curve: %s" % curvature_labels[curvature]
 
 func _apply_curvature():
-	var mesh_size = screen_mesh.mesh.size
-	var subdivide = 32 if curvature > 0 else 0
+	var mesh_size = _mesh_size
 	if curvature == 0:
 		var quad = QuadMesh.new()
 		quad.size = mesh_size
 		screen_mesh.mesh = quad
 		_update_shader_for_mesh(mesh_size)
 		return
+	var subdivide = 32
+	var v_subdivide = 16
 	var radius = 10.0 if curvature == 1 else 4.0
 	var angle = mesh_size.x / radius
-	var steps = subdivide
 	var verts = PackedVector3Array()
 	var uvs = PackedVector2Array()
 	var indices = PackedInt32Array()
-	for j in range(steps + 1):
-		for i in range(2):
-			var t = float(j) / steps
-			var u = float(i)
+	for j in range(subdivide + 1):
+		for i in range(v_subdivide + 1):
+			var t = float(j) / subdivide
+			var u = float(i) / v_subdivide
 			var a = -angle * 0.5 + angle * t
 			var x = sin(a) * radius
-			var z = cos(a) * radius - radius
+			var z = -(cos(a) * radius - radius)
 			var y = (u - 0.5) * mesh_size.y
 			verts.append(Vector3(x, y, z))
-			uvs.append(Vector2(t, u))
-	for j in range(steps):
-		for i in range(1):
-			var idx = j * 2 + i
+			uvs.append(Vector2(t, 1.0 - u))
+	var cols = v_subdivide + 1
+	for j in range(subdivide):
+		for i in range(v_subdivide):
+			var idx = j * cols + i
 			indices.append(idx)
 			indices.append(idx + 1)
-			indices.append(idx + 2)
+			indices.append(idx + cols)
 			indices.append(idx + 1)
-			indices.append(idx + 3)
-			indices.append(idx + 2)
+			indices.append(idx + cols + 1)
+			indices.append(idx + cols)
 	var arr = []
 	arr.resize(Mesh.ARRAY_MAX)
 	arr[Mesh.ARRAY_VERTEX] = verts
@@ -460,57 +569,86 @@ func _load_controller_models():
 	if left_scene:
 		var left_model = left_scene.instantiate()
 		left_hand.add_child(left_model)
-		_scale_and_position_controller(left_model)
+		left_model.scale = Vector3(1.0, 1.0, 1.0)
+		left_model.rotation = Vector3(0, PI, 0)
+		_apply_controller_textures(left_model, true)
 	if right_scene:
 		var right_model = right_scene.instantiate()
 		right_hand.add_child(right_model)
-		_scale_and_position_controller(right_model)
-	var xbox_scene = load("res://models/xbox/xbox_one_controller.fbx")
-	if xbox_scene:
-		var xbox_model = xbox_scene.instantiate()
-		xbox_model.name = "XboxController"
-		xbox_model.scale = Vector3(0.3, 0.3, 0.3)
-		xbox_model.rotation = Vector3(-0.3, PI, 0)
-		xbox_model.position = Vector3(0.8, 1.0, -1.5)
-		add_child(xbox_model)
+		right_model.scale = Vector3(1.0, 1.0, 1.0)
+		right_model.rotation = Vector3(0, PI, 0)
+		_apply_controller_textures(right_model, false)
 
-	_create_starfield()
+func _apply_controller_textures(node: Node, is_left: bool):
+	var base_color_path = "res://models/controllers/textures/MetaQuestTouchPlus_Left_BaseColor.png" if is_left else "res://models/controllers/textures/MetaQuestTouchPlus_right_BaseColor.png"
+	var base_tex = load(base_color_path)
+	if not base_tex:
+		return
+	for child in node.get_children():
+		if child is MeshInstance3D:
+			for i in range(child.get_surface_override_material_count()):
+				var mat = child.get_surface_override_material(i)
+				if not mat:
+					mat = child.mesh.surface_get_material(i) if child.mesh else null
+				if mat is StandardMaterial3D:
+					mat = mat.duplicate()
+					mat.albedo_texture = base_tex
+					child.set_surface_override_material(i, mat)
+				elif mat is BaseMaterial3D:
+					mat = mat.duplicate()
+					mat.albedo_texture = base_tex
+					child.set_surface_override_material(i, mat)
+		_apply_controller_textures(child, is_left)
+
+var contact_dot: MeshInstance3D
+
+func _create_contact_dot():
+	contact_dot = MeshInstance3D.new()
+	contact_dot.name = "ContactDot"
+	var dot_mesh = SphereMesh.new()
+	dot_mesh.radius = 0.01
+	dot_mesh.height = 0.02
+	contact_dot.mesh = dot_mesh
+	var dot_mat = StandardMaterial3D.new()
+	dot_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dot_mat.albedo_color = Color(1, 1, 1, 0.1)
+	dot_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	contact_dot.material_override = dot_mat
+	contact_dot.visible = false
+	add_child(contact_dot)
 
 func _create_starfield():
 	var particles = GPUParticles3D.new()
 	particles.name = "Starfield"
 	particles.emitting = true
-	particles.amount = 2000
-	particles.lifetime = 20.0
+	particles.amount = 1000
+	particles.lifetime = 30.0
 	particles.explosiveness = 0.0
 	particles.randomness = 1.0
-	particles.local_coords = false
-	var process_mat = ParticleProcessMaterial.new()
-	process_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	process_mat.emission_box_extents = Vector3(80, 80, 80)
-	process_mat.direction = Vector3(0, 0, -1)
-	process_mat.spread = 2.0
-	process_mat.initial_velocity_min = 0.5
-	process_mat.initial_velocity_max = 2.0
-	process_mat.gravity = Vector3.ZERO
-	particles.process_material = process_mat
-	var star_mesh = QuadMesh.new()
-	star_mesh.size = Vector2(0.03, 0.03)
-	var star_mat = StandardMaterial3D.new()
-	star_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	star_mat.albedo_color = Color(1, 1, 1, 0.8)
-	star_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	star_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	star_mat.billboard_mode = BaseMaterial3D.BILLBOARD_Y
-	particles.draw_pass_1 = null
-	var draw_mesh = MeshInstance3D.new()
-	draw_mesh.mesh = star_mesh
-	draw_mesh.material_override = star_mat
-	particles.draw_passes = 1
+	particles.fixed_fps = 15
+	particles.local_coords = true
+	particles.visible = (passthrough_mode == 2)
+	var mat = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents = Vector3(50, 50, 50)
+	mat.particle_flag_disable_z = false
+	mat.gravity = Vector3.ZERO
+	var vel = mat.direction
+	vel = Vector3(0, 0, 0)
+	mat.direction = vel
+	mat.spread = 0.0
+	particles.process_material = mat
+	var star_mesh = SphereMesh.new()
+	star_mesh.radius = 0.05
+	star_mesh.height = 0.1
+	star_mesh.material = StandardMaterial3D.new()
+	star_mesh.material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	star_mesh.material.albedo_color = Color.WHITE
+	star_mesh.material.emission = Color.WHITE
+	star_mesh.material.emission_energy = 2.0
+	star_mesh.material.render_priority = -128
+	star_mesh.material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	particles.draw_pass_1 = star_mesh
-	particles.position = xr_camera.global_position if is_xr_active else Vector3(0, 2, 0)
+	particles.sorting_offset = -100.0
+	particles.position = xr_camera.global_position
 	add_child(particles)
-
-func _scale_and_position_controller(model: Node3D):
-	model.scale = Vector3(0.01, 0.01, 0.01)
-	model.rotation = Vector3(0, PI, 0)

@@ -24,6 +24,14 @@ config/icon="res://src/icon.svg"
 window/size/viewport_width=2880
 window/size/viewport_height=1620
 
+[input]
+
+ui_cancel={
+"deadzone": 0.5,
+"events": [Object(InputEventJoypadButton,"resource_local_to_scene":false,"resource_name":"","device":-1,"button_index":6,"pressure":0.0,"pressed":false,"script":null)
+]
+}
+
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true

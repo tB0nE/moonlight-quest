@@ -86,8 +86,6 @@ func capture_stream_mouse():
 	main.was_clicking = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	main.get_node("%Crosshair").visible = false
-	main.get_node("%StreamHitDot").position = Vector2(-30, -30)
-	print("[MOUSE] Stream captured - move/click controls remote. Shift+F1 to release.")
 
 func release_stream_mouse():
 	main.mouse_captured_by_stream = false

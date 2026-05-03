@@ -9,6 +9,37 @@ func _init(owner: Node3D):
 func handle_pointer_interaction():
 	var active_raycast = main.hand_raycast if main.is_xr_active else main.mouse_raycast
 
+	if main.is_xr_active and main.is_streaming:
+		var is_gripping = false
+		if main.right_hand:
+			is_gripping = main.right_hand.is_button_pressed("grip_click")
+			if not is_gripping:
+				is_gripping = main.right_hand.is_button_pressed("grip")
+			if not is_gripping:
+				is_gripping = main.right_hand.get_float("grip") > 0.2
+		if is_gripping and not main.was_right_clicking and main.right_click_cooldown <= 0.0:
+			if active_raycast.is_colliding() and active_raycast.get_collider().get_parent() == main.screen_mesh:
+				var hit_pos = active_raycast.get_collision_point()
+				var local_pos = main.screen_mesh.to_local(hit_pos)
+				var ms = main._mesh_size
+				var uv_x = 0.0
+				var uv_y = clampf((ms.y * 0.5 - local_pos.y) / ms.y, 0.0, 1.0)
+				if main.curvature == 0:
+					uv_x = clampf((local_pos.x + ms.x * 0.5) / ms.x, 0.0, 1.0)
+				else:
+					var radius = 10.0 if main.curvature == 1 else 4.0
+					var total_angle = ms.x / radius
+					uv_x = clampf((asin(clampf(local_pos.x / radius, -1.0, 1.0)) + total_angle * 0.5) / total_angle, 0.0, 1.0)
+				var host_x = int(uv_x * main.stream_viewport.size.x)
+				var host_y = int(uv_y * main.stream_viewport.size.y)
+				main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
+			main.moon.send_mouse_button_event(7, 3)
+			main.was_right_clicking = true
+			main.right_click_cooldown = 0.5
+		elif not is_gripping and main.was_right_clicking:
+			main.moon.send_mouse_button_event(8, 3)
+			main.was_right_clicking = false
+
 	main.get_node("%ScreenGrabBar").visible = true
 	main.get_node("%MenuGrabBar").visible = true
 	for ch in main.corner_handles:
@@ -29,9 +60,14 @@ func handle_pointer_interaction():
 		var hit_dist = (active_raycast.get_collision_point() - active_raycast.global_position).length()
 		laser.scale.y = hit_dist / 5.0
 		laser.visible = true
+		if main.contact_dot:
+			main.contact_dot.global_position = active_raycast.get_collision_point()
+			main.contact_dot.visible = true
 	else:
 		laser.scale.y = 1.0
 		laser.visible = main.is_xr_active
+		if main.contact_dot:
+			main.contact_dot.visible = false
 
 	if active_raycast.is_colliding():
 		var collider = active_raycast.get_collider()
@@ -63,33 +99,69 @@ func handle_pointer_interaction():
 				main.was_clicking = false
 			return
 
+		elif parent == main.screen_mesh and not main.is_streaming:
+			var hit_pos = active_raycast.get_collision_point()
+			var local_pos = main.screen_mesh.to_local(hit_pos)
+			var ms = main._mesh_size
+			var uv_x = 0.0
+			var uv_y = clampf((ms.y * 0.5 - local_pos.y) / ms.y, 0.0, 1.0)
+			if main.curvature == 0:
+				uv_x = clampf((local_pos.x + ms.x * 0.5) / ms.x, 0.0, 1.0)
+			else:
+				var radius = 10.0 if main.curvature == 1 else 4.0
+				var total_angle = ms.x / radius
+				uv_x = clampf((asin(clampf(local_pos.x / radius, -1.0, 1.0)) + total_angle * 0.5) / total_angle, 0.0, 1.0)
+			var wv = main.welcome_viewport
+			var pixel_pos = Vector2(uv_x * wv.size.x, uv_y * wv.size.y)
+
+			var motion = InputEventMouseMotion.new()
+			motion.position = pixel_pos
+			motion.global_position = pixel_pos
+			motion.button_mask = MOUSE_BUTTON_MASK_LEFT if is_now_clicking else 0
+			wv.push_input(motion)
+
+			if is_now_clicking and not main.was_clicking:
+				var ev = InputEventMouseButton.new()
+				ev.position = pixel_pos
+				ev.global_position = pixel_pos
+				ev.button_index = MOUSE_BUTTON_LEFT
+				ev.pressed = true
+				wv.push_input(ev)
+				main.was_clicking = true
+			elif not is_now_clicking and main.was_clicking:
+				var ev = InputEventMouseButton.new()
+				ev.position = pixel_pos
+				ev.global_position = pixel_pos
+				ev.button_index = MOUSE_BUTTON_LEFT
+				ev.pressed = false
+				wv.push_input(ev)
+				main.was_clicking = false
+			return
+
 		elif parent == main.screen_mesh and main.is_streaming:
 			var hit_pos = active_raycast.get_collision_point()
 			var local_pos = main.screen_mesh.to_local(hit_pos)
-			var mesh_size = main.screen_mesh.mesh.size
-			var uv_x = clampf((local_pos.x + mesh_size.x * 0.5) / mesh_size.x, 0.0, 1.0)
-			var uv_y = clampf((mesh_size.y * 0.5 - local_pos.y) / mesh_size.y, 0.0, 1.0)
+			var ms = main._mesh_size
+			var uv_x = 0.0
+			var uv_y = clampf((ms.y * 0.5 - local_pos.y) / ms.y, 0.0, 1.0)
+			if main.curvature == 0:
+				uv_x = clampf((local_pos.x + ms.x * 0.5) / ms.x, 0.0, 1.0)
+			else:
+				var radius = 10.0 if main.curvature == 1 else 4.0
+				var total_angle = ms.x / radius
+				uv_x = clampf((asin(clampf(local_pos.x / radius, -1.0, 1.0)) + total_angle * 0.5) / total_angle, 0.0, 1.0)
 			var host_x = int(uv_x * main.stream_viewport.size.x)
 			var host_y = int(uv_y * main.stream_viewport.size.y)
 
 			if main.is_xr_active:
-				var grip_value = main.right_hand.get_float("grip") if main.right_hand else 0.0
-				var is_gripping = grip_value > 0.5
-				if is_now_clicking or is_gripping:
+				if is_now_clicking:
 					main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
 					if is_now_clicking and not main.was_clicking:
-						main.moon.send_mouse_button_event(7, MOUSE_BUTTON_LEFT)
+						main.moon.send_mouse_button_event(7, 1)
 						main.was_clicking = true
-					if is_gripping and not main.was_right_clicking:
-						main.moon.send_mouse_button_event(7, MOUSE_BUTTON_RIGHT)
-						main.was_right_clicking = true
-				elif main.was_clicking or main.was_right_clicking:
-					if main.was_clicking:
-						main.moon.send_mouse_button_event(8, MOUSE_BUTTON_LEFT)
-						main.was_clicking = false
-					if main.was_right_clicking:
-						main.moon.send_mouse_button_event(8, MOUSE_BUTTON_RIGHT)
-						main.was_right_clicking = false
+				elif main.was_clicking:
+					main.moon.send_mouse_button_event(8, 1)
+					main.was_clicking = false
 			else:
 				if is_now_clicking and not main.was_clicking:
 					main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
@@ -121,6 +193,10 @@ func handle_pointer_interaction():
 				main.grab_start_hand_pos = active_raycast.global_position
 				main.grab_start_node_pos = main.grabbed_node.global_position
 				main.grab_forward = -active_raycast.global_transform.basis.z
+				if main.is_xr_active:
+					main.grab_start_hand_basis = active_raycast.global_transform.basis
+					main.grab_start_node_basis = main.grabbed_node.global_transform.basis
+					main.grab_start_node_euler = main.grabbed_node.rotation
 				_set_grab_bar_color(parent, Color.WHITE, 0.3)
 				main.was_clicking = true
 			return
@@ -136,9 +212,24 @@ func handle_grab():
 	var hand_delta = hand_pos - main.grab_start_hand_pos
 	var depth = hand_delta.dot(main.grab_forward) * main.grab_forward
 	var lateral = hand_delta - depth
-	main.grabbed_node.global_position = main.grab_start_node_pos + lateral + depth * 8.0
+	main.grabbed_node.global_position = main.grab_start_node_pos + lateral * 4.0 + depth * 8.0
 	var cam_pos = main.xr_camera.global_position
 	main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
+
+	if main.is_xr_active and main.grab_start_hand_basis != Basis():
+		var hand_basis = active_raycast.global_transform.basis
+		var delta_rot = hand_basis * main.grab_start_hand_basis.inverse()
+		var forward = delta_rot * main.grab_start_node_basis.z
+		var pitch_delta = atan2(-forward.y, -forward.z) - atan2(-main.grab_start_node_basis.z.y, -main.grab_start_node_basis.z.z)
+		var current_pitch = main.grab_start_node_euler.x + pitch_delta
+		current_pitch *= 0.66
+		main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
+		var euler = main.grabbed_node.rotation
+		euler.x = current_pitch
+		euler.z = 0.0
+		if absf(euler.x) < 0.052:
+			euler.x = 0.0
+		main.grabbed_node.rotation = euler
 
 	var still_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if not still_clicking:
@@ -146,6 +237,9 @@ func handle_grab():
 			_set_grab_bar_color(main.grabbed_bar, Color.WHITE, 0.01)
 			main.grabbed_bar = null
 		main.grabbed_node = null
+		main.grab_start_hand_basis = Basis()
+		main.grab_start_node_basis = Basis()
+		main.grab_start_node_euler = Vector3.ZERO
 
 func handle_corner_resize():
 	if main.grabbed_corner_idx < 0:
@@ -174,13 +268,18 @@ func handle_corner_resize():
 		new_h = 0.4
 		new_w = new_h * aspect
 
-	main.screen_mesh.mesh.size = Vector2(new_w, new_h)
+	main._mesh_size = Vector2(new_w, new_h)
+	if main.curvature == 0:
+		main.screen_mesh.mesh.size = Vector2(new_w, new_h)
+	else:
+		main._apply_curvature()
 
 	var col_shape = main.screen_mesh.get_node("Area3D/CollisionShape3D")
 	if col_shape:
 		col_shape.shape.size = Vector3(new_w, new_h, 0.01)
 
 	main.update_corner_positions()
+	main._update_bezel_size()
 
 	var still_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if not still_clicking:
@@ -215,8 +314,16 @@ func _set_corner_color(handle: MeshInstance3D, color: Color, alpha: float = 1.0)
 func handle_scroll():
 	if not main.is_xr_active or not main.is_streaming:
 		return
-	var right_stick_y = Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+	var right_stick_y = 0.0
+	if main.right_hand:
+		right_stick_y = main.right_hand.get_vector2("primary").y
+	if absf(right_stick_y) < 0.1:
+		for pad in Input.get_connected_joypads():
+			var val = Input.get_joy_axis(pad, JOY_AXIS_RIGHT_Y)
+			if absf(val) > 0.1:
+				right_stick_y = val
+				break
 	if absf(right_stick_y) > 0.3:
-		var clicks = int(right_stick_y * 3.0)
+		var clicks = int(right_stick_y * 1.5)
 		if clicks != 0:
 			main.moon.send_scroll_event(clicks)

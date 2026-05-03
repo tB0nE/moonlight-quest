@@ -101,22 +101,23 @@ render_target_update_mode = 4
 [node name="WelcomeBG" type="ColorRect" parent="WelcomeViewport"]
 offset_right = 1920.0
 offset_bottom = 1080.0
+mouse_filter = 2
 color = Color(0.05, 0.05, 0.15, 1)
 
 [node name="WelcomeTitle" type="Label" parent="WelcomeViewport"]
 offset_left = 100.0
-offset_top = 200.0
+offset_top = 300.0
 offset_right = 1820.0
-offset_bottom = 400.0
+offset_bottom = 500.0
 theme_override_font_sizes/font_size = 96
 text = "Nightfall"
 horizontal_alignment = 1
 
 [node name="WelcomeSub" type="Label" parent="WelcomeViewport"]
 offset_left = 100.0
-offset_top = 420.0
+offset_top = 520.0
 offset_right = 1820.0
-offset_bottom = 520.0
+offset_bottom = 620.0
 theme_override_font_sizes/font_size = 40
 text = "Moonlight Streaming for Quest"
 horizontal_alignment = 1
@@ -124,12 +125,30 @@ horizontal_alignment = 1
 [node name="WelcomeLastIP" type="Label" parent="WelcomeViewport" unique_id=501234568]
 unique_name_in_owner = true
 offset_left = 100.0
-offset_top = 600.0
+offset_top = 650.0
 offset_right = 1820.0
-offset_bottom = 680.0
-theme_override_font_sizes/font_size = 36
+offset_bottom = 720.0
+theme_override_font_sizes/font_size = 32
 text = ""
 horizontal_alignment = 1
+
+[node name="WelcomeConnect" type="Button" parent="WelcomeViewport" unique_id=501234569]
+unique_name_in_owner = true
+offset_left = 660.0
+offset_top = 760.0
+offset_right = 1260.0
+offset_bottom = 880.0
+theme_override_font_sizes/font_size = 48
+text = "Connect"
+
+[node name="WelcomeOptions" type="Button" parent="WelcomeViewport" unique_id=501234570]
+unique_name_in_owner = true
+offset_left = 660.0
+offset_top = 920.0
+offset_right = 1260.0
+offset_bottom = 1040.0
+theme_override_font_sizes/font_size = 48
+text = "Options"
 
 [node name="UIViewport" type="SubViewport" parent="." unique_id=2132881604]
 unique_name_in_owner = true
@@ -265,6 +284,7 @@ collision_mask = 2
 collide_with_areas = true
 
 [node name="LeftHand" type="XRController3D" parent="XROrigin3D" unique_id=1911895087]
+unique_name_in_owner = true
 tracker = &"left_hand"
 
 [node name="RightHand" type="XRController3D" parent="XROrigin3D" unique_id=1701602183]
@@ -329,7 +349,7 @@ shape = SubResource("BoxShape3D_UI")
 
 [node name="MenuGrabBar" type="MeshInstance3D" parent="UIPanel3D" unique_id=115521509]
 unique_name_in_owner = true
-transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, -0.35, 0)
+transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, -0.5, 0)
 visible = false
 material_override = SubResource("StandardMaterial3D_GrabBar")
 mesh = SubResource("CylinderMesh_GrabBar")

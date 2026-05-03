@@ -126,17 +126,23 @@ func on_pair_pressed():
 			main.get_node("%StatusLabel").text = "Failed to connect to " + ip
 			main.get_node("%PairButton").text = "Pair & Start Stream"
 			main.get_node("%PairButton").disabled = false
+			main.get_node("%WelcomeConnect").text = "Connect"
+			main.get_node("%WelcomeConnect").disabled = false
 			main._log("[PAIR] FAILED - no pin returned")
 			return
 		main.get_node("%StatusLabel").text = "PIN: " + str(pin) + "\nEnter on Sunshine host"
 		main.get_node("%PairButton").text = "Waiting for pair..."
 		main.get_node("%PairButton").disabled = true
+		main.get_node("%WelcomeConnect").text = "Pairing..."
+		main.get_node("%WelcomeConnect").disabled = true
 
 func on_pair_completed(success: bool, _msg: String):
 	main._log("[PAIR] pair_completed: success=%s msg=%s" % [str(success), str(_msg)])
 	main.get_node("%StatusLabel").text = "Pair " + ("OK" if success else "FAILED: " + str(_msg))
 	main.get_node("%PairButton").text = "Pair & Start Stream"
 	main.get_node("%PairButton").disabled = false
+	main.get_node("%WelcomeConnect").text = "Connect"
+	main.get_node("%WelcomeConnect").disabled = false
 	if success:
 		main.get_node("%StatusLabel").text = "Pairing successful, starting stream..."
 		main.config_mgr.load_config()
