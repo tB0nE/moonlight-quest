@@ -217,10 +217,11 @@ func handle_grab():
 	main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
 
 	if main.is_xr_active and main.grab_start_hand_basis != Basis():
-		var hand_basis = active_raycast.global_transform.basis
-		var start_right = main.grab_start_hand_basis.x
-		var cur_right = hand_basis.x
-		var pitch_delta = atan2(start_right.dot(cur_right), start_right.cross(cur_right).y)
+		var hand_fwd = -active_raycast.global_transform.basis.z
+		var hand_pitch = atan2(-hand_fwd.y, Vector2(hand_fwd.x, hand_fwd.z).length())
+		var start_fwd = -main.grab_start_hand_basis.z
+		var start_pitch = atan2(-start_fwd.y, Vector2(start_fwd.x, start_fwd.z).length())
+		var pitch_delta = hand_pitch - start_pitch
 		var euler = main.grabbed_node.rotation
 		euler.x = main.grab_start_node_euler.x + pitch_delta * 0.66
 		euler.z = 0.0
