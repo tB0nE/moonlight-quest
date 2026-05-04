@@ -94,7 +94,7 @@ func build():
 	grab_bar_area.collision_layer = 2
 	grab_bar.add_child(grab_bar_area)
 	var bar_shape = BoxShape3D.new()
-	bar_shape.size = Vector3(mesh_size.x * 0.3, 0.04, 0.04)
+	bar_shape.size = Vector3(mesh_size.x * 0.15, 0.02, 0.02)
 	var bar_cs = CollisionShape3D.new()
 	bar_cs.shape = bar_shape
 	grab_bar_area.add_child(bar_cs)
@@ -244,8 +244,8 @@ func toggle():
 	grab_bar.visible = visible
 	if visible:
 		if _has_saved_offset:
-			global_position = main.xr_camera.global_position + main.xr_camera.global_transform.basis * _saved_offset
-			rotation.y = main.xr_camera.global_rotation.y + _saved_rot_y
+			global_position = main.screen_mesh.global_position + main.screen_mesh.global_transform.basis * _saved_offset
+			rotation.y = main.screen_mesh.global_rotation.y + _saved_rot_y
 		else:
 			var cam_pos = main.xr_camera.global_position
 			var cam_fwd = -main.xr_camera.global_transform.basis.z
@@ -258,7 +258,7 @@ func toggle():
 		_save_offset()
 
 func _save_offset():
-	var cam_basis = main.xr_camera.global_transform.basis.inverse()
-	_saved_offset = cam_basis * (global_position - main.xr_camera.global_position)
-	_saved_rot_y = rotation.y - main.xr_camera.global_rotation.y
+	var scr_basis = main.screen_mesh.global_transform.basis.inverse()
+	_saved_offset = scr_basis * (global_position - main.screen_mesh.global_position)
+	_saved_rot_y = rotation.y - main.screen_mesh.global_rotation.y
 	_has_saved_offset = true

@@ -1288,15 +1288,15 @@ func _set_ui_visible(vis: bool):
 	if is_xr_active:
 		if vis:
 			if _ui_has_saved_offset:
-				ui_panel_3d.global_position = xr_camera.global_position + xr_camera.global_transform.basis * _ui_saved_offset
-				ui_panel_3d.rotation.y = xr_camera.global_rotation.y + _ui_saved_rot_y
+				ui_panel_3d.global_position = screen_mesh.global_position + screen_mesh.global_transform.basis * _ui_saved_offset
+				ui_panel_3d.rotation.y = screen_mesh.global_rotation.y + _ui_saved_rot_y
 			else:
 				var cam_pos = xr_camera.global_position
 				var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
 				ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
-		var cam_basis = xr_camera.global_transform.basis.inverse()
-		_ui_saved_offset = cam_basis * (ui_panel_3d.global_position - xr_camera.global_position)
-		_ui_saved_rot_y = ui_panel_3d.rotation.y - xr_camera.global_rotation.y
+		var scr_basis = screen_mesh.global_transform.basis.inverse()
+		_ui_saved_offset = scr_basis * (ui_panel_3d.global_position - screen_mesh.global_position)
+		_ui_saved_rot_y = ui_panel_3d.rotation.y - screen_mesh.global_rotation.y
 		_ui_has_saved_offset = true
 
 func _toggle_passthrough():
