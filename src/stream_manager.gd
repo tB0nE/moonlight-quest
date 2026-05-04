@@ -156,6 +156,21 @@ func on_pair_completed(success: bool, _msg: String):
 				await start_stream(h.id, main._selected_app_id)
 				break
 
+var _mdns_result: Array = []
+
+func browse_mdns() -> Array:
+	main._log("[mDNS] Starting browse...")
+	_mdns_result = []
+	var thread = Thread.new()
+	thread.start(func():
+		_mdns_result = main.mdns.browse(3.0)
+	)
+	while thread.is_alive():
+		await main.get_tree().create_timer(0.1).timeout
+	thread.wait_to_finish()
+	main._log("[mDNS] Found %d hosts" % _mdns_result.size())
+	return _mdns_result
+
 func setup_audio():
 	var audio_stream = main.moon.get_audio_stream()
 	if audio_stream:

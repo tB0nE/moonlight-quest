@@ -11,6 +11,7 @@ extends Node3D
 @onready var welcome_viewport = %WelcomeViewport
 @onready var config_mgr = MoonlightConfigManager.new()
 @onready var comp_mgr = MoonlightComputerManager.new()
+@onready var mdns = MoonlightMDNS.new()
 @onready var xr_origin = $XROrigin3D
 @onready var xr_camera = $XROrigin3D/XRCamera3D
 @onready var mouse_raycast = %RayCast3D
@@ -465,6 +466,19 @@ func _build_welcome_screen(parent: Node):
 	btn_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(btn_spacer)
 
+	var discover_list = VBoxContainer.new()
+	discover_list.name = "DiscoverList"
+	discover_list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	discover_list.add_theme_constant_override("separation", 8)
+	discover_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(discover_list)
+
+	var discover_spacer = Control.new()
+	discover_spacer.name = "DiscoverSpacer"
+	discover_spacer.custom_minimum_size = Vector2(0, 10)
+	discover_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(discover_spacer)
+
 	var connect_btn = Button.new()
 	connect_btn.name = "WelcomeConnect"
 	connect_btn.custom_minimum_size = Vector2(400, 90)
@@ -779,6 +793,8 @@ func _build_pin_screen(parent: Node):
 	done_btn.pressed.connect(func(): _show_welcome_screen("welcome"))
 	exit_btn.pressed.connect(func(): get_tree().quit())
 
+var _mdns_browsing: bool = false
+
 func _show_welcome_screen(name: String):
 	_welcome_screen = name
 	var root = welcome_viewport.get_node("WelcomeRoot/Screens")
@@ -788,6 +804,8 @@ func _show_welcome_screen(name: String):
 		"welcome":
 			root.get_node_or_null("WelcomeScreen").visible = true
 			_update_welcome_info()
+			if not _mdns_browsing:
+				_browse_mdns()
 		"server":
 			root.get_node_or_null("ServerScreen").visible = true
 			_populate_server_list()
@@ -881,6 +899,75 @@ func _reset_connect_button():
 	if connect_btn:
 		connect_btn.text = "Connect"
 		connect_btn.disabled = false
+
+func _save_last_ip(ip: String):
+	var save = ConfigFile.new()
+	save.set_value("connection", "ip", ip)
+	save.save("user://last_connection.cfg")
+
+func _browse_mdns():
+	if _mdns_browsing:
+		return
+	_mdns_browsing = true
+	var ws = welcome_viewport.get_node_or_null("WelcomeRoot/Screens/WelcomeScreen")
+	if not ws:
+		_mdns_browsing = false
+		return
+	var discover_list = ws.get_node_or_null("DiscoverList")
+	var discover_spacer = ws.get_node_or_null("DiscoverSpacer")
+	if discover_list:
+		for child in discover_list.get_children():
+			child.queue_free()
+	var scanning_label = Label.new()
+	scanning_label.name = "ScanningLabel"
+	scanning_label.text = "Scanning network..."
+	scanning_label.add_theme_font_size_override("font_size", 20)
+	scanning_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
+	scanning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	scanning_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if discover_list:
+		discover_list.add_child(scanning_label)
+		discover_spacer.visible = true
+	var hosts = await stream_manager.browse_mdns()
+	if scanning_label:
+		scanning_label.queue_free()
+	if discover_list:
+		for child in discover_list.get_children():
+			child.queue_free()
+	if hosts.size() > 0 and discover_list:
+		for host in hosts:
+			var ip = host.get("ip", "")
+			var friendly = host.get("friendly_name", host.get("instance", ip))
+			var btn = Button.new()
+			btn.custom_minimum_size = Vector2(400, 60)
+			btn.add_theme_font_size_override("font_size", 22)
+			btn.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0, 1.0))
+			btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			btn.text = friendly + "  " + ip
+			var btn_style = StyleBoxFlat.new()
+			btn_style.set_bg_color(Color(0.15, 0.18, 0.25, 0.9))
+			btn_style.set_border_width_all(1)
+			btn_style.set_border_color(Color(0.3, 0.4, 0.6, 0.8))
+			btn_style.set_corner_radius_all(8)
+			btn_style.set_content_margin_all(6)
+			btn.add_theme_stylebox_override("normal", btn_style)
+			var hover_style = btn_style.duplicate()
+			hover_style.set_bg_color(Color(0.2, 0.25, 0.35, 1.0))
+			btn.add_theme_stylebox_override("hover", hover_style)
+			var press_style = btn_style.duplicate()
+			press_style.set_bg_color(Color(0.3, 0.35, 0.5, 1.0))
+			btn.add_theme_stylebox_override("pressed", press_style)
+			btn.pressed.connect(func():
+				%IPInput.text = ip
+				_save_last_ip(ip)
+				_load_host_state(ip)
+				_update_welcome_info()
+			)
+			discover_list.add_child(btn)
+		discover_spacer.visible = true
+	else:
+		discover_spacer.visible = false
+	_mdns_browsing = false
 
 func _populate_server_list():
 	var screens = welcome_viewport.get_node("WelcomeRoot/Screens")
