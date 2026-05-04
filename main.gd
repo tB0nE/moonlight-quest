@@ -1617,8 +1617,10 @@ func _create_contact_dot():
 	contact_dot.mesh = dot_mesh
 	var dot_mat = StandardMaterial3D.new()
 	dot_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	dot_mat.albedo_color = Color(1, 1, 1, 0.1)
+	dot_mat.albedo_color = Color(1, 1, 1, 1)
 	dot_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dot_mat.render_priority = 127
+	dot_mat.no_depth_test = true
 	contact_dot.material_override = dot_mat
 	contact_dot.visible = false
 	add_child(contact_dot)
