@@ -8,14 +8,15 @@ size = Vector2(8, 8)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_Laser"]
 shading_mode = 0
-albedo_color = Color(1, 0, 0, 1)
+albedo_color = Color(1, 1, 1, 0.5)
+transparency = 1
 render_priority = 127
 no_depth_test = true
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_Laser"]
-top_radius = 0.002
-bottom_radius = 0.002
-height = 5.0
+top_radius = 0.001
+bottom_radius = 0.001
+height = 0.4
 
 [sub_resource type="Environment" id="Environment_1"]
 background_mode = 1
@@ -185,7 +186,7 @@ collide_with_areas = true
 
 [node name="Laser" type="MeshInstance3D" parent="XROrigin3D/RightHand/HandRayCast" unique_id=977797728]
 unique_name_in_owner = true
-transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, -2.5)
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, -0.25)
 material_override = SubResource("StandardMaterial3D_Laser")
 mesh = SubResource("CylinderMesh_Laser")
 

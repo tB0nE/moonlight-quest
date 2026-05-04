@@ -319,7 +319,6 @@ func _build_ui():
 		_ui_disconnect_btn.visible = false
 		_set_ui_visible(false)
 		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-		screen_mesh.material_override.set_shader_parameter("stereo_mode", 0)
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
 		audio_player.stop()
@@ -1094,7 +1093,6 @@ func _ready():
 		_log("[STREAM] Connection started!")
 		stream_manager.bind_texture()
 		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
-		screen_mesh.material_override.set_shader_parameter("stereo_mode", stereo_mode)
 		stream_manager.setup_audio()
 		ui_visible = false
 		_set_ui_visible(false)
@@ -1112,7 +1110,6 @@ func _ready():
 		if _ui_disconnect_btn: _ui_disconnect_btn.visible = false
 		_log("[STREAM] Connection terminated: %s" % str(msg))
 		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-		screen_mesh.material_override.set_shader_parameter("stereo_mode", 0)
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
 		audio_player.stop()
@@ -1180,7 +1177,6 @@ func _ready():
 
 	stream_manager.bind_texture()
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-	screen_mesh.material_override.set_shader_parameter("stereo_mode", 0)
 	ui_controller.update_ui()
 	ui_controller.update_stereo_shader()
 
