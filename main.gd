@@ -1236,14 +1236,6 @@ func _ready():
 		stereo_mode = 0
 		passthrough_mode = 0
 
-		var eye_w = int(render_size.x)
-		var eye_h = int(render_size.y)
-		stream_viewport.size = Vector2i(eye_w, eye_h)
-		var st = get_node_or_null("StreamViewport/StreamTarget")
-		if st:
-			st.custom_minimum_size = Vector2(eye_w, eye_h)
-			st.size = Vector2(eye_w, eye_h)
-
 		_create_starfield()
 
 		await get_tree().create_timer(0.5).timeout
