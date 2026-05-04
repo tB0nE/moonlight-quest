@@ -138,6 +138,22 @@ func _build_ui():
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(panel)
 
+	var brand = Label.new()
+	brand.name = "Brand"
+	brand.text = "Nightfall"
+	brand.add_theme_font_size_override("font_size", 15)
+	brand.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	brand.anchor_left = 0.0
+	brand.anchor_right = 1.0
+	brand.anchor_top = 0.0
+	brand.anchor_bottom = 0.0
+	brand.offset_top = 0.0
+	brand.offset_bottom = 30.0
+	brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(brand)
+
 	var vbox = VBoxContainer.new()
 	vbox.name = "VBox"
 	vbox.add_theme_constant_override("separation", 0)
@@ -168,15 +184,6 @@ func _build_ui():
 	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_row.add_child(left_spacer)
-
-	var brand = Label.new()
-	brand.name = "Brand"
-	brand.text = "Nightfall"
-	brand.add_theme_font_size_override("font_size", 15)
-	brand.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_row.add_child(brand)
 
 	var right_spacer = Control.new()
 	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL

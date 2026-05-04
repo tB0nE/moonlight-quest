@@ -13,9 +13,8 @@ transparency = 1
 render_priority = 127
 no_depth_test = true
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_Laser"]
-top_radius = 0.001
-bottom_radius = 0.001
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_Laser"]
+radius = 0.0015
 height = 0.4
 
 [sub_resource type="Environment" id="Environment_1"]
@@ -188,7 +187,7 @@ collide_with_areas = true
 unique_name_in_owner = true
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, -0.25)
 material_override = SubResource("StandardMaterial3D_Laser")
-mesh = SubResource("CylinderMesh_Laser")
+mesh = SubResource("CapsuleMesh_Laser")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1504299286]
 environment = SubResource("Environment_1")
