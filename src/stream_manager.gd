@@ -183,5 +183,10 @@ func update_stats():
 	var ip = main.get_node("%IPInput").text
 	var ip_display = ip if not ip.is_empty() else "?"
 	var queue = main.moon.get_decode_queue_size()
+	var dropped = main.moon.get_frames_dropped() if main.moon.has_method("get_frames_dropped") else 0
 	var latency_ms = queue * 1000.0 / max(main.stream_fps, 1)
-	main._ui_status_label.text = "Connected to %s \u2022 %dx%d %s \u2022 %.0ffps \u2022 %.0fms" % [ip_display, vw, vh, hw, main.stats_fps, latency_ms]
+	if queue == 0:
+		latency_ms = 1000.0 / max(main.stream_fps, 1)
+	main._ui_status_label.text = "%s \u2022 %dx%d %s \u2022 %.0ffps \u2022 ~%.0fms" % [ip_display, vw, vh, hw, main.stats_fps, latency_ms]
+	if dropped > 0:
+		main._ui_status_label.text += " \u2022 drop:%d" % dropped

@@ -36,6 +36,7 @@ var was_clicking: bool = false
 var was_right_clicking: bool = false
 var right_click_cooldown: float = 0.0
 var _was_b_pressed: bool = false
+var _startup_reposition_timer: float = 2.0
 var mouse_captured_by_stream: bool = false
 var suppress_input_frames: int = 0
 var auto_detect_enabled: bool = false
@@ -315,8 +316,11 @@ func _build_ui():
 	_ui_disconnect_btn.button_down.connect(func():
 		moon.stop_play_stream()
 		is_streaming = false
+		_ui_disconnect_btn.visible = false
 		_set_ui_visible(false)
 		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+		if mouse_captured_by_stream:
+			input_handler.release_stream_mouse()
 		audio_player.stop()
 		_update_welcome_info()
 	)
@@ -401,6 +405,7 @@ func _build_welcome_screen(parent: Node):
 	parent.add_child(screen)
 
 	var top_spacer = Control.new()
+	top_spacer.custom_minimum_size = Vector2(0, 60)
 	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(top_spacer)
@@ -421,7 +426,7 @@ func _build_welcome_screen(parent: Node):
 	screen.add_child(subtitle)
 
 	var mid_spacer = Control.new()
-	mid_spacer.custom_minimum_size = Vector2(0, 80)
+	mid_spacer.custom_minimum_size = Vector2(0, 40)
 	mid_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(mid_spacer)
 
@@ -503,6 +508,11 @@ func _build_welcome_screen(parent: Node):
 	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	exit_btn.text = "Exit"
 	screen.add_child(exit_btn)
+
+	var bottom_pad = Control.new()
+	bottom_pad.custom_minimum_size = Vector2(0, 30)
+	bottom_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(bottom_pad)
 
 	connect_btn.pressed.connect(func():
 		var btn_text = connect_btn.text
@@ -1151,6 +1161,7 @@ func _ready():
 		is_xr_active = false
 		stereo_mode = 0
 
+	config_mgr.load_config()
 	var save = ConfigFile.new()
 	if save.load("user://last_connection.cfg") == OK:
 		var saved_ip = save.get_value("connection", "ip", "")
@@ -1185,6 +1196,9 @@ func _process(delta):
 		if b_pressed and not _was_b_pressed:
 			_toggle_ui()
 		_was_b_pressed = b_pressed
+		if _startup_reposition_timer > 0.0:
+			_startup_reposition_timer -= delta
+			_reposition_screen_and_ui()
 
 	if right_click_cooldown > 0.0:
 		right_click_cooldown -= delta
@@ -1241,6 +1255,8 @@ func _input(event):
 func _toggle_ui():
 	ui_visible = not ui_visible
 	_set_ui_visible(ui_visible)
+	if _ui_disconnect_btn:
+		_ui_disconnect_btn.visible = is_streaming
 
 func _set_ui_visible(vis: bool):
 	ui_panel_3d.visible = vis
