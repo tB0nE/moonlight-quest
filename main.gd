@@ -1276,15 +1276,28 @@ func _toggle_ui():
 	if _ui_disconnect_btn:
 		_ui_disconnect_btn.visible = is_streaming
 
+var _ui_saved_offset: Vector3 = Vector3.ZERO
+var _ui_saved_rot_y: float = 0.0
+var _ui_has_saved_offset: bool = false
+
 func _set_ui_visible(vis: bool):
 	ui_panel_3d.visible = vis
 	var area = ui_panel_3d.get_node_or_null("Area3D")
 	if area:
 		area.process_mode = Node.PROCESS_MODE_INHERIT if vis else Node.PROCESS_MODE_DISABLED
-	if vis and is_xr_active:
-		var cam_pos = xr_camera.global_position
-		var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
-		ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
+	if is_xr_active:
+		if vis:
+			if _ui_has_saved_offset:
+				ui_panel_3d.global_position = xr_camera.global_position + xr_camera.global_transform.basis * _ui_saved_offset
+				ui_panel_3d.rotation.y = xr_camera.global_rotation.y + _ui_saved_rot_y
+			else:
+				var cam_pos = xr_camera.global_position
+				var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
+				ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
+		var cam_basis = xr_camera.global_transform.basis.inverse()
+		_ui_saved_offset = cam_basis * (ui_panel_3d.global_position - xr_camera.global_position)
+		_ui_saved_rot_y = ui_panel_3d.rotation.y - xr_camera.global_rotation.y
+		_ui_has_saved_offset = true
 
 func _toggle_passthrough():
 	if not is_xr_active:

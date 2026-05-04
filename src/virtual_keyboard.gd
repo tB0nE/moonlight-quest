@@ -235,12 +235,30 @@ func _apply_modifier_visuals():
 		var border = Color(0.5, 0.6, 0.75, 1.0) if is_on else Color(0.35, 0.35, 0.38, 1.0)
 		btn.add_theme_stylebox_override("normal", _make_key_style(bg, border))
 
+var _saved_offset: Vector3 = Vector3.ZERO
+var _saved_rot_y: float = 0.0
+var _has_saved_offset: bool = false
+
 func toggle():
 	visible = not visible
 	grab_bar.visible = visible
 	if visible:
-		var cam_pos = main.xr_camera.global_position
-		var cam_fwd = -main.xr_camera.global_transform.basis.z
-		global_position = cam_pos + cam_fwd * 1.0 + Vector3(0, -0.3, 0)
-		var to_cam = (cam_pos - global_position).normalized()
-		rotation.y = atan2(to_cam.x, to_cam.z)
+		if _has_saved_offset:
+			global_position = main.xr_camera.global_position + main.xr_camera.global_transform.basis * _saved_offset
+			rotation.y = main.xr_camera.global_rotation.y + _saved_rot_y
+		else:
+			var cam_pos = main.xr_camera.global_position
+			var cam_fwd = -main.xr_camera.global_transform.basis.z
+			global_position = cam_pos + cam_fwd * 1.0 + Vector3(0, -0.3, 0)
+			var to_cam = (cam_pos - global_position).normalized()
+			rotation.y = atan2(to_cam.x, to_cam.z)
+			_has_saved_offset = true
+		_save_offset()
+	else:
+		_save_offset()
+
+func _save_offset():
+	var cam_basis = main.xr_camera.global_transform.basis.inverse()
+	_saved_offset = cam_basis * (global_position - main.xr_camera.global_position)
+	_saved_rot_y = rotation.y - main.xr_camera.global_rotation.y
+	_has_saved_offset = true
