@@ -459,10 +459,11 @@ func _build_welcome_screen(parent: Node):
 	connect_btn.text = "Connect"
 	screen.add_child(connect_btn)
 
-	var app_spacer = Control.new()
-	app_spacer.custom_minimum_size = Vector2(0, 16)
-	app_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(app_spacer)
+	var spacer1 = Control.new()
+	spacer1.name = "Spacer1"
+	spacer1.custom_minimum_size = Vector2(0, 20)
+	spacer1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(spacer1)
 
 	var app_btn = Button.new()
 	app_btn.name = "WelcomeAppBtn"
@@ -472,6 +473,12 @@ func _build_welcome_screen(parent: Node):
 	app_btn.text = "App: Desktop"
 	app_btn.visible = false
 	screen.add_child(app_btn)
+
+	var spacer2 = Control.new()
+	spacer2.name = "Spacer2"
+	spacer2.custom_minimum_size = Vector2(0, 20)
+	spacer2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(spacer2)
 
 	var change_btn = Button.new()
 	change_btn.name = "WelcomeChangeServer"
@@ -483,10 +490,10 @@ func _build_welcome_screen(parent: Node):
 	change_btn.visible = false
 	screen.add_child(change_btn)
 
-	var bottom_spacer = Control.new()
-	bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(bottom_spacer)
+	var spacer3 = Control.new()
+	spacer3.custom_minimum_size = Vector2(0, 20)
+	spacer3.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(spacer3)
 
 	var exit_btn = Button.new()
 	exit_btn.name = "WelcomeExit"
@@ -505,11 +512,6 @@ func _build_welcome_screen(parent: Node):
 			connect_btn.text = "Connecting..."
 			connect_btn.disabled = true
 			stream_manager.on_pair_pressed()
-			await get_tree().create_timer(1.0).timeout
-			if connect_btn:
-				connect_btn.disabled = false
-				if not is_streaming:
-					connect_btn.text = "Connect"
 	)
 	change_btn.pressed.connect(func(): _show_welcome_screen("server"))
 	app_btn.button_down.connect(func(): _cycle_app())
@@ -795,6 +797,8 @@ func _update_welcome_info():
 	var connect_btn = ws.get_node_or_null("WelcomeConnect")
 	var app_btn = ws.get_node_or_null("WelcomeAppBtn")
 	var change_btn = ws.get_node_or_null("WelcomeChangeServer")
+	var spacer1 = ws.get_node_or_null("Spacer1")
+	var spacer2 = ws.get_node_or_null("Spacer2")
 
 	var saved_ip = %IPInput.text
 	var has_saved = not saved_ip.is_empty()
@@ -810,7 +814,9 @@ func _update_welcome_info():
 				break
 
 	if has_saved:
-		if connect_btn: connect_btn.text = "Connect"
+		if connect_btn and connect_btn.text != "Connecting...":
+			connect_btn.text = "Connect"
+			connect_btn.disabled = false
 		if not host_name.is_empty():
 			if host_label: host_label.text = host_name
 			if ip_label: ip_label.text = saved_ip
@@ -819,6 +825,8 @@ func _update_welcome_info():
 			if ip_label: ip_label.text = ""
 		if app_btn: app_btn.visible = true
 		if change_btn: change_btn.visible = true
+		if spacer1: spacer1.visible = true
+		if spacer2: spacer2.visible = true
 		if current_host_id >= 0:
 			_query_app_list()
 		elif not _available_apps.is_empty():
@@ -829,12 +837,31 @@ func _update_welcome_info():
 		if ip_label: ip_label.text = ""
 		if app_btn: app_btn.visible = false
 		if change_btn: change_btn.visible = false
+		if spacer1: spacer1.visible = false
+		if spacer2: spacer2.visible = false
 	else:
 		if connect_btn: connect_btn.text = "Pair"
 		if host_label: host_label.text = ""
 		if ip_label: ip_label.text = ""
 		if app_btn: app_btn.visible = false
 		if change_btn: change_btn.visible = false
+		if spacer1: spacer1.visible = false
+		if spacer2: spacer2.visible = false
+
+func _reset_connect_button():
+	var root = welcome_viewport.get_node_or_null("WelcomeRoot")
+	if not root:
+		return
+	var screens = root.get_node_or_null("Screens")
+	if not screens:
+		return
+	var ws = screens.get_node_or_null("WelcomeScreen")
+	if not ws:
+		return
+	var connect_btn = ws.get_node_or_null("WelcomeConnect")
+	if connect_btn:
+		connect_btn.text = "Connect"
+		connect_btn.disabled = false
 
 func _populate_server_list():
 	var screens = welcome_viewport.get_node("WelcomeRoot/Screens")
@@ -1051,6 +1078,7 @@ func _ready():
 		is_streaming = true
 		_ui_status_label.text = "Connecting..."
 		_update_host_label()
+		_reset_connect_button()
 		if _ui_disconnect_btn: _ui_disconnect_btn.visible = true
 		_log("[STREAM] Connection started!")
 		stream_manager.bind_texture()
@@ -1076,6 +1104,7 @@ func _ready():
 			input_handler.release_stream_mouse()
 		audio_player.stop()
 		_set_ui_visible(false)
+		_reset_connect_button()
 		var starfield = get_node_or_null("Starfield")
 		if starfield and passthrough_mode == 2:
 			starfield.emitting = true
