@@ -212,7 +212,17 @@ func handle_grab():
 	var hand_delta = hand_pos - main.grab_start_hand_pos
 	var depth = hand_delta.dot(main.grab_forward) * main.grab_forward
 	var lateral = hand_delta - depth
-	main.grabbed_node.global_position = main.grab_start_node_pos + lateral * 4.0 + depth * 8.0
+	var yaw_offset = Vector3.ZERO
+	if main.is_xr_active and main.grab_start_hand_basis != Basis():
+		var hand_fwd = -active_raycast.global_transform.basis.z
+		var start_fwd = -main.grab_start_hand_basis.z
+		var hand_yaw = atan2(-hand_fwd.x, -hand_fwd.z)
+		var start_yaw = atan2(-start_fwd.x, -start_fwd.z)
+		var yaw_delta = hand_yaw - start_yaw
+		var grab_dist = (main.grab_start_node_pos - main.grab_start_hand_pos).length()
+		var yaw_right = active_raycast.global_transform.basis.x
+		yaw_offset = yaw_right * sin(yaw_delta) * grab_dist
+	main.grabbed_node.global_position = main.grab_start_node_pos + lateral * 4.0 + depth * 8.0 + yaw_offset
 	var cam_pos = main.xr_camera.global_position
 	main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
 
