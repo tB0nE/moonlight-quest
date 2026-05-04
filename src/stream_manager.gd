@@ -65,6 +65,9 @@ func _on_serverinfo_response(_result: int, code: int, _headers: PackedStringArra
 	var xml = body.get_string_from_utf8()
 	main._log("[RES] serverinfo full XML: %s" % xml)
 	var display_data = _extract_display_info(xml)
+	var hostname = _extract_hostname(xml)
+	if not hostname.is_empty():
+		main._last_hostname = hostname
 	if display_data != Vector2i.ZERO:
 		if main.resolution_idx == -1:
 			main.host_resolution = display_data
@@ -99,6 +102,17 @@ func _extract_display_info(xml: String) -> Vector2i:
 		display_idx += 1
 	return Vector2i.ZERO
 
+func _extract_hostname(xml: String) -> String:
+	var tag = "<hostname>"
+	var start = xml.find(tag)
+	if start == -1:
+		return ""
+	start += tag.length()
+	var end = xml.find("</hostname>", start)
+	if end == -1:
+		return ""
+	return xml.substr(start, end - start).strip_edges()
+
 func on_pair_pressed():
 	var ip = main.get_node("%IPInput").text
 	main.get_node("%Numpad").visible = false
@@ -116,7 +130,7 @@ func on_pair_pressed():
 	if paired_host_id != -1:
 		main.current_host_id = paired_host_id
 		main._ui_status_label.text = "Already paired, starting stream..."
-		await start_stream(paired_host_id, 881448767)
+		await start_stream(paired_host_id, main._selected_app_id)
 	else:
 		main._ui_status_label.text = "Pairing with " + ip + "..."
 		main._log("[PAIR] Starting pair with %s:47989..." % ip)
@@ -124,19 +138,14 @@ func on_pair_pressed():
 		main._log("[PAIR] start_pair returned: %s (type=%s)" % [str(pin), str(typeof(pin))])
 		if str(pin) == "" or str(pin) == "0":
 			main._ui_status_label.text = "Failed to connect to " + ip
-			main.get_node("%WelcomeConnect").text = "Connect"
-			main.get_node("%WelcomeConnect").disabled = false
 			main._log("[PAIR] FAILED - no pin returned")
 			return
-		main._ui_status_label.text = "PIN: " + str(pin) + "\nEnter on Sunshine host"
-		main.get_node("%WelcomeConnect").text = "Pairing..."
-		main.get_node("%WelcomeConnect").disabled = true
+		main._pair_pin = str(pin)
+		main._show_welcome_screen("pin")
 
 func on_pair_completed(success: bool, _msg: String):
 	main._log("[PAIR] pair_completed: success=%s msg=%s" % [str(success), str(_msg)])
 	main._ui_status_label.text = "Pair " + ("OK" if success else "FAILED: " + str(_msg))
-	main.get_node("%WelcomeConnect").text = "Connect"
-	main.get_node("%WelcomeConnect").disabled = false
 	if success:
 		main._ui_status_label.text = "Pairing successful, starting stream..."
 		main.config_mgr.load_config()
@@ -144,7 +153,7 @@ func on_pair_completed(success: bool, _msg: String):
 		for h in main.config_mgr.get_hosts():
 			if h.localaddress == ip:
 				main.current_host_id = h.id
-				await start_stream(h.id, 881448767)
+				await start_stream(h.id, main._selected_app_id)
 				break
 
 func setup_audio():
@@ -171,9 +180,8 @@ func update_stats():
 	var vw = main.moon.get_video_width()
 	var vh = main.moon.get_video_height()
 	var hw = "HW" if main.moon.is_hw_decode() else "SW"
-	var queue = main.moon.get_decode_queue_size()
-	var decoded = main.moon.get_frames_decoded()
-	var dropped = main.moon.get_frames_dropped()
 	var ip = main.get_node("%IPInput").text
 	var ip_display = ip if not ip.is_empty() else "?"
-	main._ui_status_label.text = "Connected to %s \u2022 %dx%d %s \u2022 %.0ffps \u2022 %dms q:%d drop:%d" % [ip_display, vw, vh, hw, main.stats_fps, queue, dropped]
+	var queue = main.moon.get_decode_queue_size()
+	var latency_ms = queue * 1000.0 / max(main.stream_fps, 1)
+	main._ui_status_label.text = "Connected to %s \u2022 %dx%d %s \u2022 %.0ffps \u2022 %.0fms" % [ip_display, vw, vh, hw, main.stats_fps, latency_ms]

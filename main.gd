@@ -21,6 +21,14 @@ extends Node3D
 @onready var world_env = $WorldEnvironment
 
 var current_host_id: int = -1
+var _last_hostname: String = ""
+var _selected_app_id: int = 881448767
+var _selected_app_idx: int = 0
+var _available_apps: Array = []
+var _welcome_screen: String = "welcome"
+var _pair_pin: String = ""
+var _connecting_ip: String = ""
+var _restarting_stream: bool = false
 var is_streaming: bool = false
 var stereo_mode: int = 0
 var is_xr_active: bool = false
@@ -76,6 +84,8 @@ var auto_detect: AutoDetect
 var depth_estimator: DepthEstimatorModule
 
 var _log_lines: PackedStringArray = []
+var _ui_viewport_size := Vector2i(450, 185)
+var _ui_mesh_size := Vector2(0.9, 0.37)
 var _ui_host_label: Label
 var _ui_status_label: Label
 var _ui_pt_btn: Button
@@ -85,6 +95,8 @@ var _ui_mode_btn: Button
 var _ui_res_btn: Button
 var _ui_fps_btn: Button
 var _ui_exit_btn: Button
+var _ui_disconnect_btn: Button
+var _ui_close_btn: Button
 
 var _btn_style: StyleBoxFlat
 var _btn_hover: StyleBoxFlat
@@ -99,7 +111,7 @@ func _log(msg: String):
 		f.close()
 
 func _build_ui():
-	ui_panel_3d.mesh.size = Vector2(1.6, 0.7)
+	ui_panel_3d.mesh.size = _ui_mesh_size
 	var root = %UIRoot
 	for child in root.get_children():
 		if child.name != "IPInput" and child.name != "Numpad":
@@ -107,113 +119,160 @@ func _build_ui():
 
 	_btn_style = StyleBoxFlat.new()
 	_btn_style.bg_color = Color(1, 1, 1, 0.06)
-	_btn_style.border_color = Color(1, 1, 1, 0.1)
-	_btn_style.set_border_width_all(1)
-	_btn_style.set_corner_radius_all(12)
-	_btn_style.set_content_margin_all(10)
+	_btn_style.set_corner_radius_all(10)
+	_btn_style.set_content_margin_all(8)
 
 	_btn_hover = StyleBoxFlat.new()
 	_btn_hover.bg_color = Color(1, 1, 1, 0.12)
-	_btn_hover.border_color = Color(1, 1, 1, 0.2)
-	_btn_hover.set_border_width_all(1)
-	_btn_hover.set_corner_radius_all(12)
-	_btn_hover.set_content_margin_all(10)
+	_btn_hover.set_corner_radius_all(10)
+	_btn_hover.set_content_margin_all(8)
 
 	var panel_bg = StyleBoxFlat.new()
 	panel_bg.bg_color = Color(0.06, 0.06, 0.1, 0.92)
-	panel_bg.set_corner_radius_all(24)
-	panel_bg.set_content_margin_all(0)
-	panel_bg.border_color = Color(1, 1, 1, 0.08)
-	panel_bg.set_border_width_all(1)
+	panel_bg.set_corner_radius_all(16)
 
 	var panel = PanelContainer.new()
 	panel.name = "Panel"
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.add_theme_stylebox_override("panel", panel_bg)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(panel)
 
 	var vbox = VBoxContainer.new()
 	vbox.name = "VBox"
 	vbox.add_theme_constant_override("separation", 0)
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(vbox)
 
 	var top_row = HBoxContainer.new()
 	top_row.name = "TopRow"
 	top_row.add_theme_constant_override("separation", 0)
+	top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(top_row)
 
-	var host_spacer = HBoxContainer.new()
-	host_spacer.name = "HostSpacer"
-	host_spacer.add_theme_constant_override("separation", 4)
-	var host_margin = HBoxContainer.new()
-	host_margin.add_theme_constant_override("separation", 0)
-	host_margin.custom_minimum_size = Vector2(14, 0)
-	host_spacer.add_child(host_margin)
 	_ui_host_label = Label.new()
 	_ui_host_label.name = "HostLabel"
-	_ui_host_label.add_theme_font_size_override("font_size", 14)
+	_ui_host_label.add_theme_font_size_override("font_size", 13)
 	_ui_host_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
-	_ui_host_label.custom_minimum_size = Vector2(0, 52)
+	_ui_host_label.custom_minimum_size = Vector2(0, 30)
 	_ui_host_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	host_spacer.add_child(_ui_host_label)
-	top_row.add_child(host_spacer)
+	_ui_host_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var center_spacer = Control.new()
-	center_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(center_spacer)
+	var host_pad = Control.new()
+	host_pad.custom_minimum_size = Vector2(12, 0)
+	host_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_row.add_child(host_pad)
+	top_row.add_child(_ui_host_label)
+
+	var left_spacer = Control.new()
+	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_row.add_child(left_spacer)
 
 	var brand = Label.new()
 	brand.name = "Brand"
 	brand.text = "Nightfall"
-	brand.add_theme_font_size_override("font_size", 16)
+	brand.add_theme_font_size_override("font_size", 15)
 	brand.add_theme_color_override("font_color", Color(1, 1, 1, 1))
 	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_row.add_child(brand)
 
 	var right_spacer = Control.new()
 	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_row.add_child(right_spacer)
 
 	_ui_exit_btn = Button.new()
-	_ui_exit_btn.name = "ExitBtn"
 	_ui_exit_btn.text = "Exit"
-	_ui_exit_btn.add_theme_font_size_override("font_size", 13)
+	_ui_exit_btn.focus_mode = Control.FOCUS_NONE
+	_ui_exit_btn.custom_minimum_size = Vector2(50, 18)
+	_ui_exit_btn.add_theme_font_size_override("font_size", 11)
 	_ui_exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 	_ui_exit_btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
 	var exit_style = _btn_style.duplicate()
-	exit_style.content_margin_left = 16
-	exit_style.content_margin_right = 16
-	exit_style.content_margin_top = 6
-	exit_style.content_margin_bottom = 6
+	exit_style.content_margin_left = 14
+	exit_style.content_margin_right = 14
+	exit_style.content_margin_top = 2
+	exit_style.content_margin_bottom = 2
+	exit_style.set_corner_radius_all(0)
+	exit_style.set_corner_radius(CORNER_BOTTOM_LEFT, 10)
 	var exit_hover = _btn_hover.duplicate()
-	exit_hover.content_margin_left = 16
-	exit_hover.content_margin_right = 16
-	exit_hover.content_margin_top = 6
-	exit_hover.content_margin_bottom = 6
-	exit_hover.bg_color = Color(0.86, 0.2, 0.2, 0.3)
-	exit_hover.border_color = Color(0.86, 0.2, 0.2, 0.5)
+	exit_hover.content_margin_left = 14
+	exit_hover.content_margin_right = 14
+	exit_hover.content_margin_top = 2
+	exit_hover.content_margin_bottom = 2
+	exit_hover.set_corner_radius_all(0)
+	exit_hover.set_corner_radius(CORNER_BOTTOM_LEFT, 10)
 	_ui_exit_btn.add_theme_stylebox_override("normal", exit_style)
 	_ui_exit_btn.add_theme_stylebox_override("hover", exit_hover)
 	_ui_exit_btn.add_theme_stylebox_override("pressed", exit_hover)
-	var exit_margin = MarginContainer.new()
-	exit_margin.add_theme_constant_override("margin_right", 8)
-	exit_margin.add_child(_ui_exit_btn)
-	top_row.add_child(exit_margin)
+	top_row.add_child(_ui_exit_btn)
+
+	_ui_disconnect_btn = Button.new()
+	_ui_disconnect_btn.text = "Disconnect"
+	_ui_disconnect_btn.focus_mode = Control.FOCUS_NONE
+	_ui_disconnect_btn.custom_minimum_size = Vector2(70, 18)
+	_ui_disconnect_btn.add_theme_font_size_override("font_size", 11)
+	_ui_disconnect_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+	_ui_disconnect_btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
+	var disc_style = _btn_style.duplicate()
+	disc_style.content_margin_left = 10
+	disc_style.content_margin_right = 10
+	disc_style.content_margin_top = 2
+	disc_style.content_margin_bottom = 2
+	disc_style.set_corner_radius_all(0)
+	var disc_hover = _btn_hover.duplicate()
+	disc_hover.content_margin_left = 10
+	disc_hover.content_margin_right = 10
+	disc_hover.content_margin_top = 2
+	disc_hover.content_margin_bottom = 2
+	disc_hover.set_corner_radius_all(0)
+	_ui_disconnect_btn.add_theme_stylebox_override("normal", disc_style)
+	_ui_disconnect_btn.add_theme_stylebox_override("hover", disc_hover)
+	_ui_disconnect_btn.add_theme_stylebox_override("pressed", disc_hover)
+	_ui_disconnect_btn.visible = false
+	top_row.add_child(_ui_disconnect_btn)
+
+	_ui_close_btn = Button.new()
+	_ui_close_btn.text = "\u2715"
+	_ui_close_btn.focus_mode = Control.FOCUS_NONE
+	_ui_close_btn.custom_minimum_size = Vector2(30, 18)
+	_ui_close_btn.add_theme_font_size_override("font_size", 11)
+	_ui_close_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+	_ui_close_btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
+	var close_style = _btn_style.duplicate()
+	close_style.content_margin_left = 10
+	close_style.content_margin_right = 10
+	close_style.content_margin_top = 2
+	close_style.content_margin_bottom = 2
+	close_style.set_corner_radius_all(0)
+	close_style.set_corner_radius(CORNER_TOP_RIGHT, 10)
+	var close_hover = _btn_hover.duplicate()
+	close_hover.content_margin_left = 10
+	close_hover.content_margin_right = 10
+	close_hover.content_margin_top = 2
+	close_hover.content_margin_bottom = 2
+	close_hover.bg_color = Color(0.86, 0.2, 0.2, 0.3)
+	close_hover.set_corner_radius_all(0)
+	close_hover.set_corner_radius(CORNER_TOP_RIGHT, 10)
+	_ui_close_btn.add_theme_stylebox_override("normal", close_style)
+	_ui_close_btn.add_theme_stylebox_override("hover", close_hover)
+	_ui_close_btn.add_theme_stylebox_override("pressed", close_hover)
+	top_row.add_child(_ui_close_btn)
+
+	var top_margin = Control.new()
+	top_margin.custom_minimum_size = Vector2(0, 12)
+	top_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(top_margin)
 
 	var center_row = HBoxContainer.new()
 	center_row.name = "CenterRow"
-	center_row.add_theme_constant_override("separation", 16)
+	center_row.add_theme_constant_override("separation", 12)
 	center_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var center_vpad = VBoxContainer.new()
-	center_vpad.add_theme_constant_override("separation", 0)
-	var cpad_top = Control.new()
-	cpad_top.custom_minimum_size = Vector2(0, 6)
-	center_vpad.add_child(cpad_top)
-	center_vpad.add_child(center_row)
-	var cpad_bot = Control.new()
-	cpad_bot.custom_minimum_size = Vector2(0, 6)
-	center_vpad.add_child(cpad_bot)
-	vbox.add_child(center_vpad)
+	center_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	center_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(center_row)
 
 	_ui_pt_btn = _make_option_btn("Passthrough", "On")
 	center_row.add_child(_ui_pt_btn)
@@ -223,13 +282,16 @@ func _build_ui():
 	center_row.add_child(_ui_bezel_btn)
 
 	var gap = Control.new()
-	gap.custom_minimum_size = Vector2(0, 8)
+	gap.custom_minimum_size = Vector2(0, 6)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(gap)
 
 	var bottom_row = HBoxContainer.new()
 	bottom_row.name = "BottomRow"
-	bottom_row.add_theme_constant_override("separation", 16)
+	bottom_row.add_theme_constant_override("separation", 12)
 	bottom_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	bottom_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bottom_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(bottom_row)
 
 	_ui_mode_btn = _make_option_btn("Mode", "2D")
@@ -242,14 +304,25 @@ func _build_ui():
 	_ui_status_label = Label.new()
 	_ui_status_label.name = "StatusLabel"
 	_ui_status_label.text = "Ready"
-	_ui_status_label.add_theme_font_size_override("font_size", 12)
+	_ui_status_label.add_theme_font_size_override("font_size", 11)
 	_ui_status_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.35))
 	_ui_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ui_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_ui_status_label.custom_minimum_size = Vector2(0, 40)
+	_ui_status_label.custom_minimum_size = Vector2(0, 28)
+	_ui_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(_ui_status_label)
 
-	_ui_exit_btn.pressed.connect(func(): get_tree().quit())
+	_ui_exit_btn.button_down.connect(func(): get_tree().quit())
+	_ui_disconnect_btn.button_down.connect(func():
+		moon.stop_play_stream()
+		is_streaming = false
+		_set_ui_visible(false)
+		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+		audio_player.stop()
+		_update_welcome_info()
+	)
+	_ui_close_btn.button_down.connect(func(): _set_ui_visible(false))
+	_ui_disconnect_btn.visible = is_streaming
 	_ui_pt_btn.button_down.connect(func(): _toggle_passthrough())
 	_ui_curve_btn.button_down.connect(func(): _cycle_curvature())
 	_ui_bezel_btn.button_down.connect(func(): _toggle_bezel())
@@ -257,50 +330,526 @@ func _build_ui():
 	_ui_res_btn.button_down.connect(func(): _cycle_resolution())
 	_ui_fps_btn.button_down.connect(func(): _cycle_fps())
 
+	_update_host_label()
+
 func _make_option_btn(label_text: String, value_text: String) -> Button:
 	var btn = Button.new()
 	btn.focus_mode = Control.FOCUS_NONE
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 2)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	var lbl = Label.new()
-	lbl.text = label_text
-	lbl.add_theme_font_size_override("font_size", 11)
-	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(lbl)
-	var val = Label.new()
-	val.text = value_text
-	val.add_theme_font_size_override("font_size", 14)
-	val.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(val)
-	btn.add_child(vbox)
-	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	btn.text = label_text + "\n" + value_text
+	btn.add_theme_font_size_override("font_size", 13)
+	btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
 	btn.add_theme_stylebox_override("normal", _btn_style)
 	btn.add_theme_stylebox_override("hover", _btn_hover)
 	var pressed_style = _btn_hover.duplicate()
 	pressed_style.bg_color = Color(1, 1, 1, 0.18)
 	btn.add_theme_stylebox_override("pressed", pressed_style)
-	btn.custom_minimum_size = Vector2(120, 52)
+	btn.custom_minimum_size = Vector2(100, 44)
 	return btn
 
 func _update_option_btn(btn: Button, value: String):
-	for child in btn.get_children():
-		if child is VBoxContainer:
-			var labels = child.get_children()
-			if labels.size() >= 2:
-				labels[1].text = value
+	var parts = btn.text.split("\n")
+	if parts.size() >= 2:
+		btn.text = parts[0] + "\n" + value
 
 func _update_host_label():
-	var ip = %IPInput.text
-	var host_name = ""
-	for h in config_mgr.get_hosts():
-		if h.has("localaddress") and h.localaddress == ip:
-			host_name = h.name if h.has("name") else ""
-			break
+	if not is_streaming:
+		if _ui_host_label:
+			_ui_host_label.text = "Not connected"
+		return
 	if _ui_host_label:
-		_ui_host_label.text = host_name if not host_name.is_empty() else ip
+		if not _last_hostname.is_empty():
+			_ui_host_label.text = _last_hostname
+		else:
+			var ip = %IPInput.text
+			var host_name = ""
+			for h in config_mgr.get_hosts():
+				if h.has("localaddress") and h.localaddress == ip:
+					var hname = h.get("hostname", "")
+					if hname != ip and not hname.is_empty():
+						host_name = hname
+					break
+			_ui_host_label.text = host_name if not host_name.is_empty() else ip
+
+func _build_welcome_ui():
+	var root = welcome_viewport.get_node("WelcomeRoot")
+	for child in root.get_children():
+		child.queue_free()
+
+	var bg = ColorRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.04, 0.04, 0.12, 1)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(bg)
+
+	var screens = Node.new()
+	screens.name = "Screens"
+	root.add_child(screens)
+
+	_build_welcome_screen(screens)
+	_build_server_screen(screens)
+	_build_ip_screen(screens)
+	_build_pin_screen(screens)
+
+	_show_welcome_screen("welcome")
+
+func _build_welcome_screen(parent: Node):
+	var screen = VBoxContainer.new()
+	screen.name = "WelcomeScreen"
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen.add_theme_constant_override("separation", 0)
+	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(screen)
+
+	var top_spacer = Control.new()
+	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(top_spacer)
+
+	var title = Label.new()
+	title.text = "Nightfall"
+	title.add_theme_font_size_override("font_size", 96)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(title)
+
+	var subtitle = Label.new()
+	subtitle.text = "Moonlight Streaming for Quest"
+	subtitle.add_theme_font_size_override("font_size", 32)
+	subtitle.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(subtitle)
+
+	var mid_spacer = Control.new()
+	mid_spacer.custom_minimum_size = Vector2(0, 80)
+	mid_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(mid_spacer)
+
+	var server_info = VBoxContainer.new()
+	server_info.add_theme_constant_override("separation", 8)
+	server_info.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	server_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(server_info)
+
+	var host_label = Label.new()
+	host_label.name = "WelcomeHostName"
+	host_label.add_theme_font_size_override("font_size", 40)
+	host_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	host_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	server_info.add_child(host_label)
+
+	var ip_label = Label.new()
+	ip_label.name = "WelcomeHostIP"
+	ip_label.add_theme_font_size_override("font_size", 24)
+	ip_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	ip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	server_info.add_child(ip_label)
+
+	var btn_spacer = Control.new()
+	btn_spacer.custom_minimum_size = Vector2(0, 30)
+	btn_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(btn_spacer)
+
+	var connect_btn = Button.new()
+	connect_btn.name = "WelcomeConnect"
+	connect_btn.custom_minimum_size = Vector2(400, 90)
+	connect_btn.add_theme_font_size_override("font_size", 36)
+	connect_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	screen.add_child(connect_btn)
+
+	var app_spacer = Control.new()
+	app_spacer.custom_minimum_size = Vector2(0, 16)
+	app_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(app_spacer)
+
+	var app_btn = Button.new()
+	app_btn.name = "WelcomeAppBtn"
+	app_btn.custom_minimum_size = Vector2(400, 70)
+	app_btn.add_theme_font_size_override("font_size", 28)
+	app_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	app_btn.visible = false
+	screen.add_child(app_btn)
+
+	var change_btn = Button.new()
+	change_btn.name = "WelcomeChangeServer"
+	change_btn.custom_minimum_size = Vector2(400, 70)
+	change_btn.add_theme_font_size_override("font_size", 28)
+	change_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
+	change_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	change_btn.visible = false
+	screen.add_child(change_btn)
+
+	var bottom_spacer = Control.new()
+	bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(bottom_spacer)
+
+	connect_btn.pressed.connect(func():
+		var btn_text = connect_btn.text
+		if btn_text == "Pair" or btn_text == "Select Server":
+			_show_welcome_screen("server")
+		else:
+			stream_manager.on_pair_pressed()
+	)
+	change_btn.pressed.connect(func(): _show_welcome_screen("server"))
+	app_btn.button_down.connect(func(): _cycle_app())
+
+func _build_server_screen(parent: Node):
+	var screen = VBoxContainer.new()
+	screen.name = "ServerScreen"
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen.add_theme_constant_override("separation", 0)
+	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.visible = false
+	parent.add_child(screen)
+
+	var top_spacer = Control.new()
+	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(top_spacer)
+
+	var heading = Label.new()
+	heading.text = "Select Server"
+	heading.add_theme_font_size_override("font_size", 48)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(heading)
+
+	var list_spacer = Control.new()
+	list_spacer.custom_minimum_size = Vector2(0, 40)
+	list_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(list_spacer)
+
+	var server_list = VBoxContainer.new()
+	server_list.name = "ServerList"
+	server_list.add_theme_constant_override("separation", 12)
+	server_list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	server_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(server_list)
+
+	var add_btn = Button.new()
+	add_btn.name = "AddServerBtn"
+	add_btn.custom_minimum_size = Vector2(400, 80)
+	add_btn.add_theme_font_size_override("font_size", 36)
+	add_btn.text = "+"
+	add_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	screen.add_child(add_btn)
+
+	var bottom_spacer = Control.new()
+	bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(bottom_spacer)
+
+	var back_btn = Button.new()
+	back_btn.custom_minimum_size = Vector2(300, 60)
+	back_btn.add_theme_font_size_override("font_size", 28)
+	back_btn.text = "Back"
+	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	screen.add_child(back_btn)
+
+	add_btn.pressed.connect(func(): _show_welcome_screen("ip"))
+	back_btn.pressed.connect(func(): _show_welcome_screen("welcome"))
+
+func _build_ip_screen(parent: Node):
+	var screen = VBoxContainer.new()
+	screen.name = "IPScreen"
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen.add_theme_constant_override("separation", 0)
+	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.visible = false
+	parent.add_child(screen)
+
+	var top_spacer = Control.new()
+	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(top_spacer)
+
+	var heading = Label.new()
+	heading.text = "Enter Server IP"
+	heading.add_theme_font_size_override("font_size", 48)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(heading)
+
+	var ip_spacer = Control.new()
+	ip_spacer.custom_minimum_size = Vector2(0, 40)
+	ip_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(ip_spacer)
+
+	var ip_center = HBoxContainer.new()
+	ip_center.alignment = BoxContainer.ALIGNMENT_CENTER
+	ip_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(ip_center)
+
+	var ip_input = LineEdit.new()
+	ip_input.name = "IPField"
+	ip_input.custom_minimum_size = Vector2(600, 80)
+	ip_input.add_theme_font_size_override("font_size", 36)
+	ip_input.placeholder_text = "e.g. 192.168.1.100"
+	ip_input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ip_center.add_child(ip_input)
+
+	var numpad_spacer = Control.new()
+	numpad_spacer.custom_minimum_size = Vector2(0, 30)
+	numpad_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(numpad_spacer)
+
+	var numpad_center = CenterContainer.new()
+	numpad_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(numpad_center)
+
+	var numpad = GridContainer.new()
+	numpad.name = "IPNumpad"
+	numpad.columns = 3
+	numpad.add_theme_constant_override("h_separation", 8)
+	numpad.add_theme_constant_override("v_separation", 8)
+	numpad_center.add_child(numpad)
+
+	var keys = ["7","8","9","4","5","6","1","2","3",".","0","DEL"]
+	for key in keys:
+		var btn = Button.new()
+		btn.text = key
+		btn.custom_minimum_size = Vector2(120, 80)
+		btn.add_theme_font_size_override("font_size", 36)
+		numpad.add_child(btn)
+		btn.pressed.connect(func():
+			var text = ip_input.text
+			if key == "DEL":
+				if text.length() > 0:
+					ip_input.text = text.substr(0, text.length() - 1)
+			elif text.length() < 15:
+				ip_input.text = text + key
+		)
+
+	var btn_spacer = Control.new()
+	btn_spacer.custom_minimum_size = Vector2(0, 30)
+	btn_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(btn_spacer)
+
+	var pair_btn = Button.new()
+	pair_btn.name = "PairBtn"
+	pair_btn.custom_minimum_size = Vector2(400, 90)
+	pair_btn.add_theme_font_size_override("font_size", 36)
+	pair_btn.text = "Pair"
+	pair_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	screen.add_child(pair_btn)
+
+	var bottom_spacer = Control.new()
+	bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(bottom_spacer)
+
+	var back_btn = Button.new()
+	back_btn.custom_minimum_size = Vector2(300, 60)
+	back_btn.add_theme_font_size_override("font_size", 28)
+	back_btn.text = "Back"
+	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	screen.add_child(back_btn)
+
+	pair_btn.pressed.connect(func():
+		var ip = ip_input.text
+		if ip.is_empty():
+			return
+		_connecting_ip = ip
+		%IPInput.text = ip
+		_start_pair(ip)
+	)
+	back_btn.pressed.connect(func(): _show_welcome_screen("server"))
+
+func _build_pin_screen(parent: Node):
+	var screen = VBoxContainer.new()
+	screen.name = "PINScreen"
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	screen.add_theme_constant_override("separation", 0)
+	screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.visible = false
+	parent.add_child(screen)
+
+	var top_spacer = Control.new()
+	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(top_spacer)
+
+	var heading = Label.new()
+	heading.text = "Enter PIN on Host"
+	heading.add_theme_font_size_override("font_size", 40)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(heading)
+
+	var pin_spacer = Control.new()
+	pin_spacer.custom_minimum_size = Vector2(0, 40)
+	pin_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(pin_spacer)
+
+	var pin_label = Label.new()
+	pin_label.name = "PINLabel"
+	pin_label.add_theme_font_size_override("font_size", 80)
+	pin_label.add_theme_color_override("font_color", Color(0.4, 0.7, 1, 1))
+	pin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pin_label.text = "----"
+	pin_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(pin_label)
+
+	var done_spacer = Control.new()
+	done_spacer.custom_minimum_size = Vector2(0, 60)
+	done_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(done_spacer)
+
+	var done_btn = Button.new()
+	done_btn.name = "DoneBtn"
+	done_btn.custom_minimum_size = Vector2(400, 90)
+	done_btn.add_theme_font_size_override("font_size", 36)
+	done_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	screen.add_child(done_btn)
+
+	var bottom_spacer = Control.new()
+	bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(bottom_spacer)
+
+	done_btn.pressed.connect(func(): _show_welcome_screen("welcome"))
+
+func _show_welcome_screen(name: String):
+	_welcome_screen = name
+	var root = welcome_viewport.get_node("WelcomeRoot/Screens")
+	for child in root.get_children():
+		child.visible = false
+	match name:
+		"welcome":
+			root.get_node("WelcomeScreen").visible = true
+			_update_welcome_info()
+		"server":
+			root.get_node("ServerScreen").visible = true
+			_populate_server_list()
+		"ip":
+			root.get_node("IPScreen").visible = true
+		"pin":
+			root.get_node("PINScreen").visible = true
+			var pin_label = root.get_node("PINScreen/PINLabel")
+			pin_label.text = _pair_pin if not _pair_pin.is_empty() else "----"
+
+func _update_welcome_info():
+	var root = welcome_viewport.get_node_or_null("WelcomeRoot")
+	if not root:
+		return
+	var screens = root.get_node_or_null("Screens")
+	if not screens:
+		return
+	var ws = screens.get_node_or_null("WelcomeScreen")
+	if not ws:
+		return
+	var host_label = ws.get_node_or_null("WelcomeHostName")
+	var ip_label = ws.get_node_or_null("WelcomeHostIP")
+	var connect_btn = ws.get_node_or_null("WelcomeConnect")
+	var app_btn = ws.get_node_or_null("WelcomeAppBtn")
+	var change_btn = ws.get_node_or_null("WelcomeChangeServer")
+
+	var saved_ip = %IPInput.text
+	var has_saved = not saved_ip.is_empty()
+	var has_hosts = config_mgr.get_hosts().size() > 0
+
+	var host_name = _last_hostname
+	if host_name.is_empty():
+		for h in config_mgr.get_hosts():
+			if h.has("localaddress") and h.localaddress == saved_ip:
+				var hname = h.get("hostname", "")
+				if hname != saved_ip and not hname.is_empty():
+					host_name = hname
+				break
+
+	if has_saved:
+		if connect_btn: connect_btn.text = "Connect"
+		if not host_name.is_empty():
+			if host_label: host_label.text = host_name
+			if ip_label: ip_label.text = saved_ip
+		else:
+			if host_label: host_label.text = saved_ip
+			if ip_label: ip_label.text = ""
+		if app_btn: app_btn.visible = true
+		if change_btn: change_btn.visible = true
+		_query_app_list()
+	elif has_hosts:
+		if connect_btn: connect_btn.text = "Select Server"
+		if host_label: host_label.text = ""
+		if ip_label: ip_label.text = ""
+		if app_btn: app_btn.visible = false
+		if change_btn: change_btn.visible = false
+	else:
+		if connect_btn: connect_btn.text = "Pair"
+		if host_label: host_label.text = ""
+		if ip_label: ip_label.text = ""
+		if app_btn: app_btn.visible = false
+		if change_btn: change_btn.visible = false
+
+func _populate_server_list():
+	var screens = welcome_viewport.get_node("WelcomeRoot/Screens")
+	var ss = screens.get_node("ServerScreen")
+	var server_list = ss.get_node("ServerList")
+	for child in server_list.get_children():
+		child.queue_free()
+
+	var hosts = config_mgr.get_hosts()
+	for h in hosts:
+		var ip = h.get("localaddress", "")
+		var hname = h.get("hostname", "")
+		if hname == ip:
+			hname = ""
+		var display = hname if not hname.is_empty() else ip
+		var btn = Button.new()
+		btn.custom_minimum_size = Vector2(400, 80)
+		btn.add_theme_font_size_override("font_size", 36)
+		btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		btn.text = display
+		server_list.add_child(btn)
+		btn.pressed.connect(func():
+			_connecting_ip = ip
+			%IPInput.text = ip
+			var paired = h.get("paired", false) if h.has("paired") else true
+			if not paired:
+				_start_pair(ip)
+			else:
+				_show_welcome_screen("welcome")
+		)
+
+func _start_pair(ip: String):
+	%IPInput.text = ip
+	_log("[PAIR] Starting pair with %s:47989..." % ip)
+	var pin = comp_mgr.start_pair(ip, 47989)
+	_log("[PAIR] start_pair returned: %s" % str(pin))
+	if str(pin) == "" or str(pin) == "0":
+		_log("[PAIR] FAILED - no pin returned")
+		return
+	_pair_pin = str(pin)
+	_show_welcome_screen("pin")
+
+func _cycle_app():
+	if _available_apps.is_empty():
+		return
+	_selected_app_idx = (_selected_app_idx + 1) % _available_apps.size()
+	_selected_app_id = _available_apps[_selected_app_idx].get("id", 881448767)
+	var app_name = _available_apps[_selected_app_idx].get("name", "Desktop")
+	var screens = welcome_viewport.get_node("WelcomeRoot/Screens")
+	var app_btn = screens.get_node("WelcomeScreen/WelcomeAppBtn")
+	app_btn.text = "App: %s" % app_name
+
+func _query_app_list():
+	if current_host_id < 0:
+		return
+	comp_mgr.get_app_list(current_host_id, func(success: bool):
+		if success:
+			_available_apps = config_mgr.get_apps(current_host_id)
+			if _available_apps.is_empty():
+				_available_apps = [{"name": "Desktop", "id": 881448767}]
+			_selected_app_idx = 0
+			_selected_app_id = _available_apps[0].get("id", 881448767)
+			var app_name = _available_apps[0].get("name", "Desktop")
+			var screens = welcome_viewport.get_node("WelcomeRoot/Screens")
+			if screens.has_node("WelcomeScreen/WelcomeAppBtn"):
+				screens.get_node("WelcomeScreen/WelcomeAppBtn").text = "App: %s" % app_name
+	)
 
 func _save_state():
 	var save = ConfigFile.new()
@@ -424,13 +973,8 @@ func _ready():
 	_load_controller_models()
 
 	_build_ui()
+	_build_welcome_ui()
 
-	%WelcomeConnect.pressed.connect(func():
-		%WelcomeConnect.text = "Connecting..."
-		%WelcomeConnect.disabled = true
-		stream_manager.on_pair_pressed()
-	)
-	%WelcomeOptions.pressed.connect(func(): _toggle_ui())
 	%IPInput.gui_input.connect(func(e): ui_controller.on_ipinput_gui_input(e))
 	ui_controller.setup_numpad()
 
@@ -446,33 +990,36 @@ func _ready():
 		is_streaming = true
 		_ui_status_label.text = "Connecting..."
 		_update_host_label()
+		if _ui_disconnect_btn: _ui_disconnect_btn.visible = true
 		_log("[STREAM] Connection started!")
 		stream_manager.bind_texture()
 		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
 		stream_manager.setup_audio()
 		ui_visible = false
-		ui_panel_3d.visible = false
+		_set_ui_visible(false)
 		var starfield = get_node_or_null("Starfield")
 		if starfield:
 			starfield.emitting = false
 			starfield.visible = false
 	)
 	moon.connection_terminated.connect(func(_err, msg):
+		if _restarting_stream:
+			_restarting_stream = false
+			return
 		is_streaming = false
 		_ui_status_label.text = "Disconnected: " + str(msg)
+		if _ui_disconnect_btn: _ui_disconnect_btn.visible = false
 		_log("[STREAM] Connection terminated: %s" % str(msg))
 		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
 		if mouse_captured_by_stream:
 			input_handler.release_stream_mouse()
 		audio_player.stop()
-		ui_visible = false
-		ui_panel_3d.visible = false
+		_set_ui_visible(false)
 		var starfield = get_node_or_null("Starfield")
 		if starfield and passthrough_mode == 2:
 			starfield.emitting = true
 			starfield.visible = true
-		%WelcomeConnect.text = "Connect"
-		%WelcomeConnect.disabled = false
+		_update_welcome_info()
 	)
 
 	var interface = XRServer.find_interface("OpenXR")
@@ -509,7 +1056,7 @@ func _ready():
 				_toggle_passthrough()
 
 		ui_visible = false
-		ui_panel_3d.visible = false
+		_set_ui_visible(false)
 	else:
 		is_xr_active = false
 		stereo_mode = 0
@@ -519,7 +1066,6 @@ func _ready():
 		var saved_ip = save.get_value("connection", "ip", "")
 		if saved_ip != "":
 			%IPInput.text = saved_ip
-			%WelcomeLastIP.text = "Last: %s" % saved_ip
 			_load_host_state(saved_ip)
 			_update_host_label()
 
@@ -599,7 +1145,13 @@ func _input(event):
 
 func _toggle_ui():
 	ui_visible = not ui_visible
-	ui_panel_3d.visible = ui_visible
+	_set_ui_visible(ui_visible)
+
+func _set_ui_visible(vis: bool):
+	ui_panel_3d.visible = vis
+	var area = ui_panel_3d.get_node_or_null("Area3D")
+	if area:
+		area.process_mode = Node.PROCESS_MODE_INHERIT if vis else Node.PROCESS_MODE_DISABLED
 
 func _toggle_passthrough():
 	if not is_xr_active:
@@ -638,9 +1190,10 @@ func _cycle_fps():
 	_save_state()
 	if is_streaming and current_host_id >= 0:
 		_log("[FPS] Restarting stream at %dHz" % stream_fps)
+		_restarting_stream = true
 		moon.stop_play_stream()
 		await get_tree().create_timer(0.5).timeout
-		stream_manager.start_stream(current_host_id, 881448767)
+		stream_manager.start_stream(current_host_id, _selected_app_id)
 
 func _cycle_resolution():
 	resolution_idx += 1
@@ -655,9 +1208,10 @@ func _cycle_resolution():
 	_save_state()
 	if is_streaming and current_host_id >= 0:
 		_log("[RES] Restarting stream at %dx%d" % [host_resolution.x, host_resolution.y])
+		_restarting_stream = true
 		moon.stop_play_stream()
 		await get_tree().create_timer(0.5).timeout
-		stream_manager.start_stream(current_host_id, 881448767)
+		stream_manager.start_stream(current_host_id, _selected_app_id)
 
 func _reposition_screen_and_ui():
 	if not is_xr_active:
@@ -732,11 +1286,11 @@ func update_corner_positions():
 		var chord_half = sin(half_angle) * radius
 		var extra = chord_half - mesh_size.x * 0.5
 		if curvature == 2:
-			extra += 0.06
+			extra += 0.12
 		else:
-			extra += 0.04
+			extra += 0.08
 		extra_out = extra
-		corner_z = -(cos(half_angle) * radius - radius)
+		corner_z = -(cos(half_angle) * radius - radius) - 0.02
 	var offsets = [
 		Vector2(-0.5, 0.5),
 		Vector2(0.5, 0.5),
@@ -752,7 +1306,7 @@ func update_corner_positions():
 			cx = sin(a) * radius
 			cx += -extra_out if offsets[i].x < 0 else extra_out
 		corner_handles[i].position = Vector3(cx, offsets[i].y * (mesh_size.y + 0.08), corner_z)
-	%ScreenGrabBar.position.y = -mesh_size.y / 2.0 - 0.05
+	%ScreenGrabBar.position.y = -mesh_size.y / 2.0 - 0.08
 
 func _create_bezel():
 	bezel_mesh = MeshInstance3D.new()
@@ -966,7 +1520,9 @@ func _create_starfield():
 	star_mesh.material.emission = Color.WHITE
 	star_mesh.material.emission_energy = 2.0
 	star_mesh.material.render_priority = -128
+	star_mesh.material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	star_mesh.material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	star_mesh.material.no_depth_test = true
 	particles.draw_pass_1 = star_mesh
 	particles.sorting_offset = -100.0
 	particles.position = xr_camera.global_position

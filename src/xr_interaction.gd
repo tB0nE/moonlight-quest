@@ -83,7 +83,11 @@ func handle_pointer_interaction():
 		if parent == main.ui_panel_3d:
 			var hit_pos = active_raycast.get_collision_point()
 			var local_pos = main.ui_panel_3d.to_local(hit_pos)
-			var pixel_pos = Vector2((local_pos.x + 0.5) * 800, (0.5 - local_pos.y) * 350)
+			var half_w = main._ui_mesh_size.x / 2.0
+			var half_h = main._ui_mesh_size.y / 2.0
+			var nx = (local_pos.x / half_w + 1.0) / 2.0
+			var ny = 1.0 - (local_pos.y / half_h + 1.0) / 2.0
+			var pixel_pos = Vector2(nx * main._ui_viewport_size.x, ny * main._ui_viewport_size.y)
 
 			var motion = InputEventMouseMotion.new()
 			motion.position = pixel_pos
