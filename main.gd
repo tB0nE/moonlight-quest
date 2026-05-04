@@ -19,7 +19,6 @@ extends Node3D
 @onready var left_hand = %LeftHand
 @onready var audio_player = %StreamAudioPlayer
 @onready var world_env = $WorldEnvironment
-var virtual_keyboard: VirtualKeyboard
 
 var current_host_id: int = -1
 var _last_hostname: String = ""
