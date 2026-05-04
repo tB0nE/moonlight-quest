@@ -24,7 +24,7 @@ var _KEY_ROWS = [
 	[{"k": KEY_TAB, "l": "Tab", "w": 1.5}, {"k": KEY_Q, "l": "Q"}, {"k": KEY_W, "l": "W"}, {"k": KEY_E, "l": "E"}, {"k": KEY_R, "l": "R"}, {"k": KEY_T, "l": "T"}, {"k": KEY_Y, "l": "Y"}, {"k": KEY_U, "l": "U"}, {"k": KEY_I, "l": "I"}, {"k": KEY_O, "l": "O"}, {"k": KEY_P, "l": "P"}, {"k": KEY_BRACKETLEFT, "l": "["}, {"k": KEY_BRACKETRIGHT, "l": "]"}, {"k": KEY_BACKSLASH, "l": "\\", "w": 1.5}],
 	[{"k": KEY_CAPSLOCK, "l": "Caps", "w": 1.75}, {"k": KEY_A, "l": "A"}, {"k": KEY_S, "l": "S"}, {"k": KEY_D, "l": "D"}, {"k": KEY_F, "l": "F"}, {"k": KEY_G, "l": "G"}, {"k": KEY_H, "l": "H"}, {"k": KEY_J, "l": "J"}, {"k": KEY_K, "l": "K"}, {"k": KEY_L, "l": "L"}, {"k": KEY_SEMICOLON, "l": ";"}, {"k": KEY_APOSTROPHE, "l": "'"}, {"k": KEY_ENTER, "l": "Enter", "w": 2.25}],
 	[{"k": KEY_SHIFT, "l": "Shift", "w": 2.25, "mod": "shift"}, {"k": KEY_Z, "l": "Z"}, {"k": KEY_X, "l": "X"}, {"k": KEY_C, "l": "C"}, {"k": KEY_V, "l": "V"}, {"k": KEY_B, "l": "B"}, {"k": KEY_N, "l": "N"}, {"k": KEY_M, "l": "M"}, {"k": KEY_COMMA, "l": ","}, {"k": KEY_PERIOD, "l": "."}, {"k": KEY_SLASH, "l": "/"}, {"k": KEY_SHIFT, "l": "Shift", "w": 2.75, "mod": "shift"}],
-	[{"k": KEY_CTRL, "l": "Ctrl", "w": 1.5, "mod": "ctrl"}, {"k": KEY_ALT, "l": "Alt", "w": 1.5, "mod": "alt"}, {"k": KEY_META, "l": "Super", "w": 1.5}, {"k": KEY_SPACE, "l": "Space", "w": 7.0}, {"k": KEY_ALT, "l": "Alt", "w": 1.5, "mod": "alt"}, {"k": KEY_CTRL, "l": "Ctrl", "w": 1.5, "mod": "ctrl"}, {"k": KEY_LEFT, "l": "←"}, {"k": KEY_UP, "l": "↑"}, {"k": KEY_DOWN, "l": "↓"}, {"k": KEY_RIGHT, "l": "→"}],
+	[{"k": KEY_CTRL, "l": "Ctrl", "w": 1.5, "mod": "ctrl"}, {"k": KEY_ALT, "l": "Alt", "w": 1.5, "mod": "alt"}, {"k": KEY_META, "l": "Super", "w": 1.5}, {"k": KEY_SPACE, "l": "Space", "w": 6.5}, {"k": KEY_ALT, "l": "Alt", "w": 1.5, "mod": "alt"}, {"k": KEY_CTRL, "l": "Ctrl", "w": 1.5, "mod": "ctrl"}],
 ]
 
 func _init(owner: Node3D):
@@ -64,7 +64,7 @@ func build():
 	area = Area3D.new()
 	area.name = "Area3D"
 	area.collision_layer = 2
-	add_child(area)
+	mesh_instance.add_child(area)
 	var shape = BoxShape3D.new()
 	shape.size = Vector3(mesh_size.x, mesh_size.y, 0.02)
 	collision_shape = CollisionShape3D.new()
@@ -85,7 +85,8 @@ func build():
 	bar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	bar_mat.albedo_color = Color(1, 1, 1, 0.01)
 	grab_bar.material_override = bar_mat
-	grab_bar.transform = Transform3D(Basis(Vector3.FORWARD, Vector3.UP, Vector3.RIGHT), Vector3(0.0, -mesh_size.y / 2.0 - 0.04, 0.0))
+	grab_bar.rotation_degrees = Vector3(0, 0, 90)
+	grab_bar.position = Vector3(0.0, -mesh_size.y / 2.0 - 0.04, 0.0)
 	grab_bar.visible = false
 	add_child(grab_bar)
 
