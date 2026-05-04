@@ -466,19 +466,6 @@ func _build_welcome_screen(parent: Node):
 	btn_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(btn_spacer)
 
-	var discover_list = VBoxContainer.new()
-	discover_list.name = "DiscoverList"
-	discover_list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	discover_list.add_theme_constant_override("separation", 8)
-	discover_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(discover_list)
-
-	var discover_spacer = Control.new()
-	discover_spacer.name = "DiscoverSpacer"
-	discover_spacer.custom_minimum_size = Vector2(0, 10)
-	discover_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(discover_spacer)
-
 	var connect_btn = Button.new()
 	connect_btn.name = "WelcomeConnect"
 	connect_btn.custom_minimum_size = Vector2(400, 90)
@@ -583,6 +570,22 @@ func _build_server_screen(parent: Node):
 	server_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(server_list)
 
+	var discover_list = VBoxContainer.new()
+	discover_list.name = "DiscoverList"
+	discover_list.add_theme_constant_override("separation", 8)
+	discover_list.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	discover_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(discover_list)
+
+	var scan_btn = Button.new()
+	scan_btn.name = "ScanBtn"
+	scan_btn.custom_minimum_size = Vector2(400, 70)
+	scan_btn.add_theme_font_size_override("font_size", 28)
+	scan_btn.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 1.0))
+	scan_btn.text = "Scan Network"
+	scan_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	screen.add_child(scan_btn)
+
 	var add_btn = Button.new()
 	add_btn.name = "AddServerBtn"
 	add_btn.custom_minimum_size = Vector2(400, 80)
@@ -612,6 +615,7 @@ func _build_server_screen(parent: Node):
 	screen.add_child(back_btn)
 
 	add_btn.pressed.connect(func(): _show_welcome_screen("ip"))
+	scan_btn.pressed.connect(func(): _browse_mdns())
 	back_btn.pressed.connect(func(): _show_welcome_screen("welcome"))
 	exit_btn.pressed.connect(func(): get_tree().quit())
 
@@ -804,8 +808,6 @@ func _show_welcome_screen(name: String):
 		"welcome":
 			root.get_node_or_null("WelcomeScreen").visible = true
 			_update_welcome_info()
-			if not _mdns_browsing:
-				_browse_mdns()
 		"server":
 			root.get_node_or_null("ServerScreen").visible = true
 			_populate_server_list()
@@ -909,28 +911,19 @@ func _browse_mdns():
 	if _mdns_browsing:
 		return
 	_mdns_browsing = true
-	var ws = welcome_viewport.get_node_or_null("WelcomeRoot/Screens/WelcomeScreen")
-	if not ws:
+	var ss = welcome_viewport.get_node_or_null("WelcomeRoot/Screens/ServerScreen")
+	if not ss:
 		_mdns_browsing = false
 		return
-	var discover_list = ws.get_node_or_null("DiscoverList")
-	var discover_spacer = ws.get_node_or_null("DiscoverSpacer")
+	var discover_list = ss.get_node_or_null("DiscoverList")
+	var scan_btn = ss.get_node_or_null("ScanBtn")
 	if discover_list:
 		for child in discover_list.get_children():
 			child.queue_free()
-	var scanning_label = Label.new()
-	scanning_label.name = "ScanningLabel"
-	scanning_label.text = "Scanning network..."
-	scanning_label.add_theme_font_size_override("font_size", 20)
-	scanning_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6, 1.0))
-	scanning_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	scanning_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if discover_list:
-		discover_list.add_child(scanning_label)
-		discover_spacer.visible = true
+	if scan_btn:
+		scan_btn.text = "Scanning..."
+		scan_btn.disabled = true
 	var hosts = await stream_manager.browse_mdns()
-	if scanning_label:
-		scanning_label.queue_free()
 	if discover_list:
 		for child in discover_list.get_children():
 			child.queue_free()
@@ -961,12 +954,16 @@ func _browse_mdns():
 				%IPInput.text = ip
 				_save_last_ip(ip)
 				_load_host_state(ip)
-				_update_welcome_info()
+				for h in config_mgr.get_hosts():
+					if h.has("localaddress") and h.localaddress == ip:
+						current_host_id = h.id
+						break
+				_show_welcome_screen("welcome")
 			)
 			discover_list.add_child(btn)
-		discover_spacer.visible = true
-	else:
-		discover_spacer.visible = false
+	if scan_btn:
+		scan_btn.text = "Scan Network"
+		scan_btn.disabled = false
 	_mdns_browsing = false
 
 func _populate_server_list():
