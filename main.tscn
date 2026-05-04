@@ -165,7 +165,7 @@ current = true
 
 [node name="RayCast3D" type="RayCast3D" parent="XROrigin3D/XRCamera3D" unique_id=1413782735]
 unique_name_in_owner = true
-target_position = Vector3(0, 0, -5)
+target_position = Vector3(0, 0, -10)
 collision_mask = 2
 collide_with_areas = true
 
@@ -179,7 +179,7 @@ tracker = &"right_hand"
 
 [node name="HandRayCast" type="RayCast3D" parent="XROrigin3D/RightHand" unique_id=2127667232]
 unique_name_in_owner = true
-target_position = Vector3(0, 0, -5)
+target_position = Vector3(0, 0, -10)
 collision_mask = 2
 collide_with_areas = true
 
