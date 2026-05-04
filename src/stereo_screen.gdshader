@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode unshaded;
 
-uniform sampler2D main_texture : source_color, filter_linear_mipmap, anisotropy_16x;
+uniform sampler2D main_texture : source_color, filter_linear_mipmap, repeat_disable;
 uniform sampler2D depth_texture : hint_default_white, filter_linear_mipmap;
 uniform int stereo_mode = 0;
 uniform float parallax_depth = 0.5;
