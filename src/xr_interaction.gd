@@ -58,13 +58,16 @@ func handle_pointer_interaction():
 	var laser = main.get_node("%Laser")
 	if active_raycast.is_colliding():
 		var hit_dist = (active_raycast.get_collision_point() - active_raycast.global_position).length()
-		laser.scale.y = hit_dist / 5.0
+		var sy = hit_dist / 5.0
+		laser.scale.y = sy
+		laser.position.z = -2.5 * sy
 		laser.visible = true
 		if main.contact_dot:
 			main.contact_dot.global_position = active_raycast.get_collision_point()
 			main.contact_dot.visible = true
 	else:
 		laser.scale.y = 1.0
+		laser.position.z = -2.5
 		laser.visible = main.is_xr_active
 		if main.contact_dot:
 			main.contact_dot.visible = false
