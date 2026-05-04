@@ -1271,6 +1271,16 @@ func _set_ui_visible(vis: bool):
 	var area = ui_panel_3d.get_node_or_null("Area3D")
 	if area:
 		area.process_mode = Node.PROCESS_MODE_INHERIT if vis else Node.PROCESS_MODE_DISABLED
+	if vis and is_xr_active:
+		var cam_pos = xr_camera.global_position
+		var cam_fwd = -xr_camera.global_transform.basis.z
+		var cam_right = xr_camera.global_transform.basis.x
+		var ui_dir = (cam_fwd - cam_right).normalized()
+		ui_panel_3d.global_position = cam_pos + ui_dir * 1.8
+		ui_panel_3d.global_position.y -= 0.4
+		var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
+		ui_panel_3d.rotation = Vector3.ZERO
+		ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
 
 func _toggle_passthrough():
 	if not is_xr_active:
