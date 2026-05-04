@@ -1209,7 +1209,7 @@ func _process(delta):
 		if b_pressed and not _was_b_pressed:
 			_toggle_ui()
 		_was_b_pressed = b_pressed
-		var a_pressed = right_hand.is_button_pressed("a_button")
+		var a_pressed = right_hand.is_button_pressed("ax_button")
 		if a_pressed and not _was_a_pressed:
 			virtual_keyboard.toggle()
 		_was_a_pressed = a_pressed
