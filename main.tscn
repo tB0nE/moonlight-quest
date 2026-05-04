@@ -68,6 +68,8 @@ unique_name_in_owner = true
 disable_3d = true
 size = Vector2i(3840, 2160)
 render_target_update_mode = 4
+render_target_clear_mode = 1
+render_target_mipmaps = true
 
 [node name="StreamTarget" type="TextureRect" parent="StreamViewport" unique_id=1080549366]
 unique_name_in_owner = true
