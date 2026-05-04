@@ -187,6 +187,8 @@ func update_stats():
 	if main.moon.has_method("get_last_frame_latency"):
 		var latency_us = main.moon.get_last_frame_latency()
 		latency_ms = latency_us / 1000.0
+		if Engine.get_frames_drawn() % 60 == 0:
+			main._log("[LATENCY] latency_us=%d ms=%.1f" % [latency_us, latency_ms])
 	main._ui_status_label.text = "%s \u2022 %dx%d %s \u2022 %.0ffps \u2022 %.0fms" % [ip_display, vw, vh, hw, main.stats_fps, latency_ms]
 	if dropped > 0:
 		main._ui_status_label.text += " \u2022 drop:%d" % dropped
