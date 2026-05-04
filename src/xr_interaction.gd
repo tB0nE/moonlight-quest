@@ -42,12 +42,16 @@ func handle_pointer_interaction():
 
 	main.get_node("%ScreenGrabBar").visible = true
 	main.get_node("%MenuGrabBar").visible = true
+	if main.virtual_keyboard:
+		main.virtual_keyboard.grab_bar.visible = main.virtual_keyboard.visible
 	for ch in main.corner_handles:
 		ch.visible = true
 
 	if not main.grabbed_node and main.grabbed_corner_idx < 0:
 		_set_grab_bar_color(main.get_node("%ScreenGrabBar"), Color.WHITE, 0.01)
 		_set_grab_bar_color(main.get_node("%MenuGrabBar"), Color.WHITE, 0.01)
+		if main.virtual_keyboard and main.virtual_keyboard.visible:
+			_set_grab_bar_color(main.virtual_keyboard.grab_bar, Color.WHITE, 0.01)
 		for ch in main.corner_handles:
 			_set_corner_color(ch, Color.WHITE, 0.0)
 	elif main.grabbed_node and main.grabbed_bar:
@@ -73,6 +77,8 @@ func handle_pointer_interaction():
 			_set_grab_bar_color(parent, Color.WHITE, 0.1)
 		if parent == main.get_node("%MenuGrabBar") and parent != main.grabbed_bar:
 			_set_grab_bar_color(parent, Color.WHITE, 0.1)
+		if main.virtual_keyboard and main.virtual_keyboard.grab_bar and parent == main.virtual_keyboard.grab_bar and parent != main.grabbed_bar:
+			_set_grab_bar_color(parent, Color.WHITE, 0.1)
 
 		var is_now_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 
@@ -96,6 +102,21 @@ func handle_pointer_interaction():
 				main.was_clicking = true
 			elif not is_now_clicking and main.was_clicking:
 				_push_ui_click(pixel_pos, false)
+				main.was_clicking = false
+			return
+
+		if main.virtual_keyboard and main.virtual_keyboard.visible and parent == main.virtual_keyboard.mesh_instance:
+			var hit_pos = active_raycast.get_collision_point()
+			var local_pos = main.virtual_keyboard.mesh_instance.to_local(hit_pos)
+			var half_w = main.virtual_keyboard.mesh_size.x / 2.0
+			var half_h = main.virtual_keyboard.mesh_size.y / 2.0
+			var nx = (local_pos.x / half_w + 1.0) / 2.0
+			var ny = 1.0 - (local_pos.y / half_h + 1.0) / 2.0
+			var pixel_pos = Vector2(nx * main.virtual_keyboard.viewport_size.x, ny * main.virtual_keyboard.viewport_size.y)
+			main.virtual_keyboard.handle_pointer(pixel_pos, is_now_clicking, main.was_clicking)
+			if is_now_clicking:
+				main.was_clicking = true
+			else:
 				main.was_clicking = false
 			return
 
@@ -183,7 +204,7 @@ func handle_pointer_interaction():
 				_set_corner_color(parent, Color.WHITE, 0.1)
 			return
 
-		elif parent == main.get_node("%ScreenGrabBar") or parent == main.get_node("%MenuGrabBar"):
+		elif parent == main.get_node("%ScreenGrabBar") or parent == main.get_node("%MenuGrabBar") or (main.virtual_keyboard and parent == main.virtual_keyboard.grab_bar):
 			if is_now_clicking and not main.grabbed_node and main.grabbed_corner_idx < 0:
 				main.grabbed_node = parent.get_parent()
 				main.grabbed_bar = parent

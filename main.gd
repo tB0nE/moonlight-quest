@@ -19,6 +19,7 @@ extends Node3D
 @onready var left_hand = %LeftHand
 @onready var audio_player = %StreamAudioPlayer
 @onready var world_env = $WorldEnvironment
+var virtual_keyboard: VirtualKeyboard
 
 var current_host_id: int = -1
 var _last_hostname: String = ""
@@ -36,6 +37,7 @@ var was_clicking: bool = false
 var was_right_clicking: bool = false
 var right_click_cooldown: float = 0.0
 var _was_b_pressed: bool = false
+var _was_a_pressed: bool = false
 var _startup_reposition: bool = true
 var mouse_captured_by_stream: bool = false
 var suppress_input_frames: int = 0
@@ -82,6 +84,7 @@ var input_handler: InputHandler
 var ui_controller: UIController
 var auto_detect: AutoDetect
 var depth_estimator: DepthEstimatorModule
+var virtual_keyboard: VirtualKeyboard
 
 var _log_lines: PackedStringArray = []
 var _ui_viewport_size := Vector2i(450, 185)
@@ -1066,6 +1069,10 @@ func _ready():
 	depth_estimator = DepthEstimatorModule.new(self)
 	depth_estimator.setup()
 
+	virtual_keyboard = VirtualKeyboard.new(self)
+	add_child(virtual_keyboard)
+	virtual_keyboard.build()
+
 	%ScreenGrabBar.material_override = %ScreenGrabBar.material_override.duplicate()
 	%MenuGrabBar.material_override = %MenuGrabBar.material_override.duplicate()
 	_mesh_size = screen_mesh.mesh.size
@@ -1203,6 +1210,10 @@ func _process(delta):
 		if b_pressed and not _was_b_pressed:
 			_toggle_ui()
 		_was_b_pressed = b_pressed
+		var a_pressed = right_hand.is_button_pressed("a_button")
+		if a_pressed and not _was_a_pressed:
+			virtual_keyboard.toggle()
+		_was_a_pressed = a_pressed
 		if _startup_reposition:
 			if xr_camera.global_position.length_squared() > 0.01:
 				_reposition_screen_and_ui()
