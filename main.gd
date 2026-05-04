@@ -456,6 +456,7 @@ func _build_welcome_screen(parent: Node):
 	connect_btn.custom_minimum_size = Vector2(400, 90)
 	connect_btn.add_theme_font_size_override("font_size", 36)
 	connect_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	connect_btn.text = "Connect"
 	screen.add_child(connect_btn)
 
 	var app_spacer = Control.new()
@@ -468,6 +469,7 @@ func _build_welcome_screen(parent: Node):
 	app_btn.custom_minimum_size = Vector2(400, 70)
 	app_btn.add_theme_font_size_override("font_size", 28)
 	app_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	app_btn.text = "App: Desktop"
 	app_btn.visible = false
 	screen.add_child(app_btn)
 
@@ -477,6 +479,7 @@ func _build_welcome_screen(parent: Node):
 	change_btn.add_theme_font_size_override("font_size", 28)
 	change_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
 	change_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	change_btn.text = "Select Server"
 	change_btn.visible = false
 	screen.add_child(change_btn)
 
@@ -485,15 +488,32 @@ func _build_welcome_screen(parent: Node):
 	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_spacer)
 
+	var exit_btn = Button.new()
+	exit_btn.name = "WelcomeExit"
+	exit_btn.custom_minimum_size = Vector2(400, 70)
+	exit_btn.add_theme_font_size_override("font_size", 28)
+	exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	exit_btn.text = "Exit"
+	screen.add_child(exit_btn)
+
 	connect_btn.pressed.connect(func():
 		var btn_text = connect_btn.text
 		if btn_text == "Pair" or btn_text == "Select Server":
 			_show_welcome_screen("server")
 		else:
+			connect_btn.text = "Connecting..."
+			connect_btn.disabled = true
 			stream_manager.on_pair_pressed()
+			await get_tree().create_timer(1.0).timeout
+			if connect_btn:
+				connect_btn.disabled = false
+				if not is_streaming:
+					connect_btn.text = "Connect"
 	)
 	change_btn.pressed.connect(func(): _show_welcome_screen("server"))
 	app_btn.button_down.connect(func(): _cycle_app())
+	exit_btn.pressed.connect(func(): get_tree().quit())
 
 func _build_server_screen(parent: Node):
 	var screen = VBoxContainer.new()
@@ -541,6 +561,14 @@ func _build_server_screen(parent: Node):
 	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_spacer)
 
+	var exit_btn = Button.new()
+	exit_btn.custom_minimum_size = Vector2(300, 60)
+	exit_btn.add_theme_font_size_override("font_size", 28)
+	exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	exit_btn.text = "Exit"
+	screen.add_child(exit_btn)
+
 	var back_btn = Button.new()
 	back_btn.custom_minimum_size = Vector2(300, 60)
 	back_btn.add_theme_font_size_override("font_size", 28)
@@ -550,6 +578,7 @@ func _build_server_screen(parent: Node):
 
 	add_btn.pressed.connect(func(): _show_welcome_screen("ip"))
 	back_btn.pressed.connect(func(): _show_welcome_screen("welcome"))
+	exit_btn.pressed.connect(func(): get_tree().quit())
 
 func _build_ip_screen(parent: Node):
 	var screen = VBoxContainer.new()
@@ -640,6 +669,14 @@ func _build_ip_screen(parent: Node):
 	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_spacer)
 
+	var exit_btn = Button.new()
+	exit_btn.custom_minimum_size = Vector2(300, 60)
+	exit_btn.add_theme_font_size_override("font_size", 28)
+	exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	exit_btn.text = "Exit"
+	screen.add_child(exit_btn)
+
 	var back_btn = Button.new()
 	back_btn.custom_minimum_size = Vector2(300, 60)
 	back_btn.add_theme_font_size_override("font_size", 28)
@@ -656,6 +693,7 @@ func _build_ip_screen(parent: Node):
 		_start_pair(ip)
 	)
 	back_btn.pressed.connect(func(): _show_welcome_screen("server"))
+	exit_btn.pressed.connect(func(): get_tree().quit())
 
 func _build_pin_screen(parent: Node):
 	var screen = VBoxContainer.new()
@@ -709,7 +747,16 @@ func _build_pin_screen(parent: Node):
 	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_spacer)
 
+	var exit_btn = Button.new()
+	exit_btn.custom_minimum_size = Vector2(300, 60)
+	exit_btn.add_theme_font_size_override("font_size", 28)
+	exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
+	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	exit_btn.text = "Exit"
+	screen.add_child(exit_btn)
+
 	done_btn.pressed.connect(func(): _show_welcome_screen("welcome"))
+	exit_btn.pressed.connect(func(): get_tree().quit())
 
 func _show_welcome_screen(name: String):
 	_welcome_screen = name
@@ -772,7 +819,10 @@ func _update_welcome_info():
 			if ip_label: ip_label.text = ""
 		if app_btn: app_btn.visible = true
 		if change_btn: change_btn.visible = true
-		_query_app_list()
+		if current_host_id >= 0:
+			_query_app_list()
+		elif not _available_apps.is_empty():
+			if app_btn: app_btn.text = "App: %s" % _available_apps[_selected_app_idx].get("name", "Desktop")
 	elif has_hosts:
 		if connect_btn: connect_btn.text = "Select Server"
 		if host_label: host_label.text = ""
@@ -851,9 +901,12 @@ func _query_app_list():
 			_selected_app_idx = 0
 			_selected_app_id = _available_apps[0].get("id", 881448767)
 			var app_name = _available_apps[0].get("name", "Desktop")
-			var screens = welcome_viewport.get_node("WelcomeRoot/Screens")
-			if screens.has_node("WelcomeScreen/WelcomeAppBtn"):
-				screens.get_node("WelcomeScreen/WelcomeAppBtn").text = "App: %s" % app_name
+			var screens = welcome_viewport.get_node_or_null("WelcomeRoot/Screens")
+			if screens:
+				var app_btn = screens.get_node_or_null("WelcomeScreen/WelcomeAppBtn")
+				if app_btn:
+					app_btn.text = "App: %s" % app_name
+					app_btn.visible = true
 	)
 
 func _save_state():
@@ -931,11 +984,9 @@ func _load_state():
 		if _mesh_size.x > 0.1 and _mesh_size.y > 0.1:
 			if curvature == 0:
 				screen_mesh.mesh.size = _mesh_size
+				_set_screen_collision_flat(_mesh_size)
 			else:
 				_apply_curvature()
-			var col_shape = screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
-			if col_shape:
-				col_shape.shape.size = Vector3(_mesh_size.x, _mesh_size.y, 0.01)
 			update_corner_positions()
 	if bezel_mesh:
 		bezel_mesh.visible = bezel_enabled
@@ -1077,7 +1128,12 @@ func _ready():
 		if saved_ip != "":
 			%IPInput.text = saved_ip
 			_load_host_state(saved_ip)
+			for h in config_mgr.get_hosts():
+				if h.has("localaddress") and h.localaddress == saved_ip:
+					current_host_id = h.id
+					break
 			_update_host_label()
+			_update_welcome_info()
 
 	stream_manager.bind_texture()
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
@@ -1400,6 +1456,7 @@ func _apply_curvature():
 		quad.size = mesh_size
 		screen_mesh.mesh = quad
 		_update_shader_for_mesh(mesh_size)
+		_set_screen_collision_flat(mesh_size)
 		return
 	var subdivide = 32
 	var v_subdivide = 16
@@ -1437,14 +1494,34 @@ func _apply_curvature():
 	arr_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	screen_mesh.mesh = arr_mesh
 	_update_shader_for_mesh(mesh_size)
+	_set_screen_collision_curved(verts, indices)
 
 func _update_shader_for_mesh(mesh_size: Vector2):
-	var col_shape = screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
-	if col_shape:
-		col_shape.shape.size = Vector3(mesh_size.x, mesh_size.y, 0.01)
+	_set_screen_collision_flat(mesh_size)
 	update_corner_positions()
 	if bezel_mesh:
 		_update_bezel_size()
+
+func _set_screen_collision_flat(mesh_size: Vector2):
+	var col_shape = screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
+	if not col_shape:
+		return
+	var box = BoxShape3D.new()
+	box.size = Vector3(mesh_size.x, mesh_size.y, 0.01)
+	col_shape.shape = box
+
+func _set_screen_collision_curved(verts: PackedVector3Array, indices: PackedInt32Array):
+	var col_shape = screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
+	if not col_shape:
+		return
+	var faces = PackedVector3Array()
+	for i in range(0, indices.size(), 3):
+		faces.append(verts[indices[i]])
+		faces.append(verts[indices[i + 1]])
+		faces.append(verts[indices[i + 2]])
+	var concave = ConcavePolygonShape3D.new()
+	concave.set_faces(faces)
+	col_shape.shape = concave
 
 func _load_controller_models():
 	var left_scene = load("res://models/controllers/MetaQuestTouchPlus_Left.fbx")

@@ -284,7 +284,24 @@ func handle_corner_resize():
 
 	var col_shape = main.screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
 	if col_shape:
-		col_shape.shape.size = Vector3(new_w, new_h, 0.01)
+		if main.curvature == 0:
+			var box = BoxShape3D.new()
+			box.size = Vector3(new_w, new_h, 0.01)
+			col_shape.shape = box
+		else:
+			var mesh = main.screen_mesh.mesh
+			if mesh is ArrayMesh and mesh.get_surface_count() > 0:
+				var arrays = mesh.surface_get_arrays(0)
+				var verts = arrays[Mesh.ARRAY_VERTEX]
+				var indices = arrays[Mesh.ARRAY_INDEX]
+				var faces = PackedVector3Array()
+				for i in range(0, indices.size(), 3):
+					faces.append(verts[indices[i]])
+					faces.append(verts[indices[i + 1]])
+					faces.append(verts[indices[i + 2]])
+				var concave = ConcavePolygonShape3D.new()
+				concave.set_faces(faces)
+				col_shape.shape = concave
 
 	main.update_corner_positions()
 	main._update_bezel_size()
