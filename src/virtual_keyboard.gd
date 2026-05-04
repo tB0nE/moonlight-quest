@@ -85,7 +85,7 @@ func build():
 	bar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	bar_mat.albedo_color = Color(1, 1, 1, 0.01)
 	grab_bar.material_override = bar_mat
-	grab_bar.transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, -mesh_size.y / 2.0 - 0.04, 0)
+	grab_bar.transform = Transform3D(-4.37114e-08, 1.0, 0.0, -1.0, -4.37114e-08, 0.0, 0.0, 0.0, 1.0, 0.0, -mesh_size.y / 2.0 - 0.04, 0.0)
 	grab_bar.visible = false
 	add_child(grab_bar)
 
