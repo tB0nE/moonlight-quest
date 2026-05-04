@@ -45,7 +45,6 @@ var detection_history: Array = []
 var mouse_sensitivity: float = 0.002
 var grabbed_node: Node3D = null
 var grab_distance: float = 0.0
-var grab_depth: float = 0.0
 var grab_offset: Vector3 = Vector3.ZERO
 var grabbed_bar: MeshInstance3D = null
 var grab_start_hand_pos: Vector3 = Vector3.ZERO
@@ -719,17 +718,20 @@ func _show_welcome_screen(name: String):
 		child.visible = false
 	match name:
 		"welcome":
-			root.get_node("WelcomeScreen").visible = true
+			root.get_node_or_null("WelcomeScreen").visible = true
 			_update_welcome_info()
 		"server":
-			root.get_node("ServerScreen").visible = true
+			root.get_node_or_null("ServerScreen").visible = true
 			_populate_server_list()
 		"ip":
-			root.get_node("IPScreen").visible = true
+			root.get_node_or_null("IPScreen").visible = true
 		"pin":
-			root.get_node("PINScreen").visible = true
-			var pin_label = root.get_node("PINScreen/PINLabel")
-			pin_label.text = _pair_pin if not _pair_pin.is_empty() else "----"
+			var pin_screen = root.get_node_or_null("PINScreen")
+			if pin_screen:
+				pin_screen.visible = true
+			var pin_label = root.get_node_or_null("PINScreen/PINLabel")
+			if pin_label:
+				pin_label.text = _pair_pin if not _pair_pin.is_empty() else "----"
 
 func _update_welcome_info():
 	var root = welcome_viewport.get_node_or_null("WelcomeRoot")
@@ -831,9 +833,12 @@ func _cycle_app():
 	_selected_app_idx = (_selected_app_idx + 1) % _available_apps.size()
 	_selected_app_id = _available_apps[_selected_app_idx].get("id", 881448767)
 	var app_name = _available_apps[_selected_app_idx].get("name", "Desktop")
-	var screens = welcome_viewport.get_node("WelcomeRoot/Screens")
-	var app_btn = screens.get_node("WelcomeScreen/WelcomeAppBtn")
-	app_btn.text = "App: %s" % app_name
+	var screens = welcome_viewport.get_node_or_null("WelcomeRoot/Screens")
+	if not screens:
+		return
+	var app_btn = screens.get_node_or_null("WelcomeScreen/WelcomeAppBtn")
+	if app_btn:
+		app_btn.text = "App: %s" % app_name
 
 func _query_app_list():
 	if current_host_id < 0:
@@ -893,12 +898,17 @@ func _load_host_state(ip: String):
 		return
 	stream_fps = save.get_value(ip, "fps", 60)
 	resolution_idx = save.get_value(ip, "resolution_idx", -1)
-	stereo_mode = save.get_value(ip, "stereo_mode", 0)
+	stereo_mode = clampi(save.get_value(ip, "stereo_mode", 0), 0, 3)
 	screen_mesh.material_override.set_shader_parameter("stereo_mode", stereo_mode)
 	var mode_names = ["2D", "SBS Stretch", "SBS Crop", "AI 3D"]
 	_update_option_btn(_ui_mode_btn, mode_names[stereo_mode])
 	_update_option_btn(_ui_fps_btn, "%dHz" % stream_fps)
-	_update_option_btn(_ui_res_btn, resolution_labels[resolution_idx])
+	if resolution_idx == -1:
+		_update_option_btn(_ui_res_btn, "Auto")
+	else:
+		resolution_idx = clampi(resolution_idx, 0, resolutions.size() - 1)
+		host_resolution = resolutions[resolution_idx]
+		_update_option_btn(_ui_res_btn, resolution_labels[resolution_idx])
 	if depth_estimator:
 		depth_estimator.set_enabled(stereo_mode == 3)
 
@@ -930,8 +940,8 @@ func _load_state():
 	if bezel_mesh:
 		bezel_mesh.visible = bezel_enabled
 	_update_option_btn(_ui_bezel_btn, "On" if bezel_enabled else "Off")
-	_update_option_btn(_ui_curve_btn, curvature_labels[curvature])
-	_update_option_btn(_ui_pt_btn, passthrough_labels[passthrough_mode])
+	_update_option_btn(_ui_curve_btn, curvature_labels[clampi(curvature, 0, curvature_labels.size() - 1)])
+	_update_option_btn(_ui_pt_btn, passthrough_labels[clampi(passthrough_mode, 0, passthrough_labels.size() - 1)])
 	_update_bezel_size()
 	if save.has_section_key("ui", "offset_x") and is_xr_active and xr_camera:
 		ui_panel_3d.global_position = xr_camera.global_position + Vector3(
@@ -1429,7 +1439,7 @@ func _apply_curvature():
 	_update_shader_for_mesh(mesh_size)
 
 func _update_shader_for_mesh(mesh_size: Vector2):
-	var col_shape = screen_mesh.get_node("Area3D/CollisionShape3D")
+	var col_shape = screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
 	if col_shape:
 		col_shape.shape.size = Vector3(mesh_size.x, mesh_size.y, 0.01)
 	update_corner_positions()

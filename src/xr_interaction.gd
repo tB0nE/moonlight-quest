@@ -279,7 +279,7 @@ func handle_corner_resize():
 	else:
 		main._apply_curvature()
 
-	var col_shape = main.screen_mesh.get_node("Area3D/CollisionShape3D")
+	var col_shape = main.screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
 	if col_shape:
 		col_shape.shape.size = Vector3(new_w, new_h, 0.01)
 
