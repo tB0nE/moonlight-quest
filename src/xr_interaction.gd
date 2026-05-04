@@ -221,7 +221,7 @@ func handle_grab():
 		var hand_pitch = atan2(-hand_fwd.y, Vector2(hand_fwd.x, hand_fwd.z).length())
 		var start_fwd = -main.grab_start_hand_basis.z
 		var start_pitch = atan2(-start_fwd.y, Vector2(start_fwd.x, start_fwd.z).length())
-		var pitch_delta = hand_pitch - start_pitch
+		var pitch_delta = start_pitch - hand_pitch
 		var euler = main.grabbed_node.rotation
 		euler.x = main.grab_start_node_euler.x + pitch_delta * 0.66
 		euler.z = 0.0
