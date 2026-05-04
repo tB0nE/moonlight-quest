@@ -69,8 +69,8 @@ var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
 var resolution_idx: int = -1
-var resolutions: Array = [Vector2i(-1, -1), Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]
-var resolution_labels: Array = ["Auto", "1080p", "1440p", "4K"]
+var resolutions: Array = [Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]
+var resolution_labels: Array = ["1080p", "1440p", "4K"]
 
 var corner_handles: Array = []
 var grabbed_corner_idx: int = -1
