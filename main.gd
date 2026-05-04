@@ -36,7 +36,7 @@ var was_clicking: bool = false
 var was_right_clicking: bool = false
 var right_click_cooldown: float = 0.0
 var _was_b_pressed: bool = false
-var _startup_reposition_timer: float = 2.0
+var _startup_reposition: bool = true
 var mouse_captured_by_stream: bool = false
 var suppress_input_frames: int = 0
 var auto_detect_enabled: bool = false
@@ -1196,9 +1196,10 @@ func _process(delta):
 		if b_pressed and not _was_b_pressed:
 			_toggle_ui()
 		_was_b_pressed = b_pressed
-		if _startup_reposition_timer > 0.0:
-			_startup_reposition_timer -= delta
-			_reposition_screen_and_ui()
+		if _startup_reposition:
+			if xr_camera.global_position.length_squared() > 0.01:
+				_reposition_screen_and_ui()
+				_startup_reposition = false
 
 	if right_click_cooldown > 0.0:
 		right_click_cooldown -= delta
