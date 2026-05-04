@@ -213,23 +213,23 @@ func handle_grab():
 	var depth = hand_delta.dot(main.grab_forward) * main.grab_forward
 	var lateral = hand_delta - depth
 	main.grabbed_node.global_position = main.grab_start_node_pos + lateral * 4.0 + depth * 8.0
-	var cam_pos = main.xr_camera.global_position
-	main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
 
 	if main.is_xr_active and main.grab_start_hand_basis != Basis():
 		var hand_basis = active_raycast.global_transform.basis
 		var delta_rot = hand_basis * main.grab_start_hand_basis.inverse()
 		var forward = delta_rot * main.grab_start_node_basis.z
+		var yaw_delta = atan2(-forward.x, -forward.z) - atan2(-main.grab_start_node_basis.z.x, -main.grab_start_node_basis.z.z)
 		var pitch_delta = atan2(-forward.y, -forward.z) - atan2(-main.grab_start_node_basis.z.y, -main.grab_start_node_basis.z.z)
-		var current_pitch = main.grab_start_node_euler.x + pitch_delta
-		current_pitch *= 0.66
-		main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
 		var euler = main.grabbed_node.rotation
-		euler.x = current_pitch
+		euler.y = main.grab_start_node_euler.y + yaw_delta
+		euler.x = (main.grab_start_node_euler.x + pitch_delta) * 0.66
 		euler.z = 0.0
 		if absf(euler.x) < 0.052:
 			euler.x = 0.0
 		main.grabbed_node.rotation = euler
+	else:
+		var cam_pos = main.xr_camera.global_position
+		main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
 
 	var still_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if not still_clicking:
