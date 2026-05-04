@@ -223,6 +223,8 @@ func handle_pointer_interaction():
 			return
 
 	elif main.was_clicking:
+		if main.is_streaming:
+			main.moon.send_mouse_button_event(8, 1)
 		main.was_clicking = false
 
 func handle_grab():
