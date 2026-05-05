@@ -1459,19 +1459,26 @@ func _apply_render_mode():
 	var interface = XRServer.find_interface("OpenXR")
 	if not interface:
 		return
+	var vp = get_viewport()
 	match render_mode:
 		0:
-			get_viewport().scaling_3d_scale = _xr_base_render_scale
+			vp.scaling_3d_scale = _xr_base_render_scale
+			vp.msaa_3d = Viewport.MSAA_DISABLED
+			vp.use_taa = false
 			screen_mesh.visible = true
 			if composite_mesh:
 				composite_mesh.visible = false
 		1:
-			get_viewport().scaling_3d_scale = _xr_base_render_scale * 1.4
+			vp.scaling_3d_scale = _xr_base_render_scale
+			vp.msaa_3d = Viewport.MSAA_4X
+			vp.use_taa = true
 			screen_mesh.visible = true
 			if composite_mesh:
 				composite_mesh.visible = false
 		2:
-			get_viewport().scaling_3d_scale = _xr_base_render_scale
+			vp.scaling_3d_scale = _xr_base_render_scale
+			vp.msaa_3d = Viewport.MSAA_DISABLED
+			vp.use_taa = false
 			screen_mesh.visible = curvature != 0
 			if composite_mesh:
 				composite_mesh.visible = curvature == 0
