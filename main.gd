@@ -475,7 +475,7 @@ func _build_welcome_screen(parent: Node):
 	screen.add_child(subtitle)
 
 	var mid_spacer = Control.new()
-	mid_spacer.custom_minimum_size = Vector2(0, 8)
+	mid_spacer.custom_minimum_size = Vector2(0, 0)
 	mid_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(mid_spacer)
 
@@ -501,7 +501,7 @@ func _build_welcome_screen(parent: Node):
 	server_info.add_child(ip_label)
 
 	var btn_spacer = Control.new()
-	btn_spacer.custom_minimum_size = Vector2(0, 4)
+	btn_spacer.custom_minimum_size = Vector2(0, 0)
 	btn_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(btn_spacer)
 
