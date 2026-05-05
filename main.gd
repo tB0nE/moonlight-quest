@@ -92,8 +92,8 @@ var composite_mesh: MeshInstance3D
 var composite_shader_mat: ShaderMaterial
 
 var _log_lines: PackedStringArray = []
-var _ui_viewport_size := Vector2i(450, 215)
-var _ui_mesh_size := Vector2(0.9, 0.43)
+var _ui_viewport_size := Vector2i(450, 245)
+var _ui_mesh_size := Vector2(0.9, 0.49)
 var _ui_host_label: Label
 var _ui_status_label: Label
 var _ui_pt_btn: Button
