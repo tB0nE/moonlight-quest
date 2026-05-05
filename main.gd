@@ -73,7 +73,7 @@ var bezel_mesh: MeshInstance3D
 var curvature: int = 0
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
 var render_mode: int = 0
-var render_mode_labels: Array = ["Normal", "Smooth", "Softer"]
+var render_mode_labels: Array = ["Normal", "Smooth", "Softer", "Softest"]
 var _xr_base_render_scale: float = 1.0
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
@@ -1448,7 +1448,7 @@ func _toggle_passthrough():
 	_save_state()
 
 func _cycle_render_mode():
-	render_mode = (render_mode + 1) % 3
+	render_mode = (render_mode + 1) % 4
 	_update_option_btn(_ui_render_btn, render_mode_labels[render_mode])
 	_apply_render_mode()
 	_save_state()
@@ -1467,6 +1467,8 @@ func _apply_render_mode():
 			if mat: mat.set_shader_parameter("filter_mode", 1)
 		2:
 			if mat: mat.set_shader_parameter("filter_mode", 2)
+		3:
+			if mat: mat.set_shader_parameter("filter_mode", 3)
 
 func _cycle_fps():
 	var rates = [60, 90, 120]

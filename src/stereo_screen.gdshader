@@ -16,8 +16,11 @@ vec3 filtered_texture(sampler2D tex, vec2 uv) {
     vec2 texel = 1.0 / vec2(textureSize(tex, 0));
     vec3 color = vec3(0.0);
     float total = 0.0;
-    int radius = (filter_mode == 1) ? 1 : 2;
-    float spread = (filter_mode == 1) ? 0.5 : 0.75;
+    int radius = 1;
+    float spread = 0.5;
+    if (filter_mode == 1) { radius = 2; spread = 1.0; }
+    else if (filter_mode == 2) { radius = 2; spread = 0.75; }
+    else if (filter_mode == 3) { radius = 3; spread = 1.0; }
     for (int x = -radius; x <= radius; x++) {
         for (int y = -radius; y <= radius; y++) {
             float w = 1.0 - (length(vec2(float(x), float(y))) / float(radius + 1));
