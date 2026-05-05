@@ -1,31 +1,52 @@
 shader_type spatial;
 render_mode unshaded;
 
-uniform sampler2D main_texture : source_color;
+uniform sampler2D main_texture : source_color, filter_linear;
 uniform sampler2D depth_texture : hint_default_white, filter_linear_mipmap;
 uniform int stereo_mode = 0;
 uniform float parallax_depth = 0.5;
 uniform float convergence = 0.5;
 uniform float balance_shift = 0.5;
+uniform int filter_mode = 0;
+
+vec3 filtered_texture(sampler2D tex, vec2 uv) {
+    if (filter_mode == 0) {
+        return texture(tex, uv).rgb;
+    }
+    vec2 texel = 1.0 / vec2(textureSize(tex, 0));
+    vec3 color = vec3(0.0);
+    float total = 0.0;
+    int radius = (filter_mode == 1) ? 1 : 2;
+    float spread = (filter_mode == 1) ? 0.5 : 0.75;
+    for (int x = -radius; x <= radius; x++) {
+        for (int y = -radius; y <= radius; y++) {
+            float w = 1.0 - (length(vec2(float(x), float(y))) / float(radius + 1));
+            w = max(w, 0.0);
+            color += texture(tex, uv + vec2(float(x), float(y)) * texel * spread).rgb * w;
+            total += w;
+        }
+    }
+    return color / total;
+}
 
 void fragment() {
     vec2 uv = UV;
     
     if (stereo_mode == 0) {
-        ALBEDO = texture(main_texture, uv).rgb;
+        ALBEDO = filtered_texture(main_texture, uv);
     } 
     else if (stereo_mode == 1) {
         if (int(VIEW_INDEX) == 0) {
-            ALBEDO = texture(main_texture, vec2(uv.x * 0.5, uv.y)).rgb;
+            ALBEDO = filtered_texture(main_texture, vec2(uv.x * 0.5, uv.y));
         } else {
-            ALBEDO = texture(main_texture, vec2(uv.x * 0.5 + 0.5, uv.y)).rgb;
+            ALBEDO = filtered_texture(main_texture, vec2(uv.x * 0.5 + 0.5, uv.y));
         }
     }
     else if (stereo_mode == 2) {
         if (int(VIEW_INDEX) == 0) {
-            ALBEDO = texture(main_texture, vec2(uv.x * 0.5, uv.y * 0.5 + 0.25)).rgb;
+            ALBEDO = filtered_texture(main_texture, vec2(uv.x * 0.5, uv.y * 0.5 + 0.25));
         } else {
-            ALBEDO = texture(main_texture, vec2(uv.x * 0.5 + 0.5, uv.y * 0.5 + 0.25)).rgb;
+            ALBEDO = filtered_texture(main_texture, vec2(uv.x * 0.5 + 0.5, uv.y * 0.5 + 0.25));
         }
     }
     else if (stereo_mode == 3) {
@@ -54,8 +75,8 @@ void fragment() {
         float vignette = 1.0 - smoothstep(0.7, 1.0, pow(h_dist, 1.5));
         
         vec2 src_uv = vec2(clamp(uv.x - shift * eye_sign, 0.0, 1.0), uv.y);
-        vec3 color = texture(main_texture, src_uv).rgb;
+        vec3 color = filtered_texture(main_texture, src_uv);
         
-        ALBEDO = mix(texture(main_texture, uv).rgb, color, vignette);
+        ALBEDO = mix(filtered_texture(main_texture, uv), color, vignette);
     }
 }

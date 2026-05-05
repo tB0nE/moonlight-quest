@@ -68,7 +68,7 @@ var bezel_mesh: MeshInstance3D
 var curvature: int = 0
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
 var render_mode: int = 0
-var render_mode_labels: Array = ["Normal", "Super", "Composite"]
+var render_mode_labels: Array = ["Normal", "Smooth", "Softer"]
 var _xr_base_render_scale: float = 1.0
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
@@ -88,8 +88,6 @@ var ui_controller: UIController
 var auto_detect: AutoDetect
 var depth_estimator: DepthEstimatorModule
 var virtual_keyboard: VirtualKeyboard
-var composite_mesh: MeshInstance3D
-var composite_shader_mat: ShaderMaterial
 
 var _log_lines: PackedStringArray = []
 var _ui_viewport_size := Vector2i(450, 245)
@@ -1193,82 +1191,6 @@ func _ready():
 	_create_corner_handles()
 	_create_bezel()
 	_create_contact_dot()
-	_create_composite_mesh()
-
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
-	_load_controller_models()
-
-	_build_ui()
-	_build_welcome_ui()
-
-	%IPInput.gui_input.connect(func(e): ui_controller.on_ipinput_gui_input(e))
-	ui_controller.setup_numpad()
-
-	comp_mgr.set_config_manager(config_mgr)
-	moon.set_config_manager(config_mgr)
-	comp_mgr.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
-	moon.log_message.connect(func(msg):
-		if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
-			stats_network_events += 1
-	)
-
-	moon.connection_started.connect(func():
-		is_streaming = true
-		_ui_status_label.text = "Connecting..."
-		_update_host_label()
-		_reset_connect_button()
-		if _ui_disconnect_btn: _ui_disconnect_btn.visible = true
-		_log("[STREAM] Connection started!")
-		stream_manager.bind_texture()
-		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
-		stream_manager.setup_audio()
-		ui_visible = false
-		_set_ui_visible(false)
-		var starfield = get_node_or_null("Starfield")
-		if starfield:
-			starfield.emitting = false
-			starfield.visible = false
-	)
-	moon.connection_terminated.connect(func(_err, msg):
-		if _restarting_stream:
-			_restarting_stream = false
-			return
-		is_streaming = false
-		_ui_status_label.text = "Disconnected: " + str(msg)
-		if _ui_disconnect_btn: _ui_disconnect_btn.visible = false
-		_log("[STREAM] Connection terminated: %s" % str(msg))
-		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-		if mouse_captured_by_stream:
-			input_handler.release_stream_mouse()
-		audio_player.stop()
-		_set_ui_visible(false)
-		_reset_connect_button()
-		var starfield = get_node_or_null("Starfield")
-		if starfield and passthrough_mode == 2:
-			starfield.emitting = true
-			starfield.visible = true
-		_update_welcome_info()
-	)
-
-	var interface = XRServer.find_interface("OpenXR")
-	if interface and interface.is_initialized():
-		var render_size = interface.get_render_target_size()
-		_log("[XR] OpenXR render target: %dx%d" % [render_size.x, render_size.y])
-		_log("[XR] Blend modes: %s" % str(interface.get_supported_environment_blend_modes()))
-
-		get_viewport().transparent_bg = true
-		world_env.environment.background_mode = Environment.BG_COLOR
-		world_env.environment.background_color = Color(0, 0, 0, 0)
-		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
-
-		get_viewport().size = render_size
-		get_viewport().use_xr = true
-		_xr_base_render_scale = get_viewport().scaling_3d_scale
-		is_xr_active = true
-		stereo_mode = 0
-		passthrough_mode = 0
-
 		_create_starfield()
 
 		await get_tree().create_timer(0.5).timeout
@@ -1322,8 +1244,6 @@ func _process(delta):
 		_flush_log()
 
 	if is_xr_active:
-		if render_mode == 2 and composite_mesh and composite_mesh.visible:
-			_update_composite_corners()
 		var b_pressed = right_hand.is_button_pressed("by_button")
 		if b_pressed and not _was_b_pressed:
 			_toggle_ui()
@@ -1459,31 +1379,14 @@ func _apply_render_mode():
 	var interface = XRServer.find_interface("OpenXR")
 	if not interface:
 		return
-	var vp = get_viewport()
+	var mat = screen_mesh.material_override
 	match render_mode:
 		0:
-			vp.scaling_3d_scale = _xr_base_render_scale
-			vp.msaa_3d = Viewport.MSAA_DISABLED
-			vp.use_taa = false
-			screen_mesh.visible = true
-			if composite_mesh:
-				composite_mesh.visible = false
+			if mat: mat.set_shader_parameter("filter_mode", 0)
 		1:
-			vp.scaling_3d_scale = _xr_base_render_scale
-			vp.msaa_3d = Viewport.MSAA_4X
-			vp.use_taa = true
-			screen_mesh.visible = true
-			if composite_mesh:
-				composite_mesh.visible = false
+			if mat: mat.set_shader_parameter("filter_mode", 1)
 		2:
-			vp.scaling_3d_scale = _xr_base_render_scale
-			vp.msaa_3d = Viewport.MSAA_DISABLED
-			vp.use_taa = false
-			screen_mesh.visible = curvature != 0
-			if composite_mesh:
-				composite_mesh.visible = curvature == 0
-				if composite_shader_mat:
-					composite_shader_mat.set_shader_parameter("main_texture", stream_viewport.get_texture())
+			if mat: mat.set_shader_parameter("filter_mode", 2)
 
 func _cycle_fps():
 	var rates = [60, 90, 120]
@@ -1815,44 +1718,6 @@ func _create_contact_dot():
 	contact_dot.material_override = dot_mat
 	contact_dot.visible = false
 	add_child(contact_dot)
-
-func _create_composite_mesh():
-	composite_mesh = MeshInstance3D.new()
-	composite_mesh.name = "CompositeScreen"
-	var quad = QuadMesh.new()
-	quad.size = Vector2(4, 4)
-	composite_mesh.mesh = quad
-	var shader = load("res://src/composite_screen.gdshader")
-	composite_shader_mat = ShaderMaterial.new()
-	composite_shader_mat.shader = shader
-	composite_shader_mat.set_shader_parameter("quad_corners", PackedVector2Array([Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]))
-	composite_mesh.material_override = composite_shader_mat
-	composite_mesh.render_priority = 127
-	composite_mesh.visible = false
-	add_child(composite_mesh)
-
-func _update_composite_corners():
-	if not composite_mesh or not composite_mesh.visible:
-		return
-	var half = _mesh_size / 2.0
-	var corners_3d = [
-		screen_mesh.to_global(Vector3(-half.x, half.y, 0)),
-		screen_mesh.to_global(Vector3(half.x, half.y, 0)),
-		screen_mesh.to_global(Vector3(-half.x, -half.y, 0)),
-		screen_mesh.to_global(Vector3(half.x, -half.y, 0)),
-	]
-	var camera = xr_camera
-	var vp_size = camera.get_viewport().size
-	var screen_corners = PackedVector2Array()
-	screen_corners.resize(4)
-	for i in range(4):
-		var projected = camera.unproject_position(corners_3d[i])
-		screen_corners[i] = Vector2(projected.x / vp_size.x, 1.0 - projected.y / vp_size.y)
-	composite_shader_mat.set_shader_parameter("quad_corners", screen_corners)
-	var cam_pos = camera.global_position
-	var cam_fwd = -camera.global_transform.basis.z
-	composite_mesh.global_position = cam_pos + cam_fwd * 2.0
-	composite_mesh.look_at(cam_pos + cam_fwd * 3.0, Vector3.UP)
 
 func _create_starfield():
 	var particles = GPUParticles3D.new()
