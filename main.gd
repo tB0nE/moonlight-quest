@@ -1821,11 +1821,11 @@ func _create_starfield():
 	var particles = GPUParticles3D.new()
 	particles.name = "Starfield"
 	particles.emitting = true
-	particles.amount = 1000
+	particles.amount = 50
 	particles.lifetime = 30.0
 	particles.explosiveness = 0.0
 	particles.randomness = 1.0
-	particles.fixed_fps = 15
+	particles.fixed_fps = 10
 	particles.local_coords = true
 	particles.visible = (passthrough_mode == 2)
 	var mat = ParticleProcessMaterial.new()
