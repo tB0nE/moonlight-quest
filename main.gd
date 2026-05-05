@@ -72,8 +72,10 @@ var bezel_enabled: bool = true
 var bezel_mesh: MeshInstance3D
 var curvature: int = 0
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
-var render_mode: int = 0
-var render_mode_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]
+var smooth_mode: int = 0
+var sharpen_mode: int = 0
+var smooth_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%"]
+var sharpen_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%"]
 var _xr_base_render_scale: float = 1.0
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
@@ -106,6 +108,7 @@ var _ui_mode_btn: Button
 var _ui_res_btn: Button
 var _ui_fps_btn: Button
 var _ui_render_btn: Button
+var _ui_sharpen_btn: Button
 var _ui_exit_btn: Button
 var _ui_disconnect_btn: Button
 var _ui_close_btn: Button
@@ -336,8 +339,10 @@ func _build_ui():
 	render_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(render_row)
 
-	_ui_render_btn = _make_option_btn("Smoothing", "0%")
+	_ui_render_btn = _make_option_btn("Smooth", "0%")
 	render_row.add_child(_ui_render_btn)
+	_ui_sharpen_btn = _make_option_btn("Sharp", "0%")
+	render_row.add_child(_ui_sharpen_btn)
 
 	_ui_status_label = Label.new()
 	_ui_status_label.name = "StatusLabel"
@@ -370,7 +375,8 @@ func _build_ui():
 	_ui_mode_btn.button_down.connect(func(): ui_controller.on_sbs_toggled())
 	_ui_res_btn.button_down.connect(func(): _cycle_resolution())
 	_ui_fps_btn.button_down.connect(func(): _cycle_fps())
-	_ui_render_btn.button_down.connect(func(): _cycle_render_mode())
+	_ui_render_btn.button_down.connect(func(): _cycle_smooth_mode())
+	_ui_sharpen_btn.button_down.connect(func(): _cycle_sharpen_mode())
 
 	_update_host_label()
 
@@ -1081,7 +1087,8 @@ func _save_state():
 	save.set_value("screen", "bezel", bezel_enabled)
 	save.set_value("screen", "curvature", curvature)
 	save.set_value("screen", "passthrough", passthrough_mode)
-	save.set_value("screen", "render_mode", render_mode)
+	save.set_value("screen", "smooth_mode", smooth_mode)
+	save.set_value("screen", "sharpen_mode", sharpen_mode)
 	if is_xr_active and xr_camera:
 		var ui_offset = ui_panel_3d.global_position - xr_camera.global_position
 		save.set_value("ui", "offset_x", ui_offset.x)
@@ -1140,7 +1147,8 @@ func _load_state():
 	bezel_enabled = save.get_value("screen", "bezel", true)
 	curvature = save.get_value("screen", "curvature", 0)
 	passthrough_mode = save.get_value("screen", "passthrough", 0)
-	render_mode = save.get_value("screen", "render_mode", 0)
+	smooth_mode = save.get_value("screen", "smooth_mode", save.get_value("screen", "render_mode", 0))
+	sharpen_mode = save.get_value("screen", "sharpen_mode", 0)
 	if save.has_section_key("screen", "size_x"):
 		_mesh_size = Vector2(save.get_value("screen", "size_x"), save.get_value("screen", "size_y"))
 		if _mesh_size.x > 0.1 and _mesh_size.y > 0.1:
@@ -1155,7 +1163,8 @@ func _load_state():
 	_update_option_btn(_ui_bezel_btn, "On" if bezel_enabled else "Off")
 	_update_option_btn(_ui_curve_btn, curvature_labels[clampi(curvature, 0, curvature_labels.size() - 1)])
 	_update_option_btn(_ui_pt_btn, passthrough_labels[clampi(passthrough_mode, 0, passthrough_labels.size() - 1)])
-	_update_option_btn(_ui_render_btn, render_mode_labels[clampi(render_mode, 0, render_mode_labels.size() - 1)])
+	_update_option_btn(_ui_render_btn, smooth_labels[clampi(smooth_mode, 0, smooth_labels.size() - 1)])
+	_update_option_btn(_ui_sharpen_btn, sharpen_labels[clampi(sharpen_mode, 0, sharpen_labels.size() - 1)])
 	_update_bezel_size()
 	if save.has_section_key("ui", "offset_x") and is_xr_active and xr_camera:
 		ui_panel_3d.global_position = xr_camera.global_position + Vector3(
@@ -1163,7 +1172,7 @@ func _load_state():
 			save.get_value("ui", "offset_y"),
 			save.get_value("ui", "offset_z"))
 		ui_panel_3d.rotation.y = xr_camera.rotation.y + save.get_value("ui", "rot_y", 0.0)
-	_apply_render_mode()
+	_apply_filter()
 
 func _flush_log():
 	var f = FileAccess.open("user://debug.log", FileAccess.WRITE)
@@ -1447,31 +1456,25 @@ func _toggle_passthrough():
 	_update_option_btn(_ui_pt_btn, passthrough_labels[passthrough_mode])
 	_save_state()
 
-func _cycle_render_mode():
-	render_mode = (render_mode + 1) % render_mode_labels.size()
-	_update_option_btn(_ui_render_btn, render_mode_labels[render_mode])
-	_apply_render_mode()
+func _cycle_smooth_mode():
+	smooth_mode = (smooth_mode + 1) % smooth_labels.size()
+	_update_option_btn(_ui_render_btn, smooth_labels[smooth_mode])
+	_apply_filter()
 	_save_state()
 
-func _apply_render_mode():
+func _cycle_sharpen_mode():
+	sharpen_mode = (sharpen_mode + 1) % sharpen_labels.size()
+	_update_option_btn(_ui_sharpen_btn, sharpen_labels[sharpen_mode])
+	_apply_filter()
+	_save_state()
+
+func _apply_filter():
 	if not is_xr_active:
 		return
-	var interface = XRServer.find_interface("OpenXR")
-	if not interface:
-		return
-	var vp = get_viewport()
-	vp.msaa_3d = Viewport.MSAA_DISABLED
-	vp.use_taa = false
 	var mat = screen_mesh.material_override
-	match render_mode:
-		0:
-			if mat: mat.set_shader_parameter("filter_mode", 0)
-		1:
-			if mat: mat.set_shader_parameter("filter_mode", 1)
-		2:
-			if mat: mat.set_shader_parameter("filter_mode", 2)
-		3:
-			if mat: mat.set_shader_parameter("filter_mode", 3)
+	if mat:
+		mat.set_shader_parameter("filter_mode", smooth_mode)
+		mat.set_shader_parameter("sharpen", float(sharpen_mode) * 0.1)
 
 func _cycle_fps():
 	var rates = [60, 90, 120]

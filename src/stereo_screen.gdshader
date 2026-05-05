@@ -8,23 +8,29 @@ uniform float parallax_depth = 0.5;
 uniform float convergence = 0.5;
 uniform float balance_shift = 0.5;
 uniform int filter_mode = 0;
+uniform float sharpen = 0.0;
 
 vec3 filtered_texture(sampler2D tex, vec2 uv) {
-    if (filter_mode == 0) {
-        return texture(tex, uv).rgb;
+    vec2 texel = 1.0 / vec2(textureSize(tex, 0));
+    vec3 original = texture(tex, uv).rgb;
+    if (filter_mode == 0 && sharpen <= 0.0) {
+        return original;
     }
     float s = float(filter_mode) * 0.5;
-    vec2 texel = 1.0 / vec2(textureSize(tex, 0));
-    vec3 c = texture(tex, uv).rgb * 4.0;
-    c += texture(tex, uv + vec2(-1.0, -1.0) * texel * s).rgb;
-    c += texture(tex, uv + vec2( 1.0, -1.0) * texel * s).rgb;
-    c += texture(tex, uv + vec2(-1.0,  1.0) * texel * s).rgb;
-    c += texture(tex, uv + vec2( 1.0,  1.0) * texel * s).rgb;
-    c += texture(tex, uv + vec2(-1.0,  0.0) * texel * s).rgb * 2.0;
-    c += texture(tex, uv + vec2( 1.0,  0.0) * texel * s).rgb * 2.0;
-    c += texture(tex, uv + vec2( 0.0, -1.0) * texel * s).rgb * 2.0;
-    c += texture(tex, uv + vec2( 0.0,  1.0) * texel * s).rgb * 2.0;
-    return c / 16.0;
+    vec3 blurred = original * 4.0;
+    blurred += texture(tex, uv + vec2(-1.0, -1.0) * texel * s).rgb;
+    blurred += texture(tex, uv + vec2( 1.0, -1.0) * texel * s).rgb;
+    blurred += texture(tex, uv + vec2(-1.0,  1.0) * texel * s).rgb;
+    blurred += texture(tex, uv + vec2( 1.0,  1.0) * texel * s).rgb;
+    blurred += texture(tex, uv + vec2(-1.0,  0.0) * texel * s).rgb * 2.0;
+    blurred += texture(tex, uv + vec2( 1.0,  0.0) * texel * s).rgb * 2.0;
+    blurred += texture(tex, uv + vec2( 0.0, -1.0) * texel * s).rgb * 2.0;
+    blurred += texture(tex, uv + vec2( 0.0,  1.0) * texel * s).rgb * 2.0;
+    blurred /= 16.0;
+    if (filter_mode == 0) {
+        return original + sharpen * (original - blurred);
+    }
+    return blurred + sharpen * (original - blurred);
 }
 
 void fragment() {
