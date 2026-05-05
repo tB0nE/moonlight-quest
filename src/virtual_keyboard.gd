@@ -57,13 +57,10 @@ func build():
 	mesh_instance = MeshInstance3D.new()
 	mesh_instance.name = "KBPanel"
 	mesh_instance.mesh = quad
-	var tex_mat = StandardMaterial3D.new()
-	tex_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	tex_mat.albedo_color = Color(1, 1, 1, 0.45)
-	tex_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	tex_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	tex_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	tex_mat.albedo_texture = viewport.get_texture()
+	var tex_mat = ShaderMaterial.new()
+	tex_mat.shader = load("res://src/keyboard_screen.gdshader")
+	tex_mat.set_shader_parameter("filter_mode", 3.0)
+	tex_mat.set_shader_parameter("main_texture", viewport.get_texture())
 	mesh_instance.set_surface_override_material(0, tex_mat)
 	add_child(mesh_instance)
 
