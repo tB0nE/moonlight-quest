@@ -1176,7 +1176,7 @@ func _ready():
 	OS.set_environment("CURL_CA_BUNDLE", "/system/etc/security/cacerts/")
 	OS.set_environment("SSL_CERT_FILE", "/system/etc/security/cacerts/")
 	_log("=== Nightfall started ===")
-	Engine.max_fps = 60
+	Engine.max_fps = 0
 
 	stream_manager = StreamManager.new(self)
 	xr_interaction = XRInteraction.new(self)
