@@ -507,7 +507,7 @@ func _build_welcome_screen(parent: Node):
 
 	var pc_icon = TextureRect.new()
 	pc_icon.texture = load("res://src/assets/pc_icon.svg")
-	pc_icon.custom_minimum_size = Vector2(240, 240)
+	pc_icon.custom_minimum_size = Vector2(480, 480)
 	pc_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pc_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pc_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
