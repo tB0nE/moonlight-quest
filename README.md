@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src/nightfall_github_banner.png" width="600" alt="Nightfall" />
+<img src="src/assets/nightfall_github_banner.png" width="600" alt="Nightfall" />
 
 # Nightfall
 
