@@ -454,60 +454,60 @@ func _build_welcome_screen(parent: Node):
 	parent.add_child(screen)
 
 	var top_spacer = Control.new()
-	top_spacer.custom_minimum_size = Vector2(0, 80)
+	top_spacer.custom_minimum_size = Vector2(0, 20)
 	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(top_spacer)
 
 	var title = Label.new()
 	title.text = "Nightfall"
-	title.add_theme_font_size_override("font_size", 96)
+	title.add_theme_font_size_override("font_size", 72)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(title)
 
 	var subtitle = Label.new()
 	subtitle.text = "Moonlight Streaming for Quest"
-	subtitle.add_theme_font_size_override("font_size", 32)
+	subtitle.add_theme_font_size_override("font_size", 24)
 	subtitle.add_theme_color_override("font_color", Color(1, 1, 1, 0.5))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(subtitle)
 
 	var mid_spacer = Control.new()
-	mid_spacer.custom_minimum_size = Vector2(0, 20)
+	mid_spacer.custom_minimum_size = Vector2(0, 8)
 	mid_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(mid_spacer)
 
 	var server_info = VBoxContainer.new()
-	server_info.add_theme_constant_override("separation", 4)
+	server_info.add_theme_constant_override("separation", 2)
 	server_info.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	server_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(server_info)
 
 	var host_label = Label.new()
 	host_label.name = "WelcomeHostName"
-	host_label.add_theme_font_size_override("font_size", 40)
+	host_label.add_theme_font_size_override("font_size", 32)
 	host_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	host_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	server_info.add_child(host_label)
 
 	var ip_label = Label.new()
 	ip_label.name = "WelcomeHostIP"
-	ip_label.add_theme_font_size_override("font_size", 24)
+	ip_label.add_theme_font_size_override("font_size", 20)
 	ip_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	ip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	server_info.add_child(ip_label)
 
 	var btn_spacer = Control.new()
-	btn_spacer.custom_minimum_size = Vector2(0, 10)
+	btn_spacer.custom_minimum_size = Vector2(0, 4)
 	btn_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(btn_spacer)
 
 	var pc_icon = TextureRect.new()
 	pc_icon.texture = load("res://src/assets/pc_icon.svg")
-	pc_icon.custom_minimum_size = Vector2(360, 360)
+	pc_icon.custom_minimum_size = Vector2(280, 280)
 	pc_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pc_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pc_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -516,22 +516,22 @@ func _build_welcome_screen(parent: Node):
 
 	var connect_btn = Button.new()
 	connect_btn.name = "WelcomeConnect"
-	connect_btn.custom_minimum_size = Vector2(400, 90)
-	connect_btn.add_theme_font_size_override("font_size", 36)
+	connect_btn.custom_minimum_size = Vector2(400, 80)
+	connect_btn.add_theme_font_size_override("font_size", 32)
 	connect_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	connect_btn.text = "Connect"
 	screen.add_child(connect_btn)
 
 	var spacer1 = Control.new()
 	spacer1.name = "Spacer1"
-	spacer1.custom_minimum_size = Vector2(0, 20)
+	spacer1.custom_minimum_size = Vector2(0, 10)
 	spacer1.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(spacer1)
 
 	var app_btn = Button.new()
 	app_btn.name = "WelcomeAppBtn"
-	app_btn.custom_minimum_size = Vector2(400, 70)
-	app_btn.add_theme_font_size_override("font_size", 28)
+	app_btn.custom_minimum_size = Vector2(400, 60)
+	app_btn.add_theme_font_size_override("font_size", 24)
 	app_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	app_btn.text = "App: Desktop"
 	app_btn.visible = false
@@ -539,14 +539,14 @@ func _build_welcome_screen(parent: Node):
 
 	var spacer2 = Control.new()
 	spacer2.name = "Spacer2"
-	spacer2.custom_minimum_size = Vector2(0, 20)
+	spacer2.custom_minimum_size = Vector2(0, 10)
 	spacer2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(spacer2)
 
 	var change_btn = Button.new()
 	change_btn.name = "WelcomeChangeServer"
-	change_btn.custom_minimum_size = Vector2(400, 70)
-	change_btn.add_theme_font_size_override("font_size", 28)
+	change_btn.custom_minimum_size = Vector2(400, 60)
+	change_btn.add_theme_font_size_override("font_size", 24)
 	change_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
 	change_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	change_btn.text = "Select Server"
@@ -554,13 +554,13 @@ func _build_welcome_screen(parent: Node):
 	screen.add_child(change_btn)
 
 	var spacer3 = Control.new()
-	spacer3.custom_minimum_size = Vector2(0, 20)
+	spacer3.custom_minimum_size = Vector2(0, 10)
 	spacer3.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(spacer3)
 
 	var exit_btn = Button.new()
 	exit_btn.name = "WelcomeExit"
-	exit_btn.custom_minimum_size = Vector2(400, 70)
+	exit_btn.custom_minimum_size = Vector2(400, 60)
 	exit_btn.add_theme_font_size_override("font_size", 28)
 	exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
 	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
