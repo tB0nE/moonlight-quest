@@ -8,11 +8,11 @@ void fragment() {
 	float color_sel = fract(seed * 4.32);
 	vec3 tint;
 	if (color_sel < 0.25) {
-		tint = vec3(1.0, 0.72, 0.72);
+		tint = vec3(1.0, 0.55, 0.55);
 	} else if (color_sel < 0.5) {
-		tint = vec3(0.72, 0.82, 1.0);
+		tint = vec3(0.55, 0.7, 1.0);
 	} else if (color_sel < 0.75) {
-		tint = vec3(1.0, 0.94, 0.72);
+		tint = vec3(1.0, 0.88, 0.55);
 	} else {
 		tint = vec3(1.0, 1.0, 1.0);
 	}

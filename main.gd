@@ -1821,7 +1821,7 @@ func _create_starfield():
 	var particles = GPUParticles3D.new()
 	particles.name = "Starfield"
 	particles.emitting = true
-	particles.amount = 50
+	particles.amount = 100
 	particles.lifetime = 30.0
 	particles.explosiveness = 0.0
 	particles.randomness = 1.0
