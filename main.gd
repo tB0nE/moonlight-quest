@@ -1191,6 +1191,81 @@ func _ready():
 	_create_corner_handles()
 	_create_bezel()
 	_create_contact_dot()
+
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+	_load_controller_models()
+
+	_build_ui()
+	_build_welcome_ui()
+
+	%IPInput.gui_input.connect(func(e): ui_controller.on_ipinput_gui_input(e))
+	ui_controller.setup_numpad()
+
+	comp_mgr.set_config_manager(config_mgr)
+	moon.set_config_manager(config_mgr)
+	comp_mgr.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
+	moon.log_message.connect(func(msg):
+		if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
+			stats_network_events += 1
+	)
+
+	moon.connection_started.connect(func():
+		is_streaming = true
+		_ui_status_label.text = "Connecting..."
+		_update_host_label()
+		_reset_connect_button()
+		if _ui_disconnect_btn: _ui_disconnect_btn.visible = true
+		_log("[STREAM] Connection started!")
+		stream_manager.bind_texture()
+		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
+		stream_manager.setup_audio()
+		ui_visible = false
+		_set_ui_visible(false)
+		var starfield = get_node_or_null("Starfield")
+		if starfield:
+			starfield.emitting = false
+			starfield.visible = false
+	)
+	moon.connection_terminated.connect(func(_err, msg):
+		if _restarting_stream:
+			_restarting_stream = false
+			return
+		is_streaming = false
+		_ui_status_label.text = "Disconnected: " + str(msg)
+		if _ui_disconnect_btn: _ui_disconnect_btn.visible = false
+		_log("[STREAM] Connection terminated: %s" % str(msg))
+		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+		if mouse_captured_by_stream:
+			input_handler.release_stream_mouse()
+		audio_player.stop()
+		_set_ui_visible(false)
+		_reset_connect_button()
+		var starfield = get_node_or_null("Starfield")
+		if starfield and passthrough_mode == 2:
+			starfield.emitting = true
+			starfield.visible = true
+		_update_welcome_info()
+	)
+
+	var interface = XRServer.find_interface("OpenXR")
+	if interface and interface.is_initialized():
+		var render_size = interface.get_render_target_size()
+		_log("[XR] OpenXR render target: %dx%d" % [render_size.x, render_size.y])
+		_log("[XR] Blend modes: %s" % str(interface.get_supported_environment_blend_modes()))
+
+		get_viewport().transparent_bg = true
+		world_env.environment.background_mode = Environment.BG_COLOR
+		world_env.environment.background_color = Color(0, 0, 0, 0)
+		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+
+		get_viewport().size = render_size
+		get_viewport().use_xr = true
+		_xr_base_render_scale = get_viewport().scaling_3d_scale
+		is_xr_active = true
+		stereo_mode = 0
+		passthrough_mode = 0
+
 		_create_starfield()
 
 		await get_tree().create_timer(0.5).timeout
