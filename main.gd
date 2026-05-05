@@ -425,9 +425,12 @@ func _build_welcome_ui():
 	for child in root.get_children():
 		child.queue_free()
 
-	var bg = ColorRect.new()
+	var twilight_images = ["res://src/assets/early_twilight.png", "res://src/assets/late_twilight.png"]
+	var bg = TextureRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.color = Color(0.04, 0.04, 0.12, 1)
+	bg.texture = load(twilight_images[randi() % twilight_images.size()])
+	bg.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONALLY
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVER
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bg)
 
