@@ -454,7 +454,7 @@ func _build_welcome_screen(parent: Node):
 	parent.add_child(screen)
 
 	var top_spacer = Control.new()
-	top_spacer.custom_minimum_size = Vector2(0, 60)
+	top_spacer.custom_minimum_size = Vector2(0, 30)
 	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(top_spacer)
@@ -475,12 +475,12 @@ func _build_welcome_screen(parent: Node):
 	screen.add_child(subtitle)
 
 	var mid_spacer = Control.new()
-	mid_spacer.custom_minimum_size = Vector2(0, 40)
+	mid_spacer.custom_minimum_size = Vector2(0, 20)
 	mid_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(mid_spacer)
 
 	var server_info = VBoxContainer.new()
-	server_info.add_theme_constant_override("separation", 8)
+	server_info.add_theme_constant_override("separation", 4)
 	server_info.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	server_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(server_info)
@@ -501,13 +501,13 @@ func _build_welcome_screen(parent: Node):
 	server_info.add_child(ip_label)
 
 	var btn_spacer = Control.new()
-	btn_spacer.custom_minimum_size = Vector2(0, 30)
+	btn_spacer.custom_minimum_size = Vector2(0, 10)
 	btn_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(btn_spacer)
 
 	var pc_icon = TextureRect.new()
 	pc_icon.texture = load("res://src/assets/pc_icon.svg")
-	pc_icon.custom_minimum_size = Vector2(480, 480)
+	pc_icon.custom_minimum_size = Vector2(360, 360)
 	pc_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pc_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pc_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
