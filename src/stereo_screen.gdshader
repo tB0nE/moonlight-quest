@@ -14,6 +14,7 @@ vec3 filtered_texture(sampler2D tex, vec2 uv) {
         return texture(tex, uv).rgb;
     }
     float s = float(filter_mode) * 0.5;
+    vec2 texel = 1.0 / vec2(textureSize(tex, 0));
     vec3 c = texture(tex, uv).rgb * 4.0;
     c += texture(tex, uv + vec2(-1.0, -1.0) * texel * s).rgb;
     c += texture(tex, uv + vec2( 1.0, -1.0) * texel * s).rgb;
