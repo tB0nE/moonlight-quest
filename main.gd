@@ -176,7 +176,7 @@ func _build_ui():
 	var vbox = VBoxContainer.new()
 	vbox.name = "VBox"
 	vbox.add_theme_constant_override("separation", 0)
-	vbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	vbox.size_flags_vertical = Control.SIZE_FILL
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(vbox)
 
