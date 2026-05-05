@@ -454,8 +454,8 @@ func _build_welcome_screen(parent: Node):
 	parent.add_child(screen)
 
 	var top_spacer = Control.new()
-	top_spacer.custom_minimum_size = Vector2(0, 0)
-	top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	top_spacer.custom_minimum_size = Vector2(0, 120)
+	top_spacer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(top_spacer)
 
