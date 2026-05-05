@@ -287,6 +287,7 @@ func _build_ui():
 	center_row.add_theme_constant_override("separation", 12)
 	center_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	center_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	center_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	center_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(center_row)
 
@@ -307,6 +308,7 @@ func _build_ui():
 	bottom_row.add_theme_constant_override("separation", 12)
 	bottom_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	bottom_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	bottom_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bottom_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(bottom_row)
 
@@ -322,6 +324,7 @@ func _build_ui():
 	render_row.add_theme_constant_override("separation", 12)
 	render_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	render_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	render_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	render_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(render_row)
 
