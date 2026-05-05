@@ -1466,7 +1466,7 @@ func _apply_render_mode():
 			if composite_mesh:
 				composite_mesh.visible = false
 		1:
-			get_viewport().scaling_3d_scale = _xr_base_render_scale * 2.0
+			get_viewport().scaling_3d_scale = _xr_base_render_scale * 1.4
 			screen_mesh.visible = true
 			if composite_mesh:
 				composite_mesh.visible = false
@@ -1813,19 +1813,14 @@ func _create_composite_mesh():
 	composite_mesh = MeshInstance3D.new()
 	composite_mesh.name = "CompositeScreen"
 	var quad = QuadMesh.new()
-	quad.size = Vector2(2, 2)
+	quad.size = Vector2(4, 4)
 	composite_mesh.mesh = quad
 	var shader = load("res://src/composite_screen.gdshader")
 	composite_shader_mat = ShaderMaterial.new()
 	composite_shader_mat.shader = shader
 	composite_shader_mat.set_shader_parameter("quad_corners", PackedVector2Array([Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]))
 	composite_mesh.material_override = composite_shader_mat
-	composite_mesh.render_priority = 128
-	var mat = StandardMaterial3D.new()
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.no_depth_test = true
-	composite_mesh.material_override = composite_shader_mat
+	composite_mesh.render_priority = 127
 	composite_mesh.visible = false
 	add_child(composite_mesh)
 
@@ -1849,8 +1844,8 @@ func _update_composite_corners():
 	composite_shader_mat.set_shader_parameter("quad_corners", screen_corners)
 	var cam_pos = camera.global_position
 	var cam_fwd = -camera.global_transform.basis.z
-	composite_mesh.global_position = cam_pos + cam_fwd * 0.5
-	composite_mesh.look_at(cam_pos + cam_fwd * 2.0, Vector3.UP)
+	composite_mesh.global_position = cam_pos + cam_fwd * 2.0
+	composite_mesh.look_at(cam_pos + cam_fwd * 3.0, Vector3.UP)
 
 func _create_starfield():
 	var particles = GPUParticles3D.new()

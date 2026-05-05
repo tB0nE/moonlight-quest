@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, depth_draw_never, cull_disabled;
+render_mode unshaded, depth_draw_never, cull_disabled, blend_add;
 
 uniform sampler2D main_texture : source_color, filter_linear;
 uniform vec2 quad_corners[4];
