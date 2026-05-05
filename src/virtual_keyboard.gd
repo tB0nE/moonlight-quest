@@ -9,7 +9,7 @@ var collision_shape: CollisionShape3D
 var grab_bar: MeshInstance3D
 var grab_bar_area: Area3D
 var mesh_size := Vector2(0.8, 0.28)
-var viewport_size := Vector2i(800, 280)
+var viewport_size := Vector2i(1600, 560)
 var _kb_root: Control
 var _key_data: Array = []
 var _held_keys: Dictionary = {}
@@ -43,6 +43,12 @@ func build():
 	_kb_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	viewport.add_child(_kb_root)
 
+	var kb_bg = ColorRect.new()
+	kb_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	kb_bg.color = Color(0.04, 0.04, 0.1, 0.85)
+	kb_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_kb_root.add_child(kb_bg)
+
 	_build_keys()
 
 	var quad = QuadMesh.new()
@@ -53,7 +59,7 @@ func build():
 	mesh_instance.mesh = quad
 	var tex_mat = StandardMaterial3D.new()
 	tex_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	tex_mat.albedo_color = Color(1, 1, 1, 1)
+	tex_mat.albedo_color = Color(1, 1, 1, 0.45)
 	tex_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	tex_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	tex_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -102,13 +108,13 @@ func build():
 	visible = false
 
 func _build_keys():
-	var key_h = 36
-	var gap = 3
-	var start_y = 8
+	var key_h = 72
+	var gap = 6
+	var start_y = 16
 	var base_w = (viewport_size.x - 12 - gap * 14) / 15.0
 	for row_idx in range(_KEY_ROWS.size()):
 		var row = _KEY_ROWS[row_idx]
-		var x = 6
+		var x = 12
 		var y = start_y + row_idx * (key_h + gap)
 		for key_idx in range(row.size()):
 			var key_data = row[key_idx]
@@ -119,7 +125,7 @@ func _build_keys():
 			btn.position = Vector2(x, y)
 			btn.size = Vector2(btn_w, key_h)
 			btn.text = key_data["l"]
-			btn.add_theme_font_size_override("font_size", 12)
+			btn.add_theme_font_size_override("font_size", 24)
 			btn.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 1.0))
 			btn.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
 			btn.add_theme_color_override("font_pressed_color", Color(1, 1, 1, 1))
@@ -139,8 +145,8 @@ func _make_key_style(bg: Color, border: Color) -> StyleBoxFlat:
 	s.set_bg_color(bg)
 	s.set_border_width_all(1)
 	s.set_border_color(border)
-	s.set_corner_radius_all(3)
-	s.set_content_margin_all(2)
+	s.set_corner_radius_all(6)
+	s.set_content_margin_all(4)
 	return s
 
 func handle_pointer(pixel_pos: Vector2, clicking: bool, was_clicking: bool):
