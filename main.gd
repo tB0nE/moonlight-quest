@@ -510,7 +510,7 @@ func _build_welcome_screen(parent: Node):
 	pc_icon.custom_minimum_size = Vector2(120, 120)
 	pc_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pc_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pc_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTER
+	pc_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pc_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(pc_icon)
 
