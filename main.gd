@@ -11,7 +11,12 @@ extends Node3D
 @onready var welcome_viewport = %WelcomeViewport
 @onready var config_mgr = MoonlightConfigManager.new()
 @onready var comp_mgr = MoonlightComputerManager.new()
-@onready var mdns = MoonlightMDNS.new()
+var mdns
+
+func _get_mdns():
+	if not mdns and ClassDB.class_exists("MoonlightMDNS"):
+		mdns = ClassDB.instantiate("MoonlightMDNS")
+	return mdns
 @onready var xr_origin = $XROrigin3D
 @onready var xr_camera = $XROrigin3D/XRCamera3D
 @onready var mouse_raycast = %RayCast3D
