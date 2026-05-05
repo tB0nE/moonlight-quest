@@ -121,6 +121,10 @@ func _log(msg: String):
 
 func _build_ui():
 	ui_panel_3d.mesh.size = _ui_mesh_size
+	ui_viewport.size = _ui_viewport_size
+	var col_shape = ui_panel_3d.get_node("Area3D/CollisionShape3D")
+	if col_shape and col_shape.shape:
+		col_shape.shape.size = Vector3(_ui_mesh_size.x, _ui_mesh_size.y, 0.01)
 	var root = %UIRoot
 	for child in root.get_children():
 		if child.name != "IPInput" and child.name != "Numpad":
@@ -166,6 +170,7 @@ func _build_ui():
 	var vbox = VBoxContainer.new()
 	vbox.name = "VBox"
 	vbox.add_theme_constant_override("separation", 0)
+	vbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(vbox)
 
@@ -379,6 +384,7 @@ func _make_option_btn(label_text: String, value_text: String) -> Button:
 	pressed_style.bg_color = Color(1, 1, 1, 0.18)
 	btn.add_theme_stylebox_override("pressed", pressed_style)
 	btn.custom_minimum_size = Vector2(100, 44)
+	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return btn
 
 func _update_option_btn(btn: Button, value: String):
