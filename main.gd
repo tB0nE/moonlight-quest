@@ -430,7 +430,7 @@ func _build_welcome_ui():
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.texture = load(twilight_images[randi() % twilight_images.size()])
 	bg.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVER
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bg)
 
