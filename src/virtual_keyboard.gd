@@ -143,8 +143,7 @@ func _build_keys():
 func _make_key_style(bg: Color, border: Color) -> StyleBoxFlat:
 	var s = StyleBoxFlat.new()
 	s.set_bg_color(bg)
-	s.set_border_width_all(1)
-	s.set_border_color(border)
+	s.set_border_width_all(0)
 	s.set_corner_radius_all(6)
 	s.set_content_margin_all(4)
 	return s
