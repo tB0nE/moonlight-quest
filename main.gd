@@ -1459,6 +1459,9 @@ func _apply_render_mode():
 	var interface = XRServer.find_interface("OpenXR")
 	if not interface:
 		return
+	var vp = get_viewport()
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	vp.use_taa = false
 	var mat = screen_mesh.material_override
 	match render_mode:
 		0:
