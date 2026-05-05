@@ -8,13 +8,13 @@ void fragment() {
 	float color_sel = fract(seed * 4.32);
 	vec3 tint;
 	if (color_sel < 0.25) {
-		tint = vec3(1.0, 0.55, 0.55);
+		tint = vec3(1.0, 0.35, 0.45);
 	} else if (color_sel < 0.5) {
-		tint = vec3(0.55, 0.7, 1.0);
+		tint = vec3(0.35, 0.55, 1.0);
 	} else if (color_sel < 0.75) {
-		tint = vec3(1.0, 0.88, 0.55);
+		tint = vec3(1.0, 0.85, 0.3);
 	} else {
-		tint = vec3(1.0, 1.0, 1.0);
+		tint = vec3(0.95, 0.95, 1.0);
 	}
 	
 	float flicker_sel = fract(seed * 7.13);
@@ -27,7 +27,7 @@ void fragment() {
 		flicker = 0.5 + 0.5 * sin(TIME * 8.0 + seed * 6.28);
 	}
 	
-	ALBEDO = tint;
-	EMISSION = tint * 2.0 * flicker;
+	ALBEDO = tint * flicker;
+	EMISSION = tint * flicker * 1.5;
 	ALPHA = flicker;
 }
