@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, depth_draw_never, cull_disabled;
+render_mode unshaded, depth_draw_never, cull_disabled, transparent;
 
 uniform sampler2D main_texture : source_color, filter_linear, repeat_disable;
 uniform float filter_mode = 3.0;
