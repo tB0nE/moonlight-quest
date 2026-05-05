@@ -73,7 +73,7 @@ var bezel_mesh: MeshInstance3D
 var curvature: int = 0
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
 var render_mode: int = 0
-var render_mode_labels: Array = ["Normal", "Smooth", "Softer", "Softest"]
+var render_mode_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]
 var _xr_base_render_scale: float = 1.0
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
@@ -336,7 +336,7 @@ func _build_ui():
 	render_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(render_row)
 
-	_ui_render_btn = _make_option_btn("Render", "Normal")
+	_ui_render_btn = _make_option_btn("Smoothing", "0%")
 	render_row.add_child(_ui_render_btn)
 
 	_ui_status_label = Label.new()
@@ -1448,7 +1448,7 @@ func _toggle_passthrough():
 	_save_state()
 
 func _cycle_render_mode():
-	render_mode = (render_mode + 1) % 4
+	render_mode = (render_mode + 1) % render_mode_labels.size()
 	_update_option_btn(_ui_render_btn, render_mode_labels[render_mode])
 	_apply_render_mode()
 	_save_state()
