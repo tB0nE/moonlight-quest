@@ -58,7 +58,7 @@ albedo_texture = SubResource("ViewportTexture_UI")
 [sub_resource type="QuadMesh" id="QuadMesh_UI"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_UI"]
-size = Vector3(0.9, 0.49, 0.01)
+size = Vector3(0.9, 0.52, 0.01)
 
 [node name="Main" type="Node3D" unique_id=883381453]
 script = ExtResource("1_main")
@@ -111,7 +111,7 @@ mouse_filter = 2
 unique_name_in_owner = true
 disable_3d = true
 transparent_bg = true
-size = Vector2i(450, 245)
+size = Vector2i(450, 260)
 render_target_update_mode = 4
 
 [node name="UIRoot" type="Control" parent="UIViewport" unique_id=1507459344]

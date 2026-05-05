@@ -97,8 +97,8 @@ var depth_estimator: DepthEstimatorModule
 var virtual_keyboard: VirtualKeyboard
 
 var _log_lines: PackedStringArray = []
-var _ui_viewport_size := Vector2i(450, 245)
-var _ui_mesh_size := Vector2(0.9, 0.49)
+var _ui_viewport_size := Vector2i(450, 260)
+var _ui_mesh_size := Vector2(0.9, 0.52)
 var _ui_host_label: Label
 var _ui_status_label: Label
 var _ui_pt_btn: Button
@@ -157,22 +157,6 @@ func _build_ui():
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(panel)
 
-	var brand = Label.new()
-	brand.name = "Brand"
-	brand.text = "Nightfall"
-	brand.add_theme_font_size_override("font_size", 15)
-	brand.add_theme_color_override("font_color", Color(1, 1, 1, 1))
-	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	brand.anchor_left = 0.0
-	brand.anchor_right = 1.0
-	brand.anchor_top = 0.0
-	brand.anchor_bottom = 0.0
-	brand.offset_top = 0.0
-	brand.offset_bottom = 30.0
-	brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(brand)
-
 	var vbox = VBoxContainer.new()
 	vbox.name = "VBox"
 	vbox.add_theme_constant_override("separation", 0)
@@ -199,6 +183,18 @@ func _build_ui():
 	host_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_row.add_child(host_pad)
 	top_row.add_child(_ui_host_label)
+
+	var brand = Label.new()
+	brand.name = "Brand"
+	brand.text = "Nightfall"
+	brand.add_theme_font_size_override("font_size", 15)
+	brand.add_theme_color_override("font_color", Color(1, 1, 1, 1))
+	brand.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	brand.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	brand.custom_minimum_size = Vector2(0, 30)
+	brand.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	brand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_row.add_child(brand)
 
 	var left_spacer = Control.new()
 	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -310,7 +306,7 @@ func _build_ui():
 	center_row.add_child(_ui_bezel_btn)
 
 	var gap = Control.new()
-	gap.custom_minimum_size = Vector2(0, 6)
+	gap.custom_minimum_size = Vector2(0, 10)
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(gap)
 
@@ -329,6 +325,11 @@ func _build_ui():
 	bottom_row.add_child(_ui_res_btn)
 	_ui_fps_btn = _make_option_btn("Refresh", "60Hz")
 	bottom_row.add_child(_ui_fps_btn)
+
+	var gap2 = Control.new()
+	gap2.custom_minimum_size = Vector2(0, 10)
+	gap2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(gap2)
 
 	var render_row = HBoxContainer.new()
 	render_row.name = "RenderRow"
