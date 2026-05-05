@@ -67,6 +67,9 @@ var bezel_enabled: bool = true
 var bezel_mesh: MeshInstance3D
 var curvature: int = 0
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
+var render_mode: int = 0
+var render_mode_labels: Array = ["Normal", "Super", "Composite"]
+var _xr_base_render_scale: float = 1.0
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
@@ -85,6 +88,8 @@ var ui_controller: UIController
 var auto_detect: AutoDetect
 var depth_estimator: DepthEstimatorModule
 var virtual_keyboard: VirtualKeyboard
+var composite_mesh: MeshInstance3D
+var composite_shader_mat: ShaderMaterial
 
 var _log_lines: PackedStringArray = []
 var _ui_viewport_size := Vector2i(450, 185)
@@ -97,6 +102,7 @@ var _ui_bezel_btn: Button
 var _ui_mode_btn: Button
 var _ui_res_btn: Button
 var _ui_fps_btn: Button
+var _ui_render_btn: Button
 var _ui_exit_btn: Button
 var _ui_disconnect_btn: Button
 var _ui_close_btn: Button
@@ -311,6 +317,17 @@ func _build_ui():
 	_ui_fps_btn = _make_option_btn("Refresh", "60Hz")
 	bottom_row.add_child(_ui_fps_btn)
 
+	var render_row = HBoxContainer.new()
+	render_row.name = "RenderRow"
+	render_row.add_theme_constant_override("separation", 12)
+	render_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	render_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	render_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(render_row)
+
+	_ui_render_btn = _make_option_btn("Render", "Normal")
+	render_row.add_child(_ui_render_btn)
+
 	_ui_status_label = Label.new()
 	_ui_status_label.name = "StatusLabel"
 	_ui_status_label.text = "Ready"
@@ -342,6 +359,7 @@ func _build_ui():
 	_ui_mode_btn.button_down.connect(func(): ui_controller.on_sbs_toggled())
 	_ui_res_btn.button_down.connect(func(): _cycle_resolution())
 	_ui_fps_btn.button_down.connect(func(): _cycle_fps())
+	_ui_render_btn.button_down.connect(func(): _cycle_render_mode())
 
 	_update_host_label()
 
@@ -1051,6 +1069,7 @@ func _save_state():
 	save.set_value("screen", "bezel", bezel_enabled)
 	save.set_value("screen", "curvature", curvature)
 	save.set_value("screen", "passthrough", passthrough_mode)
+	save.set_value("screen", "render_mode", render_mode)
 	if is_xr_active and xr_camera:
 		var ui_offset = ui_panel_3d.global_position - xr_camera.global_position
 		save.set_value("ui", "offset_x", ui_offset.x)
@@ -1109,6 +1128,7 @@ func _load_state():
 	bezel_enabled = save.get_value("screen", "bezel", true)
 	curvature = save.get_value("screen", "curvature", 0)
 	passthrough_mode = save.get_value("screen", "passthrough", 0)
+	render_mode = save.get_value("screen", "render_mode", 0)
 	if save.has_section_key("screen", "size_x"):
 		_mesh_size = Vector2(save.get_value("screen", "size_x"), save.get_value("screen", "size_y"))
 		if _mesh_size.x > 0.1 and _mesh_size.y > 0.1:
@@ -1123,6 +1143,7 @@ func _load_state():
 	_update_option_btn(_ui_bezel_btn, "On" if bezel_enabled else "Off")
 	_update_option_btn(_ui_curve_btn, curvature_labels[clampi(curvature, 0, curvature_labels.size() - 1)])
 	_update_option_btn(_ui_pt_btn, passthrough_labels[clampi(passthrough_mode, 0, passthrough_labels.size() - 1)])
+	_update_option_btn(_ui_render_btn, render_mode_labels[clampi(render_mode, 0, render_mode_labels.size() - 1)])
 	_update_bezel_size()
 	if save.has_section_key("ui", "offset_x") and is_xr_active and xr_camera:
 		ui_panel_3d.global_position = xr_camera.global_position + Vector3(
@@ -1130,6 +1151,7 @@ func _load_state():
 			save.get_value("ui", "offset_y"),
 			save.get_value("ui", "offset_z"))
 		ui_panel_3d.rotation.y = xr_camera.rotation.y + save.get_value("ui", "rot_y", 0.0)
+	_apply_render_mode()
 
 func _flush_log():
 	var f = FileAccess.open("user://debug.log", FileAccess.WRITE)
@@ -1162,6 +1184,7 @@ func _ready():
 	_create_corner_handles()
 	_create_bezel()
 	_create_contact_dot()
+	_create_composite_mesh()
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -1232,6 +1255,7 @@ func _ready():
 
 		get_viewport().size = render_size
 		get_viewport().use_xr = true
+		_xr_base_render_scale = get_viewport().scaling_3d_scale
 		is_xr_active = true
 		stereo_mode = 0
 		passthrough_mode = 0
@@ -1289,6 +1313,8 @@ func _process(delta):
 		_flush_log()
 
 	if is_xr_active:
+		if render_mode == 2 and composite_mesh and composite_mesh.visible:
+			_update_composite_corners()
 		var b_pressed = right_hand.is_button_pressed("by_button")
 		if b_pressed and not _was_b_pressed:
 			_toggle_ui()
@@ -1411,6 +1437,37 @@ func _toggle_passthrough():
 		if starfield: starfield.visible = true
 	_update_option_btn(_ui_pt_btn, passthrough_labels[passthrough_mode])
 	_save_state()
+
+func _cycle_render_mode():
+	render_mode = (render_mode + 1) % 3
+	_update_option_btn(_ui_render_btn, render_mode_labels[render_mode])
+	_apply_render_mode()
+	_save_state()
+
+func _apply_render_mode():
+	if not is_xr_active:
+		return
+	var interface = XRServer.find_interface("OpenXR")
+	if not interface:
+		return
+	match render_mode:
+		0:
+			get_viewport().scaling_3d_scale = _xr_base_render_scale
+			screen_mesh.visible = true
+			if composite_mesh:
+				composite_mesh.visible = false
+		1:
+			get_viewport().scaling_3d_scale = _xr_base_render_scale * 2.0
+			screen_mesh.visible = true
+			if composite_mesh:
+				composite_mesh.visible = false
+		2:
+			get_viewport().scaling_3d_scale = _xr_base_render_scale
+			screen_mesh.visible = curvature != 0
+			if composite_mesh:
+				composite_mesh.visible = curvature == 0
+				if composite_shader_mat:
+					composite_shader_mat.set_shader_parameter("main_texture", stream_viewport.get_texture())
 
 func _cycle_fps():
 	var rates = [60, 90, 120]
@@ -1742,6 +1799,49 @@ func _create_contact_dot():
 	contact_dot.material_override = dot_mat
 	contact_dot.visible = false
 	add_child(contact_dot)
+
+func _create_composite_mesh():
+	composite_mesh = MeshInstance3D.new()
+	composite_mesh.name = "CompositeScreen"
+	var quad = QuadMesh.new()
+	quad.size = Vector2(2, 2)
+	composite_mesh.mesh = quad
+	var shader = load("res://src/composite_screen.gdshader")
+	composite_shader_mat = ShaderMaterial.new()
+	composite_shader_mat.shader = shader
+	composite_shader_mat.set_shader_parameter("quad_corners", PackedVector2Array([Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO]))
+	composite_mesh.material_override = composite_shader_mat
+	composite_mesh.render_priority = 128
+	var mat = StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.no_depth_test = true
+	composite_mesh.material_override = composite_shader_mat
+	composite_mesh.visible = false
+	add_child(composite_mesh)
+
+func _update_composite_corners():
+	if not composite_mesh or not composite_mesh.visible:
+		return
+	var half = _mesh_size / 2.0
+	var corners_3d = [
+		screen_mesh.to_global(Vector3(-half.x, half.y, 0)),
+		screen_mesh.to_global(Vector3(half.x, half.y, 0)),
+		screen_mesh.to_global(Vector3(-half.x, -half.y, 0)),
+		screen_mesh.to_global(Vector3(half.x, -half.y, 0)),
+	]
+	var camera = xr_camera
+	var vp_size = camera.get_viewport().size
+	var screen_corners = PackedVector2Array()
+	screen_corners.resize(4)
+	for i in range(4):
+		var projected = camera.unproject_position(corners_3d[i])
+		screen_corners[i] = Vector2(projected.x / vp_size.x, 1.0 - projected.y / vp_size.y)
+	composite_shader_mat.set_shader_parameter("quad_corners", screen_corners)
+	var cam_pos = camera.global_position
+	var cam_fwd = -camera.global_transform.basis.z
+	composite_mesh.global_position = cam_pos + cam_fwd * 0.5
+	composite_mesh.look_at(cam_pos + cam_fwd * 2.0, Vector3.UP)
 
 func _create_starfield():
 	var particles = GPUParticles3D.new()
