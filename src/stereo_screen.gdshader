@@ -14,22 +14,17 @@ vec3 filtered_texture(sampler2D tex, vec2 uv) {
         return texture(tex, uv).rgb;
     }
     vec2 texel = 1.0 / vec2(textureSize(tex, 0));
-    vec3 color = vec3(0.0);
-    float total = 0.0;
-    int radius = 1;
-    float spread = 0.5;
-    if (filter_mode == 1) { radius = 2; spread = 1.0; }
-    else if (filter_mode == 2) { radius = 2; spread = 0.75; }
-    else if (filter_mode == 3) { radius = 3; spread = 1.0; }
-    for (int x = -radius; x <= radius; x++) {
-        for (int y = -radius; y <= radius; y++) {
-            float w = 1.0 - (length(vec2(float(x), float(y))) / float(radius + 1));
-            w = max(w, 0.0);
-            color += texture(tex, uv + vec2(float(x), float(y)) * texel * spread).rgb * w;
-            total += w;
-        }
-    }
-    return color / total;
+    float s = float(filter_mode) * 0.5;
+    vec3 c = texture(tex, uv).rgb * 4.0;
+    c += texture(tex, uv + vec2(-1.0, -1.0) * texel * s).rgb;
+    c += texture(tex, uv + vec2( 1.0, -1.0) * texel * s).rgb;
+    c += texture(tex, uv + vec2(-1.0,  1.0) * texel * s).rgb;
+    c += texture(tex, uv + vec2( 1.0,  1.0) * texel * s).rgb;
+    c += texture(tex, uv + vec2(-1.0,  0.0) * texel * s).rgb * 2.0;
+    c += texture(tex, uv + vec2( 1.0,  0.0) * texel * s).rgb * 2.0;
+    c += texture(tex, uv + vec2( 0.0, -1.0) * texel * s).rgb * 2.0;
+    c += texture(tex, uv + vec2( 0.0,  1.0) * texel * s).rgb * 2.0;
+    return c / 16.0;
 }
 
 void fragment() {
