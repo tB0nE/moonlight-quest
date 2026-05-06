@@ -15,6 +15,8 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Nightfall"
+config/description="VR-first GameStream client for Meta Quest"
+config/copyright="Copyright © 2025 Tyrone. Licensed under GNU General Public License v3.0."
 run/main_scene="res://main.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://src/assets/nightfall_icon_v1.png"
