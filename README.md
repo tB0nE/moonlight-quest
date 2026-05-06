@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src/assets/nightfall_icon_v1.png" width="174" alt="Nightfall" style="border-radius: 24px;" />
+<img src="src/assets/nightfall_icon_v1.png" width="174" alt="Nightfall" />
 
 # Nightfall
 
@@ -10,7 +10,7 @@ Stream your PC games into a virtual living room — repositionable screens, ster
 passthrough, and AI depth estimation, all built native on Godot 4 and OpenXR.
 
 [![Stars](https://img.shields.io/github/stars/tB0nE/nightfall?style=for-the-badge&color=7c73ff&labelColor=1a1a2e)](https://github.com/tB0nE/nightfall/stargazers)
-[![License](https://img.shields.io/github/license/tB0nE/nightfall?style=for-the-badge&color=4c5265&labelColor=1a1a2e)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue?style=for-the-badge&color=4c5265&labelColor=1a1a2e)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/tB0nE/nightfall?style=for-the-badge&color=4ade80&labelColor=1a1a2e&label=latest)](https://github.com/tB0nE/nightfall/releases/latest)
 
 [Features](#features) · [Why Nightfall](#why-nightfall) · [Downloads](#downloads) · [Usage](#usage-and-requirements) · [Building](#building) · [Donate](#donate) · [License](#license)
