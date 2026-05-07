@@ -37,6 +37,7 @@ var _connecting_ip: String = ""
 var _restarting_stream: bool = false
 var is_streaming: bool = false
 var stereo_mode: int = 0
+var has_depth_model_v2: bool = false
 var is_xr_active: bool = false
 var was_clicking: bool = false
 var was_right_clicking: bool = false
@@ -101,8 +102,8 @@ var depth_estimator: DepthEstimatorModule
 var virtual_keyboard: VirtualKeyboard
 
 var _log_lines: PackedStringArray = []
-var _ui_viewport_size := Vector2i(450, 260)
-var _ui_mesh_size := Vector2(0.9, 0.52)
+var _ui_viewport_size := Vector2i(520, 260)
+var _ui_mesh_size := Vector2(1.04, 0.52)
 var _ui_host_label: Label
 var _ui_status_label: Label
 var _ui_pt_btn: Button
@@ -295,7 +296,7 @@ func _build_ui():
 	top_row.add_child(_ui_close_btn)
 
 	var top_margin = Control.new()
-	top_margin.custom_minimum_size = Vector2(0, 12)
+	top_margin.custom_minimum_size = Vector2(0, 22)
 	top_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(top_margin)
 
@@ -1150,10 +1151,9 @@ func _load_host_state(ip: String):
 		return
 	stream_fps = save.get_value(ip, "fps", 60)
 	resolution_idx = save.get_value(ip, "resolution_idx", -1)
-	stereo_mode = clampi(save.get_value(ip, "stereo_mode", 0), 0, 4)
+	stereo_mode = clampi(save.get_value(ip, "stereo_mode", 0), 0, _get_stereo_mode_count() - 1)
 	screen_mesh.material_override.set_shader_parameter("stereo_mode", stereo_mode)
-	var mode_names = ["2D", "SBS Stretch", "SBS Crop", "AI 3D", "AI 3D v2"]
-	_update_option_btn(_ui_mode_btn, mode_names[stereo_mode])
+	_update_option_btn(_ui_mode_btn, _get_stereo_mode_names()[stereo_mode])
 	_update_option_btn(_ui_fps_btn, "%dHz" % stream_fps)
 	if resolution_idx == -1:
 		_update_option_btn(_ui_res_btn, "Auto")
@@ -1232,6 +1232,10 @@ func _ready():
 	auto_detect = AutoDetect.new(self)
 	depth_estimator = DepthEstimatorModule.new(self)
 	depth_estimator.setup()
+	if moon and moon.has_method("has_depth_model_v2"):
+		has_depth_model_v2 = moon.has_depth_model_v2()
+		if stereo_mode >= _get_stereo_mode_count():
+			stereo_mode = 0
 
 	virtual_keyboard = VirtualKeyboard.new(self)
 	add_child(virtual_keyboard)
@@ -1527,6 +1531,12 @@ func _apply_parallax():
 	if mat:
 		var t = float(parallax_mode) / 10.0
 		mat.set_shader_parameter("parallax_depth", 0.5 + t * 0.6)
+
+func _get_stereo_mode_count() -> int:
+	return 5 if has_depth_model_v2 else 4
+
+func _get_stereo_mode_names() -> Array:
+	return ["2D", "SBS Stretch", "SBS Crop", "AI 3D", "AI 3D v2"] if has_depth_model_v2 else ["2D", "SBS Stretch", "SBS Crop", "AI 3D"]
 
 func _set_depth_model(mode: int):
 	if moon and moon.has_method("set_depth_model"):

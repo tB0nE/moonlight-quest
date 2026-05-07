@@ -122,6 +122,10 @@ public class DepthEstimator {
         return activeModelIndex;
     }
 
+    public boolean hasModelV2() {
+        return tfliteDepthAnything != null;
+    }
+
     public void submitFrame(byte[] rgbaPixels, int width, int height) {
         if (!initialized || activeInterpreter == null) return;
         if (rgbaPixels == null || rgbaPixels.length < width * height * 4) return;
