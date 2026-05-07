@@ -41,10 +41,12 @@ android/gradlew
 android/gradlew.bat
 android/libs/
 android/res/
-android/settings.gradle
 android/src/androidTestInstrumented/
 android/src/instrumented/
 android/src/main/AndroidManifest.xml
 *.apk
 *.idsig
 *.a
+
+# Large model assets (generate via tools/)
+android/src/main/assets/depth-anything-v2-small.tflite

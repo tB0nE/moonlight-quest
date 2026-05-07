@@ -105,12 +105,27 @@ The `build.sh` script handles everything:
 What `build.sh` does:
 1. Wipes `android/build/` and extracts Godot Android template
 2. Copies `GodotApp.java` and `DepthEstimator.java`
-3. Copies MiDaS TFLite model to assets
+3. Copies TFLite models to assets (MiDaS + Depth Anything V2 if present)
 4. Patches `build.gradle` with `tensorflow-lite:2.16.1` dependency
 5. Copies Meta OpenXR vendor plugin AAR
 6. Exports APK via Godot headless
 7. Cleans up `android/build/` (prevents Godot editor duplicate class errors)
 8. Optionally installs via ADB
+
+### Generate Depth Anything V2 Model
+
+The MiDaS model (`midas-midas-v2-w8a8.tflite`, 17MB) is included in the repo. The Depth Anything V2 model (`depth-anything-v2-small.tflite`, 85MB) must be generated separately:
+
+```bash
+# Requires: Python 3.12+ with PyTorch, onnx2tf, onnxsim
+pip install onnx2tf sng4onnx onnxsim
+
+python3 tools/convert_depth_anything_v2.py
+```
+
+This downloads the Depth Anything V2 Small weights from HuggingFace, exports to ONNX (252x252 input for DINOv2 patch size), and converts to int8 quantized TFLite. The output is placed at `android/src/main/assets/depth-anything-v2-small.tflite`.
+
+The app works without it - AI 3D mode will use MiDaS only. AI 3D v2 mode will fall back to MiDaS if the model file is missing.
 
 ## 3. Deploy to Quest
 
@@ -142,7 +157,7 @@ adb install -r Nightfall-Android-arm64-v8a-debug.apk
 ├── android/
 │   └── src/main/
 │       ├── java/com/godot/game/  # GodotApp.java, DepthEstimator.java
-│       └── assets/               # midas-midas-v2-w8a8.tflite
+│       └── assets/               # midas-midas-v2-w8a8.tflite (depth-anything-v2-small.tflite generated separately)
 ├── BUILD.md
 └── README.md
 ```
