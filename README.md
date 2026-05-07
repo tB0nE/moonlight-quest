@@ -33,6 +33,10 @@ passthrough, and AI depth estimation, all built native on Godot 4 and OpenXR.
 - **Quest Touch Plus models** - real controller models instead of placeholder boxes
 - **Starfield environment** - ambient particle starfield for immersion
 
+<div align="center">
+<img src="src/assets/nightfall_shot.png" width="720" alt="Nightfall running on Quest" />
+</div>
+
 ## Why Nightfall
 
 There is no native Moonlight client on the Quest. Existing options like Moonlight Android and Artemis run as flat Android apps - they work inside a 2D window, not in XR/VR space. This means you can't use Quest-native features like stereoscopic SBS rendering, AI-powered 3D depth conversion, or passthrough while streaming. You're staring at a flat panel in a flat app, same as any phone screen.
