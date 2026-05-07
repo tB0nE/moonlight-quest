@@ -142,15 +142,20 @@ adb install -r Nightfall-Android-arm64-v8a-debug.apk
 ├── project.godot        # Godot project config
 ├── export_presets.cfg   # Debug + Release Android export presets
 ├── src/
+│   ├── shaders/
+│   │   ├── stereo_screen.gdshader    # 2D + SBS Stretch + SBS Crop + AI 3D DIBR shader
+│   │   ├── star.gdshader             # Star particle shader (color tints + flicker)
+│   │   ├── keyboard_screen.gdshader  # DEPRECATED (broken with ViewportTexture)
+│   │   └── composite_screen.gdshader # DEPRECATED (composite mode removed)
 │   ├── stream_manager.gd     # Pairing, streaming lifecycle, audio, texture binding, stats
 │   ├── xr_interaction.gd     # Raycasts, grab bars, corner resize, UI clicks
 │   ├── input_handler.gd      # Keyboard/mouse/controller forwarding, stream mouse capture
 │   ├── ui_controller.gd      # Numpad, mode toggle, stereo shader, UI updates
 │   ├── auto_detect.gd        # SBS auto-detection logic
 │   ├── depth_estimator.gd    # AI 3D: SubViewport capture, JNI depth pipeline, texture update
-│   ├── stereo_screen.gdshader  # 2D + SBS Stretch + SBS Crop + AI 3D DIBR shader
+│   ├── virtual_keyboard.gd   # Full QWERTY keyboard overlay
 │   ├── openxr_action_map.tres  # OpenXR controller bindings
-│   └── icon.svg               # App icon
+│   └── assets/               # nightfall_icon_v1.png, pc_icon.svg, backgrounds
 ├── addons/
 │   ├── moonlight-godot/       # GDExtension (built from fork)
 │   └── godotopenxrvendors/    # Meta OpenXR vendor plugin v5.0.0

@@ -1905,7 +1905,7 @@ func _create_starfield():
 	var star_mesh = SphereMesh.new()
 	star_mesh.radius = 0.05
 	star_mesh.height = 0.1
-	var star_shader = load("res://src/star.gdshader")
+	var star_shader = load("res://src/shaders/star.gdshader")
 	var star_mat = ShaderMaterial.new()
 	star_mat.shader = star_shader
 	star_mat.render_priority = -128

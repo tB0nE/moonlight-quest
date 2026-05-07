@@ -26,6 +26,7 @@ addons/godotopenxrvendors/
 # System/IDE ignores
 .DS_Store
 .vscode/
+.idea/
 *.swp
 *.tmp
 *.log
@@ -50,3 +51,10 @@ android/src/main/AndroidManifest.xml
 
 # Large model assets (generate via tools/)
 android/src/main/assets/depth-anything-v2-small.tflite
+
+# Model conversion artifacts
+tools/Depth-Anything-V2/
+tools/depth_anything_v2_weights/
+tools/tflite_tmp/
+tools/calibration_data.npz
+tools/depth_anything_v2.onnx

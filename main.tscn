@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c8y7y6x5w4v3u"]
 
 [ext_resource type="Script" uid="uid://dsug4py72iyy3" path="res://main.gd" id="1_main"]
-[ext_resource type="Shader" path="res://src/stereo_screen.gdshader" id="2_shader"]
+[ext_resource type="Shader" path="res://src/shaders/stereo_screen.gdshader" id="2_shader"]
 
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_1"]
 size = Vector2(8, 8)
