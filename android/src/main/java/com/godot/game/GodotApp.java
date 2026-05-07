@@ -72,6 +72,12 @@ public class GodotApp extends GodotActivity {
 		return null;
 	}
 
+	public static void setDepthModel(int modelIndex) {
+		if (depthEstimator != null && depthEstimator.isInitialized()) {
+			depthEstimator.setActiveModel(modelIndex);
+		}
+	}
+
 	@Override
 	public void onResume() {
 		super.onResume();

@@ -74,8 +74,12 @@ var curvature: int = 0
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
 var smooth_mode: int = 0
 var sharpen_mode: int = 0
+var depth_mode: int = 0
+var parallax_mode: int = 0
 var smooth_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%"]
 var sharpen_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%"]
+var depth_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]
+var parallax_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]
 var _xr_base_render_scale: float = 1.0
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
@@ -109,6 +113,8 @@ var _ui_res_btn: Button
 var _ui_fps_btn: Button
 var _ui_render_btn: Button
 var _ui_sharpen_btn: Button
+var _ui_depth_btn: Button
+var _ui_parallax_btn: Button
 var _ui_exit_btn: Button
 var _ui_disconnect_btn: Button
 var _ui_close_btn: Button
@@ -308,6 +314,8 @@ func _build_ui():
 	center_row.add_child(_ui_curve_btn)
 	_ui_bezel_btn = _make_option_btn("Bezel", "On")
 	center_row.add_child(_ui_bezel_btn)
+	_ui_mode_btn = _make_option_btn("Mode", "2D")
+	center_row.add_child(_ui_mode_btn)
 
 	var gap = Control.new()
 	gap.custom_minimum_size = Vector2(0, 10)
@@ -323,12 +331,14 @@ func _build_ui():
 	bottom_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(bottom_row)
 
-	_ui_mode_btn = _make_option_btn("Mode", "2D")
-	bottom_row.add_child(_ui_mode_btn)
 	_ui_res_btn = _make_option_btn("Resolution", "Auto")
 	bottom_row.add_child(_ui_res_btn)
 	_ui_fps_btn = _make_option_btn("Refresh", "60Hz")
 	bottom_row.add_child(_ui_fps_btn)
+	_ui_depth_btn = _make_option_btn("Depth", "0%")
+	bottom_row.add_child(_ui_depth_btn)
+	_ui_parallax_btn = _make_option_btn("Parallax", "0%")
+	bottom_row.add_child(_ui_parallax_btn)
 
 	var gap2 = Control.new()
 	gap2.custom_minimum_size = Vector2(0, 10)
@@ -382,6 +392,8 @@ func _build_ui():
 	_ui_fps_btn.button_down.connect(func(): _cycle_fps())
 	_ui_render_btn.button_down.connect(func(): _cycle_smooth_mode())
 	_ui_sharpen_btn.button_down.connect(func(): _cycle_sharpen_mode())
+	_ui_depth_btn.button_down.connect(func(): _cycle_depth_mode())
+	_ui_parallax_btn.button_down.connect(func(): _cycle_parallax_mode())
 
 	_update_host_label()
 
@@ -1106,6 +1118,8 @@ func _save_state():
 	save.set_value("screen", "passthrough", passthrough_mode)
 	save.set_value("screen", "smooth_mode", smooth_mode)
 	save.set_value("screen", "sharpen_mode", sharpen_mode)
+	save.set_value("screen", "depth_mode", depth_mode)
+	save.set_value("screen", "parallax_mode", parallax_mode)
 	if is_xr_active and xr_camera:
 		var ui_offset = ui_panel_3d.global_position - xr_camera.global_position
 		save.set_value("ui", "offset_x", ui_offset.x)
@@ -1136,9 +1150,9 @@ func _load_host_state(ip: String):
 		return
 	stream_fps = save.get_value(ip, "fps", 60)
 	resolution_idx = save.get_value(ip, "resolution_idx", -1)
-	stereo_mode = clampi(save.get_value(ip, "stereo_mode", 0), 0, 3)
+	stereo_mode = clampi(save.get_value(ip, "stereo_mode", 0), 0, 4)
 	screen_mesh.material_override.set_shader_parameter("stereo_mode", stereo_mode)
-	var mode_names = ["2D", "SBS Stretch", "SBS Crop", "AI 3D"]
+	var mode_names = ["2D", "SBS Stretch", "SBS Crop", "AI 3D", "AI 3D v2"]
 	_update_option_btn(_ui_mode_btn, mode_names[stereo_mode])
 	_update_option_btn(_ui_fps_btn, "%dHz" % stream_fps)
 	if resolution_idx == -1:
@@ -1148,7 +1162,8 @@ func _load_host_state(ip: String):
 		host_resolution = resolutions[resolution_idx]
 		_update_option_btn(_ui_res_btn, resolution_labels[resolution_idx])
 	if depth_estimator:
-		depth_estimator.set_enabled(stereo_mode == 3)
+		depth_estimator.set_enabled(stereo_mode >= 3)
+	_set_depth_model(stereo_mode)
 
 func _load_state():
 	var save = ConfigFile.new()
@@ -1166,6 +1181,8 @@ func _load_state():
 	passthrough_mode = save.get_value("screen", "passthrough", 0)
 	smooth_mode = save.get_value("screen", "smooth_mode", save.get_value("screen", "render_mode", 0))
 	sharpen_mode = save.get_value("screen", "sharpen_mode", 0)
+	depth_mode = save.get_value("screen", "depth_mode", 0)
+	parallax_mode = save.get_value("screen", "parallax_mode", 0)
 	if save.has_section_key("screen", "size_x"):
 		_mesh_size = Vector2(save.get_value("screen", "size_x"), save.get_value("screen", "size_y"))
 		if _mesh_size.x > 0.1 and _mesh_size.y > 0.1:
@@ -1182,6 +1199,8 @@ func _load_state():
 	_update_option_btn(_ui_pt_btn, passthrough_labels[clampi(passthrough_mode, 0, passthrough_labels.size() - 1)])
 	_update_option_btn(_ui_render_btn, smooth_labels[clampi(smooth_mode, 0, smooth_labels.size() - 1)])
 	_update_option_btn(_ui_sharpen_btn, sharpen_labels[clampi(sharpen_mode, 0, sharpen_labels.size() - 1)])
+	_update_option_btn(_ui_depth_btn, depth_labels[clampi(depth_mode, 0, depth_labels.size() - 1)])
+	_update_option_btn(_ui_parallax_btn, parallax_labels[clampi(parallax_mode, 0, parallax_labels.size() - 1)])
 	_update_bezel_size()
 	if save.has_section_key("ui", "offset_x") and is_xr_active and xr_camera:
 		ui_panel_3d.global_position = xr_camera.global_position + Vector3(
@@ -1190,6 +1209,8 @@ func _load_state():
 			save.get_value("ui", "offset_z"))
 		ui_panel_3d.rotation.y = xr_camera.rotation.y + save.get_value("ui", "rot_y", 0.0)
 	_apply_filter()
+	_apply_depth()
+	_apply_parallax()
 
 func _flush_log():
 	var f = FileAccess.open("user://debug.log", FileAccess.WRITE)
@@ -1482,6 +1503,34 @@ func _cycle_sharpen_mode():
 	_update_option_btn(_ui_sharpen_btn, sharpen_labels[sharpen_mode])
 	_apply_filter()
 	_save_state()
+
+func _cycle_depth_mode():
+	depth_mode = (depth_mode + 1) % depth_labels.size()
+	_update_option_btn(_ui_depth_btn, depth_labels[depth_mode])
+	_apply_depth()
+	_save_state()
+
+func _cycle_parallax_mode():
+	parallax_mode = (parallax_mode + 1) % parallax_labels.size()
+	_update_option_btn(_ui_parallax_btn, parallax_labels[parallax_mode])
+	_apply_parallax()
+	_save_state()
+
+func _apply_depth():
+	var mat = screen_mesh.material_override
+	if mat:
+		var t = float(depth_mode) / 10.0
+		mat.set_shader_parameter("depth_gain", 1.0 + t * 3.6)
+
+func _apply_parallax():
+	var mat = screen_mesh.material_override
+	if mat:
+		var t = float(parallax_mode) / 10.0
+		mat.set_shader_parameter("parallax_depth", 0.5 + t * 0.6)
+
+func _set_depth_model(mode: int):
+	if moon and moon.has_method("set_depth_model"):
+		moon.set_depth_model(1 if mode == 4 else 0)
 
 func _apply_filter():
 	if not is_xr_active:

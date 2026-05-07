@@ -5,6 +5,7 @@ uniform sampler2D main_texture : source_color, filter_linear, repeat_disable;
 uniform sampler2D depth_texture : hint_default_white, filter_linear_mipmap;
 uniform int stereo_mode = 0;
 uniform float parallax_depth = 0.5;
+uniform float depth_gain = 1.0;
 uniform float convergence = 0.5;
 uniform float balance_shift = 0.5;
 uniform int filter_mode = 0;
@@ -53,7 +54,7 @@ void fragment() {
             ALBEDO = filtered_texture(main_texture, vec2(uv.x * 0.5 + 0.5, uv.y * 0.5 + 0.25));
         }
     }
-    else if (stereo_mode == 3) {
+    else if (stereo_mode == 3 || stereo_mode == 4) {
         float depth = texture(depth_texture, uv).r;
         
         float depth_diff;
@@ -62,6 +63,7 @@ void fragment() {
         } else {
             depth_diff = (depth - convergence) / max(1.0 - convergence, 0.001);
         }
+        depth_diff *= depth_gain;
         
         float parallax = parallax_depth * 0.7 * 0.06;
         float shift = parallax * depth_diff;

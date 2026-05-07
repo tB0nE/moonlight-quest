@@ -64,6 +64,7 @@ cp ../src/main/java/com/godot/game/GodotApp.java src/main/java/com/godot/game/Go
 cp ../src/main/java/com/godot/game/DepthEstimator.java src/main/java/com/godot/game/DepthEstimator.java
 mkdir -p src/main/assets
 cp "$SCRIPT_DIR/android/src/main/assets/midas-midas-v2-w8a8.tflite" src/main/assets/
+cp "$SCRIPT_DIR/android/src/main/assets/depth-anything-v2-small.tflite" src/main/assets/ 2>/dev/null || true
 sed -i '/implementation "androidx.documentfile:documentfile/a\\n    implementation "org.tensorflow:tensorflow-lite:2.16.1"' build.gradle
 if [ "$PRESET" = "NightfallDev" ]; then
   cp "$SCRIPT_DIR/addons/godotopenxrvendors/.bin/android/debug/godotopenxr-meta-debug.aar" libs/debug/ 2>/dev/null || true

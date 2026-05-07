@@ -30,7 +30,7 @@ func on_ipinput_gui_input(event: InputEvent):
 
 func on_sbs_toggled():
 	main.auto_detect_enabled = false
-	main.stereo_mode = (main.stereo_mode + 1) % 4
+	main.stereo_mode = (main.stereo_mode + 1) % 5
 	update_stereo_shader()
 	main._save_state()
 
@@ -41,10 +41,11 @@ func on_resume_auto_pressed():
 
 func update_stereo_shader():
 	main.screen_mesh.material_override.set_shader_parameter("stereo_mode", main.stereo_mode)
-	var mode_names = ["2D", "SBS Stretch", "SBS Crop", "AI 3D"]
+	var mode_names = ["2D", "SBS Stretch", "SBS Crop", "AI 3D", "AI 3D v2"]
 	main._update_option_btn(main._ui_mode_btn, mode_names[main.stereo_mode])
 	if main.depth_estimator:
-		main.depth_estimator.set_enabled(main.stereo_mode == 3)
+		main.depth_estimator.set_enabled(main.stereo_mode >= 3)
+	main._set_depth_model(main.stereo_mode)
 
 func update_ui():
 	main.get_node("%Crosshair").visible = (not main.is_xr_active and not main.mouse_captured_by_stream)
