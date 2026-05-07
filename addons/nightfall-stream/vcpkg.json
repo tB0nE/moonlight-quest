@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "dependencies": [
+    {
+      "name": "ffmpeg",
+      "default-features": false,
+      "features": [
+        "avcodec",
+        "avformat",
+        "swresample",
+        "swscale",
+        "gpl",
+        "dav1d",
+        "opus"
+      ]
+    },
+    "curl",
+    "godot-cpp",
+    "moonlight-common-c",
+    "opus",
+    "openssl"
+  ]
+}

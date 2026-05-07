@@ -1,0 +1,31 @@
+--- a/src/rswrapper.c
++++ b/src/rswrapper.c
+@@ -3,6 +3,12 @@
+  * @brief Wrappers for nanors vectorization with different ISA options
+  */
+ 
++#include <stdint.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdio.h>
++#include <assert.h>
++
+ // _FORTIY_SOURCE can cause some versions of GCC to try to inline
+ // memset() with incompatible target options when compiling rs.c
+ #ifdef _FORTIFY_SOURCE
+--- a/nanors/rs.c
++++ b/nanors/rs.c
+@@ -1,8 +1,10 @@
++#ifndef __ANDROID__
+ #include <assert.h>
+ #include <stdint.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#endif
+ 
+ #include "oblas_lite.c"
+ #include "rs.h"
+
+
+\ No newline at end of file

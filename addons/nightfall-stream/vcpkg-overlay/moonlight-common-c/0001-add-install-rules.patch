@@ -1,0 +1,65 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 31d666b..cda3db4 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -105,7 +105,7 @@ endif()
+ 
+ target_include_directories(moonlight-common-c SYSTEM PUBLIC src)
+ 
+-target_include_directories(moonlight-common-c SYSTEM PRIVATE
++target_include_directories(moonlight-common-c PRIVATE
+   ${CMAKE_CURRENT_SOURCE_DIR}/nanors
+   ${CMAKE_CURRENT_SOURCE_DIR}/nanors/deps
+   ${CMAKE_CURRENT_SOURCE_DIR}/nanors/deps/obl
+@@ -113,6 +113,36 @@ target_include_directories(moonlight-common-c SYSTEM PRIVATE
+ 
+ target_compile_definitions(moonlight-common-c PRIVATE HAS_SOCKLEN_T)
+ 
++
++# 1. 强制重设 moonlight-common-c 的接口路径，清除源码目录的绝对路径
++set_target_properties(moonlight-common-c PROPERTIES 
++    INTERFACE_INCLUDE_DIRECTORIES "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>;$<INSTALL_INTERFACE:include>"
++    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ""
++)
++
++# 2. 同时安装并导出这两个目标
++install(TARGETS moonlight-common-c enet
++    EXPORT moonlight-common-c-targets
++    RUNTIME DESTINATION bin
++    LIBRARY DESTINATION lib
++    ARCHIVE DESTINATION lib
++)
++
++# 3. 生成导出配置文件
++install(EXPORT moonlight-common-c-targets
++    FILE moonlight-common-cConfig.cmake
++    NAMESPACE moonlight-common-c::
++    DESTINATION share/moonlight-common-c
++)
++
++# 4. 安装头文件
++install(DIRECTORY src/ DESTINATION include
++    FILES_MATCHING PATTERN "*.h"
++)
++install(DIRECTORY enet/include/ DESTINATION include/enet
++    FILES_MATCHING PATTERN "*.h"
++)
++
+ # nanors
+ if (MSVC)
+     set_source_files_properties("${CMAKE_SOURCE_DIR}/src/rswrapper.c"
+diff --git a/enet/CMakeLists.txt b/enet/CMakeLists.txt
+index da4624d..35b459b 100644
+--- a/enet/CMakeLists.txt
++++ b/enet/CMakeLists.txt
+@@ -119,3 +119,9 @@ if(NOT ENET_NO_INSTALL)
+     install(DIRECTORY include/
+             DESTINATION include)
+ endif()
++
++# 5. 强制重设 enet 的接口路径，解决 enet/CMakeLists.txt 中的报错
++set_target_properties(enet PROPERTIES 
++    INTERFACE_INCLUDE_DIRECTORIES "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>;$<INSTALL_INTERFACE:include/enet>"
++    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES ""
++)
+\ No newline at end of file

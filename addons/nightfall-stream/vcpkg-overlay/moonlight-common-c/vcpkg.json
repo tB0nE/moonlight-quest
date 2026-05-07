@@ -1,0 +1,19 @@
+{
+  "name": "moonlight-common-c",
+  "version": "1.0.0",
+  "description": "Common C library for Moonlight",
+  "homepage": "https://github.com/moonlight-stream/moonlight-common-c",
+  "license": "GPL-3.0-or-later",
+  "dependencies": [
+    "openssl",
+    "simde",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ]
+}

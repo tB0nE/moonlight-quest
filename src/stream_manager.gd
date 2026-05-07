@@ -2,11 +2,14 @@ class_name StreamManager
 extends RefCounted
 
 var main: Node3D
-var http_request: HTTPRequest
 var bitrate: int = 20000
+var _v2_yuv_rect: ColorRect = null
 
 func _init(owner: Node3D):
 	main = owner
+
+func _b() -> StreamBackend:
+	return main.stream_backend
 
 func start_stream(host_id: int, app_id: int):
 	var w = main.host_resolution.x
@@ -17,101 +20,84 @@ func start_stream(host_id: int, app_id: int):
 		bitrate = 80000
 	elif w >= 2560:
 		bitrate = 40000
-	var stream_cfg = MoonlightStreamConfigurationResource.new()
-	stream_cfg.set_width(w)
-	stream_cfg.set_height(h)
-	stream_cfg.set_fps(main.stream_fps)
-	stream_cfg.set_bitrate(bitrate)
-	var stream_opts = MoonlightAdditionalStreamOptions.new()
-	stream_opts.set_disable_hw_acceleration(false)
-	stream_opts.set_disable_audio(false)
-	stream_opts.set_disable_video(false)
-	stream_opts.set_video_codec(0)
-	main.moon.set_render_target(main.stream_target)
-	main.moon.start_play_stream(host_id, app_id, stream_cfg, stream_opts)
-	main._log("[STREAM] start_play_stream called (%dx%d@%d %dMbps)" % [w, h, main.stream_fps, bitrate])
-	await main.get_tree().create_timer(0.1).timeout
-	bind_texture()
-
-func query_host_resolution(ip: String):
-	if http_request == null:
-		http_request = HTTPRequest.new()
-		http_request.timeout = 5.0
-		main.add_child(http_request)
-		http_request.request_completed.connect(_on_serverinfo_response)
-	var url = "http://%s:47989/serverinfo" % ip
-	main._log("[RES] Querying host resolution: %s" % url)
-	var err = http_request.request(url)
-	main._log("[RES] HTTP request error: %d (OK=%d)" % [err, OK])
-	await main.get_tree().create_timer(5.0).timeout
-	if main.resolution_idx == -1 and main.host_resolution == Vector2i(1920, 1080):
-		main._log("[RES] HTTP failed, trying comp_mgr")
-		_try_comp_mgr_resolution()
-	main._log("[RES] Final resolution: %dx%d" % [main.host_resolution.x, main.host_resolution.y])
-
-func _try_comp_mgr_resolution():
-	var hosts = main.config_mgr.get_hosts()
-	main._log("[RES] comp_mgr hosts count: %d" % hosts.size())
-	for h in hosts:
-		main._log("[RES] host: id=%d name=%s" % [h.id if h.has("id") else -1, h.name if h.has("name") else "?"])
-		if h.has("localaddress") and h.localaddress != "":
-			main._log("[RES] Found host with address: %s" % h.localaddress)
-
-func _on_serverinfo_response(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray):
-	main._log("[RES] Response: result=%d code=%d body_len=%d" % [_result, code, body.size()])
-	if code != 200 or body.size() == 0:
-		main._log("[RES] serverinfo request failed (result=%d code=%d)" % [_result, code])
-		return
-	var xml = body.get_string_from_utf8()
-	main._log("[RES] serverinfo full XML: %s" % xml)
-	var display_data = _extract_display_info(xml)
-	var hostname = _extract_hostname(xml)
-	if not hostname.is_empty():
-		main._last_hostname = hostname
-	if display_data != Vector2i.ZERO:
-		if main.resolution_idx == -1:
-			main.host_resolution = display_data
-		main._log("[RES] Detected host resolution: %dx%d" % [display_data.x, display_data.y])
-		main._ui_status_label.text = "Host: %dx%d" % [display_data.x, display_data.y]
+	resize_stream_viewport(w, h)
+	if main.use_nightfall_v2:
+		var options = {}
+		options["width"] = w
+		options["height"] = h
+		options["fps"] = main.stream_fps
+		options["bitrate"] = bitrate
+		options["packet_size"] = 1024
+		options["streaming_remotely"] = 2
+		options["surroundAudioInfo"] = 0xCA0203
+		main._ui_status_label.text = "Launching stream..."
+		_b().establish_stream(host_id, app_id, options, _on_v2_launch_response)
+		main._log("[STREAM] v2 establish_stream called")
 	else:
-		main._log("[RES] Could not detect resolution from XML, using default 1920x1080")
+		var stream_cfg = MoonlightStreamConfigurationResource.new()
+		stream_cfg.set_width(w)
+		stream_cfg.set_height(h)
+		stream_cfg.set_fps(main.stream_fps)
+		stream_cfg.set_bitrate(bitrate)
+		var stream_opts = MoonlightAdditionalStreamOptions.new()
+		stream_opts.set_disable_hw_acceleration(false)
+		stream_opts.set_disable_audio(false)
+		stream_opts.set_disable_video(false)
+		stream_opts.set_video_codec(0)
+		main.moon.set_render_target(main.stream_target)
+		main.moon.start_play_stream(host_id, app_id, stream_cfg, stream_opts)
+		main._log("[STREAM] v1 start_play_stream called (%dx%d@%d %dMbps)" % [w, h, main.stream_fps, bitrate])
+		await main.get_tree().create_timer(0.1).timeout
+		bind_texture()
 
-func _extract_display_info(xml: String) -> Vector2i:
-	if xml.find("<Display0>") == -1 and xml.find("<display0>") == -1:
-		main._log("[RES] No Display0 tag in XML, cannot auto-detect resolution")
-		return Vector2i.ZERO
-	var display_idx = 0
-	while true:
-		var tag_open = "<Display%d>" % display_idx
-		var start = xml.find(tag_open)
-		if start == -1:
-			break
-		start += tag_open.length()
-		var tag_close = "</Display%d>" % display_idx
-		var end = xml.find(tag_close, start)
-		if end == -1:
-			break
-		var value = xml.substr(start, end - start).strip_edges()
-		main._log("[RES] Display%d raw: '%s'" % [display_idx, value])
-		var parts = value.split("x")
-		if parts.size() >= 2:
-			var w = parts[0].to_int()
-			var h = parts[1].to_int()
-			if w > 0 and h > 0:
-				return Vector2i(w, h)
-		display_idx += 1
-	return Vector2i.ZERO
+func _on_v2_launch_response(response: Dictionary):
+	if response.get("status", "") != "success":
+		main._log("[STREAM] v2 launch failed: %s" % response.get("message", "unknown"))
+		main._ui_status_label.text = "Launch failed: " + str(response.get("message", "unknown"))
+		return
 
-func _extract_hostname(xml: String) -> String:
-	var tag = "<hostname>"
-	var start = xml.find(tag)
-	if start == -1:
-		return ""
-	start += tag.length()
-	var end = xml.find("</hostname>", start)
-	if end == -1:
-		return ""
-	return xml.substr(start, end - start).strip_edges()
+	var server_info = {}
+	server_info["server_codec_mode_support"] = response.get("server_codec_mode_support", 0)
+	server_info["rtsp_session_url"] = response.get("session_url", "")
+	server_info["server_app_version"] = response.get("app_version", "")
+	server_info["server_gfe_version"] = response.get("gfe_version", "")
+
+	var w = response.get("width", 1920)
+	var h = response.get("height", 1080)
+	var fps = response.get("fps", 60)
+	var br = response.get("bitrate", 20000)
+
+	var stream_config = {}
+	stream_config["width"] = w
+	stream_config["height"] = h
+	stream_config["fps"] = fps
+	stream_config["bitrate"] = br
+	stream_config["packet_size"] = response.get("packet_size", 1024)
+	stream_config["streaming_remotely"] = response.get("streaming_remotely", 2)
+	stream_config["audio_configuration"] = response.get("audio_configuration", 0xCA0203)
+	stream_config["supported_video_formats"] = _b().probe_video_format(0, false)
+	stream_config["color_space"] = 1
+	stream_config["color_range"] = 0
+	stream_config["encryption_flags"] = 0xFFFFFFFF
+
+	var rikey_raw = response.get("rikey_raw", PackedByteArray())
+	if rikey_raw.size() == 16:
+		stream_config["remote_input_aes_key"] = rikey_raw
+		var iv = PackedByteArray()
+		iv.resize(16)
+		iv.fill(0)
+		stream_config["remote_input_aes_iv"] = iv
+
+	var ip = response.get("ip", "")
+	_b().start_stream_v2(ip, server_info, stream_config, false)
+	main._log("[STREAM] v2 start_stream called (%dx%d@%d %dMbps)" % [w, h, fps, br])
+
+func resize_stream_viewport(w: int, h: int):
+	main.stream_viewport.size = Vector2i(w, h)
+	main.stream_target.custom_minimum_size = Vector2(w, h)
+	if _v2_yuv_rect:
+		_v2_yuv_rect.custom_minimum_size = Vector2(w, h)
+	main._log("[STREAM] Viewport resized to %dx%d" % [w, h])
 
 func on_pair_pressed():
 	var ip = main.get_node("%IPInput").text
@@ -120,10 +106,10 @@ func on_pair_pressed():
 	var save = ConfigFile.new()
 	save.set_value("connection", "ip", ip)
 	save.save("user://last_connection.cfg")
-	main.config_mgr.load_config()
-	await query_host_resolution(ip)
+	_b().get_config_manager().load_config() if _b().get_config_manager() else null
+	await main.host_discovery.query_host_resolution(ip)
 	var paired_host_id = -1
-	for h in main.config_mgr.get_hosts():
+	for h in _b().get_hosts():
 		if h.has("localaddress") and h.localaddress == ip:
 			paired_host_id = h.id
 			break
@@ -134,23 +120,24 @@ func on_pair_pressed():
 	else:
 		main._ui_status_label.text = "Pairing with " + ip + "..."
 		main._log("[PAIR] Starting pair with %s:47989..." % ip)
-		var pin = main.comp_mgr.start_pair(ip, 47989)
+		var pin = _b().start_pair(ip, 47989)
 		main._log("[PAIR] start_pair returned: %s (type=%s)" % [str(pin), str(typeof(pin))])
 		if str(pin) == "" or str(pin) == "0":
 			main._ui_status_label.text = "Failed to connect to " + ip
 			main._log("[PAIR] FAILED - no pin returned")
 			return
 		main._pair_pin = str(pin)
-		main._show_welcome_screen("pin")
+		main.welcome_screen.show_welcome_screen("pin")
 
 func on_pair_completed(success: bool, _msg: String):
 	main._log("[PAIR] pair_completed: success=%s msg=%s" % [str(success), str(_msg)])
 	main._ui_status_label.text = "Pair " + ("OK" if success else "FAILED: " + str(_msg))
 	if success:
 		main._ui_status_label.text = "Pairing successful, starting stream..."
-		main.config_mgr.load_config()
+		if _b().get_config_manager():
+			_b().get_config_manager().load_config()
 		var ip = main.get_node("%IPInput").text
-		for h in main.config_mgr.get_hosts():
+		for h in _b().get_hosts():
 			if h.localaddress == ip:
 				main.current_host_id = h.id
 				await start_stream(h.id, main._selected_app_id)
@@ -163,7 +150,7 @@ func browse_mdns() -> Array:
 	_mdns_result = []
 	var thread = Thread.new()
 	thread.start(func():
-		_mdns_result = main.mdns.browse(3.0)
+		_mdns_result = _b().browse_mdns(3.0)
 	)
 	while thread.is_alive():
 		await main.get_tree().create_timer(0.1).timeout
@@ -172,7 +159,9 @@ func browse_mdns() -> Array:
 	return _mdns_result
 
 func setup_audio():
-	var audio_stream = main.moon.get_audio_stream()
+	if main.use_nightfall_v2:
+		return
+	var audio_stream = _b().get_audio_stream()
 	if audio_stream:
 		main.audio_player.stream = audio_stream
 		main.audio_player.play()
@@ -183,24 +172,49 @@ func bind_texture():
 	main.detection_target.texture = stream_tex
 	if main.depth_estimator:
 		main.depth_estimator.bind_stream_texture()
-	if main.is_streaming:
-		main.screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
+	if main.use_nightfall_v2:
+		_setup_v2_yuv_rect()
+	else:
+		if main.is_streaming:
+			main.screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
 	var ui_tex = main.ui_viewport.get_texture()
 	main.ui_panel_3d.material_override.albedo_texture = ui_tex
 
-func update_stats():
-	if not main.is_streaming or not main.moon.has_method("get_decoder_name"):
+func _setup_v2_yuv_rect():
+	if _v2_yuv_rect:
 		return
-	var decoder = main.moon.get_decoder_name()
-	var vw = main.moon.get_video_width()
-	var vh = main.moon.get_video_height()
-	var hw = "HW" if main.moon.is_hw_decode() else "SW"
+	var mat = _b().get_shader_material()
+	if not mat:
+		main._log("[STREAM] v2: no shader material from TextureUploader yet")
+		return
+	_v2_yuv_rect = ColorRect.new()
+	_v2_yuv_rect.name = "V2YuvRect"
+	_v2_yuv_rect.material = mat
+	_v2_yuv_rect.anchors_preset = Control.PRESET_FULL_RECT
+	_v2_yuv_rect.custom_minimum_size = Vector2(main.stream_viewport.size)
+	main.stream_target.visible = false
+	main.stream_viewport.add_child(_v2_yuv_rect)
+	main._log("[STREAM] v2: YUV ColorRect added to StreamViewport")
+
+func teardown_v2_yuv_rect():
+	if _v2_yuv_rect:
+		_v2_yuv_rect.queue_free()
+		_v2_yuv_rect = null
+	main.stream_target.visible = true
+
+func update_stats():
+	if not main.is_streaming:
+		return
+	var decoder = _b().get_decoder_name()
+	if decoder.is_empty():
+		return
+	var vw = _b().get_video_width()
+	var vh = _b().get_video_height()
+	var hw = "HW" if _b().is_hw_decode() else "SW"
 	var ip = main.get_node("%IPInput").text
 	var ip_display = ip if not ip.is_empty() else "?"
-	var dropped = main.moon.get_frames_dropped() if main.moon.has_method("get_frames_dropped") else 0
-	var latency_ms = 0.0
-	if main.moon.has_method("get_last_frame_latency"):
-		latency_ms = main.moon.get_last_frame_latency() / 1000.0
+	var dropped = _b().get_frames_dropped()
+	var latency_ms = _b().get_last_frame_latency() / 1000.0
 	main._ui_status_label.text = "%s \u2022 %dx%d %s \u2022 %.0ffps \u2022 %.0fms" % [ip_display, vw, vh, hw, main.stats_fps, latency_ms]
 	if dropped > 0:
 		main._ui_status_label.text += " \u2022 drop:%d" % dropped

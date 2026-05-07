@@ -58,3 +58,4 @@ tools/depth_anything_v2_weights/
 tools/tflite_tmp/
 tools/calibration_data.npz
 tools/depth_anything_v2.onnx
+addons/nightfall-stream/build/

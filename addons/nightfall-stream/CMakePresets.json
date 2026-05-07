@@ -1,0 +1,58 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "$env{VCPKG_DEFAULT_TRIPLET}",
+        "CMAKE_COMPILE_WARNING_AS_ERROR": "FALSE"
+      }
+    },
+    {
+      "name": "android",
+      "displayName": "Android arm64",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Android",
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+        "ANDROID_ABI": "$env{ANDROID_ABI}",
+        "ANDROID_PLATFORM": "android-28",
+        "NIGHTFALL_PLATFORM": "android"
+      }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux (desktop dev)",
+      "inherits": "base"
+    },
+    {
+      "name": "steamos-arm64",
+      "displayName": "SteamOS arm64",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Linux",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux",
+        "CMAKE_SYSTEM_PROCESSOR": "aarch64",
+        "NIGHTFALL_PLATFORM": "steamos"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "android",
+      "configurePreset": "android"
+    },
+    {
+      "name": "linux",
+      "configurePreset": "linux"
+    },
+    {
+      "name": "steamos-arm64",
+      "configurePreset": "steamos-arm64"
+    }
+  ]
+}
