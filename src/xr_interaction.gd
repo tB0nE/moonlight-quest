@@ -261,7 +261,7 @@ func handle_grab():
 		main.grab_start_hand_basis = Basis()
 		main.grab_start_node_basis = Basis()
 		main.grab_start_node_euler = Vector3.ZERO
-		main._save_state()
+		main.state_manager.save_state()
 
 func handle_corner_resize():
 	if main.grabbed_corner_idx < 0:
@@ -325,7 +325,7 @@ func handle_corner_resize():
 		var handle = main.corner_handles[main.grabbed_corner_idx]
 		_set_corner_color(handle, Color.WHITE, 0.01)
 		main.grabbed_corner_idx = -1
-		main._save_state()
+		main.state_manager.save_state()
 
 func _get_corner_index(node: Node) -> int:
 	for i in range(main.corner_handles.size()):

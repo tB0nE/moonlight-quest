@@ -18,7 +18,7 @@ class NightfallComputerManager : public RefCounted {
     GDCLASS(NightfallComputerManager, RefCounted);
 
 private:
-    NightfallConfigManager *config_manager = nullptr;
+    Ref<NightfallConfigManager> config_manager;
     HttpRequester *http_requester = nullptr;
 
     enum PairState {
@@ -51,10 +51,11 @@ private:
     PackedByteArray client_pairing_secret;
     bool is_requesting = false;
 
-    bool owns_config_manager = false;
     bool owns_requester = false;
 
     Dictionary cached_https_ports;
+
+    Node *parent_node_ = nullptr;
 
     void _reset_pairing();
     void _step_pair();
@@ -94,6 +95,7 @@ public:
 
     void set_config_manager(Object *cm);
     void set_http_requester(Object *req);
+    void set_parent_node(Node *node);
 
     String start_pair(String ip, int port = 47989);
     void cancel_pair();

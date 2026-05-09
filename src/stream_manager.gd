@@ -20,8 +20,8 @@ func start_stream(host_id: int, app_id: int):
 		bitrate = 80000
 	elif w >= 2560:
 		bitrate = 40000
-	resize_stream_viewport(w, h)
 	if main.use_nightfall_v2:
+		resize_stream_viewport(w, h)
 		var options = {}
 		options["width"] = w
 		options["height"] = h
@@ -34,6 +34,7 @@ func start_stream(host_id: int, app_id: int):
 		_b().establish_stream(host_id, app_id, options, _on_v2_launch_response)
 		main._log("[STREAM] v2 establish_stream called")
 	else:
+		main.stream_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 		var stream_cfg = MoonlightStreamConfigurationResource.new()
 		stream_cfg.set_width(w)
 		stream_cfg.set_height(h)
@@ -177,6 +178,7 @@ func bind_texture():
 	else:
 		if main.is_streaming:
 			main.screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
+			printerr("[NF-RENDER] bind_texture V1: set main_texture vp_mode=%d" % main.stream_viewport.render_target_update_mode)
 	var ui_tex = main.ui_viewport.get_texture()
 	main.ui_panel_3d.material_override.albedo_texture = ui_tex
 

@@ -1,50 +1,49 @@
 #include "computer_manager.h"
+#include <Limelight.h>
 #include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/marshalls.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#define NF_LOG(fmt, ...) __android_log_print(ANDROID_LOG_ERROR, "NightfallPair", fmt, ##__VA_ARGS__)
+#else
+#define NF_LOG(fmt, ...) UtilityFunctions::push_error(vformat(fmt, ##__VA_ARGS__))
+#endif
+
 using namespace godot;
 
 NightfallComputerManager::NightfallComputerManager() {
-    http_requester = memnew(HttpRequester);
-    owns_requester = true;
-    owns_config_manager = false;
+    owns_requester = false;
 }
 
 NightfallComputerManager::~NightfallComputerManager() {
-    if (http_requester && owns_requester) {
-        memdelete(http_requester);
-    }
-    if (config_manager && owns_config_manager) {
-        memdelete(config_manager);
-    }
 }
 
 void NightfallComputerManager::set_config_manager(Object *cm) {
-    config_manager = Object::cast_to<NightfallConfigManager>(cm);
-    owns_config_manager = false;
+    NightfallConfigManager *casted = Object::cast_to<NightfallConfigManager>(cm);
+    if (casted) {
+        config_manager = Ref<NightfallConfigManager>(casted);
+    } else {
+        config_manager.unref();
+    }
 }
 
 void NightfallComputerManager::set_http_requester(Object *req) {
-    if (http_requester && owns_requester) {
-        memdelete(http_requester);
-    }
     http_requester = Object::cast_to<HttpRequester>(req);
     owns_requester = false;
 }
 
-NightfallConfigManager *_ensure_config(NightfallConfigManager *&cm, bool &owns) {
-    if (!cm) {
-        cm = memnew(NightfallConfigManager);
-        owns = true;
-    }
-    return cm;
+void NightfallComputerManager::set_parent_node(Node *node) {
+    parent_node_ = node;
 }
 
 String NightfallComputerManager::start_pair(String ip, int port) {
-    _ensure_config(config_manager, owns_config_manager);
+    NF_LOG("start_pair called: ip=%s port=%d config_valid=%d", ip.utf8().get_data(), port, config_manager.is_valid());
+    if (!config_manager.is_valid()) return "";
 
     _reset_pairing();
     pair_ip = ip;
@@ -52,6 +51,7 @@ String NightfallComputerManager::start_pair(String ip, int port) {
     pair_https_port = cached_https_ports.get(ip, 47984);
     unique_id = _get_unique_id();
     current_uuid = _get_uuid();
+    NF_LOG("unique_id=%s uuid=%s https_port=%d", unique_id.utf8().get_data(), current_uuid.utf8().get_data(), (int)pair_https_port);
 
     int pin_val = UtilityFunctions::randi() % 10000;
     pair_pin = String::num_int64(pin_val).pad_zeros(4);
@@ -60,12 +60,14 @@ String NightfallComputerManager::start_pair(String ip, int port) {
     pair_aes_key = _calculate_aes_key(pair_salt, pair_pin);
 
     pair_state = PAIR_STAGE_0_PREFLIGHT;
+    NF_LOG("Pairing starting, pin=%s", pair_pin.utf8().get_data());
     _step_pair();
 
     return pair_pin;
 }
 
 void NightfallComputerManager::_step_pair() {
+    NF_LOG("_step_pair: state=%d", (int)pair_state);
     if (pair_state == PAIR_IDLE || pair_state == PAIR_FINISHED || pair_state == PAIR_ERROR)
         return;
 
@@ -141,6 +143,7 @@ void NightfallComputerManager::_step_pair() {
 }
 
 void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteArray body, Dictionary headers, String error, int step) {
+    NF_LOG("_on_pair_request_completed: step=%d code=%d body_len=%d error=%s", step, code, body.size(), error.utf8().get_data());
     is_requesting = false;
     bool failed = false;
     String fail_msg;
@@ -169,12 +172,13 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
     }
 
     if (failed) {
+        NF_LOG("Pair FAILED at step %d: %s", step, fail_msg.utf8().get_data());
         String uuid = _get_uuid();
         String url = "http://" + pair_ip + ":" + String::num_int64(pair_port) + "/unpair?uniqueid=" + unique_id + "&uuid=" + uuid;
         http_requester->request(url, "GET", PackedByteArray(), Dictionary(), Dictionary(), Callable());
 
         pair_state = PAIR_ERROR;
-        emit_signal("pair_completed", false, fail_msg);
+        if (parent_node_) { parent_node_->call("_on_pair_completed", false, fail_msg); }
         return;
     }
 
@@ -205,12 +209,14 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             }
 
             if (known_and_paired) {
+                NF_LOG("Already paired with this server");
                 pair_state = PAIR_FINISHED;
-                emit_signal("pair_completed", true, "Already paired");
+                if (parent_node_) { parent_node_->call("_on_pair_completed", true, "Already paired"); }
                 return;
             }
 
             pair_state = PAIR_STAGE_1_GET_CERT;
+            NF_LOG("Stage 0 done, moving to STAGE_1_GET_CERT");
             _step_pair();
             break;
         }
@@ -219,11 +225,12 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             if (plaincert.is_empty()) {
                 String status_msg = _extract_xml_value(xml, "status_message");
                 pair_state = PAIR_ERROR;
-                emit_signal("pair_completed", false, status_msg.is_empty() ? "No server certificate received." : status_msg);
+                if (parent_node_) { parent_node_->call("_on_pair_completed", false, status_msg.is_empty() ? "No server certificate received." : status_msg); }
                 return;
             }
 
             server_cert_pem = _hex_to_bytes(plaincert).get_string_from_ascii();
+            NF_LOG("Stage 1 done, got server cert (len=%d), moving to STAGE_2", server_cert_pem.length());
 
             pair_state = PAIR_STAGE_2_CLIENT_CHALLENGE;
             _step_pair();
@@ -232,7 +239,7 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
         case 2: {
             String resp_hex = _extract_xml_value(xml, "challengeresponse");
             if (resp_hex.is_empty()) {
-                emit_signal("pair_completed", false, "Empty challenge response");
+                if (parent_node_) { parent_node_->call("_on_pair_completed", false, "Empty challenge response"); }
                 return;
             }
 
@@ -240,12 +247,13 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             PackedByteArray resp_dec = _decrypt_aes_ecb(resp_enc, pair_aes_key);
 
             if (resp_dec.size() < 48) {
-                emit_signal("pair_completed", false, "Invalid server response size");
+                if (parent_node_) { parent_node_->call("_on_pair_completed", false, "Invalid server response size"); }
                 return;
             }
 
             server_challenge = resp_dec.slice(32, 48);
 
+            NF_LOG("Stage 2 done, moving to STAGE_3_SERVER_RESPONSE");
             pair_state = PAIR_STAGE_3_SERVER_RESPONSE;
             _step_pair();
             break;
@@ -258,11 +266,13 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             }
 
             pair_state = PAIR_STAGE_4_CLIENT_SECRET;
+            NF_LOG("Stage 3 done, moving to STAGE_4_CLIENT_SECRET");
             _step_pair();
             break;
         }
         case 4: {
             pair_state = PAIR_STAGE_5_HTTPS_CHALLENGE;
+            NF_LOG("Stage 4 done, moving to STAGE_5_HTTPS_CHALLENGE (https_port=%d)", (int)pair_https_port);
             _step_pair();
             break;
         }
@@ -277,14 +287,15 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             config_manager->add_host(host_data);
 
             pair_state = PAIR_FINISHED;
-            emit_signal("pair_completed", true, "Pairing successful");
+            NF_LOG("Stage 5 done, PAIRING SUCCESSFUL");
+            if (parent_node_) { parent_node_->call("_on_pair_completed", true, "Pairing successful"); }
             break;
         }
     }
 }
 
 void NightfallComputerManager::cancel_pair() {
-    _ensure_config(config_manager, owns_config_manager);
+    if (!config_manager.is_valid()) return;
     if (pair_state != PAIR_IDLE && pair_state != PAIR_FINISHED && pair_state != PAIR_ERROR) {
         String uuid = _get_uuid();
         String url = "http://" + pair_ip + ":" + String::num_int64(pair_port) + "/unpair?uniqueid=" + unique_id + "&uuid=" + uuid;
@@ -294,10 +305,8 @@ void NightfallComputerManager::cancel_pair() {
 }
 
 void NightfallComputerManager::unpair(int host_id) {
-    _ensure_config(config_manager, owns_config_manager);
-    if (config_manager) {
-        config_manager->remove_host(host_id);
-    }
+    if (!config_manager.is_valid()) return;
+    config_manager->remove_host(host_id);
 }
 
 void NightfallComputerManager::_reset_pairing() {
@@ -312,7 +321,7 @@ void NightfallComputerManager::_reset_pairing() {
 }
 
 void NightfallComputerManager::connect_to_computer(String ip, int port, Callable callback) {
-    _ensure_config(config_manager, owns_config_manager);
+    if (!config_manager.is_valid()) return;
     String url = "http://" + ip + ":" + String::num_int64(port) + "/serverinfo?uniqueid=" + _get_unique_id() + "&uuid=" + _get_uuid();
     http_requester->request(url, "GET", PackedByteArray(), Dictionary(), Dictionary(),
             callable_mp(this, &NightfallComputerManager::_on_server_info_completed).bind(Variant(callback), Variant(ip)));
@@ -338,7 +347,7 @@ void NightfallComputerManager::_on_server_info_completed(int code, PackedByteArr
 }
 
 void NightfallComputerManager::get_app_list(int host_id, Callable callback) {
-    _ensure_config(config_manager, owns_config_manager);
+    if (!config_manager.is_valid()) return;
     Array hosts = config_manager->get_hosts();
     String ip;
     int port = 47984;
@@ -393,7 +402,7 @@ void NightfallComputerManager::_on_app_list_completed(int code, PackedByteArray 
 }
 
 void NightfallComputerManager::get_app_cover(int host_id, int app_id, Callable callback) {
-    _ensure_config(config_manager, owns_config_manager);
+    if (!config_manager.is_valid()) return;
     Array hosts = config_manager->get_hosts();
     String ip;
     int port = 47984;
@@ -426,7 +435,7 @@ void NightfallComputerManager::_on_app_cover_completed(int code, PackedByteArray
 }
 
 void NightfallComputerManager::establish_stream(int host_id, int app_id, Dictionary options, Callable callback) {
-    _ensure_config(config_manager, owns_config_manager);
+    if (!config_manager.is_valid()) return;
     Array hosts = config_manager->get_hosts();
     String ip;
     int port = 47984;
@@ -627,7 +636,7 @@ void NightfallComputerManager::_on_launch_request_completed(int code, PackedByte
 }
 
 void NightfallComputerManager::stop_stream(int host_id, Callable callback) {
-    _ensure_config(config_manager, owns_config_manager);
+    if (!config_manager.is_valid()) return;
     Array hosts = config_manager->get_hosts();
     String ip;
     int port = 47984;
@@ -783,11 +792,17 @@ String NightfallComputerManager::_extract_xml_value(const String &xml, const Str
 }
 
 String NightfallComputerManager::_get_unique_id() {
-    if (config_manager->get_custom_data(NightfallConfigManager::TARGET_GLOBAL, 0, 0, "uniqueid", "").stringify().is_empty()) {
-        String uid = _bytes_to_hex(_generate_random_bytes(8)).to_upper();
-        config_manager->set_custom_data(NightfallConfigManager::TARGET_GLOBAL, 0, 0, "uniqueid", uid);
+    if (!config_manager.is_valid()) {
+        return _bytes_to_hex(_generate_random_bytes(8)).to_upper();
     }
-    return config_manager->get_custom_data(NightfallConfigManager::TARGET_GLOBAL, 0, 0, "uniqueid", "").stringify();
+    Ref<ConfigFile> cfg = config_manager->get_config();
+    if (cfg.is_valid() && cfg->has_section_key("General", "uniqueid")) {
+        String existing = cfg->get_value("General", "uniqueid", "");
+        if (!existing.is_empty()) return existing;
+    }
+    String uid = _bytes_to_hex(_generate_random_bytes(8)).to_upper();
+    config_manager->set_custom_data(NightfallConfigManager::TARGET_GLOBAL, 0, 0, "uniqueid", uid);
+    return uid;
 }
 
 String NightfallComputerManager::_get_uuid() {
@@ -802,6 +817,7 @@ Dictionary NightfallComputerManager::_get_ssl_options() {
     opts["client_key"] = keys["key"];
     opts["verify_peer"] = false;
 
+    NF_LOG("_get_ssl_options: cert_len=%d key_len=%d", String(keys["certificate"]).length(), String(keys["key"]).length());
     return opts;
 }
 

@@ -254,9 +254,6 @@ func build_ui():
 	bottom_row.add_child(main._ui_res_btn)
 	main._ui_fps_btn = make_option_btn("Refresh", "60Hz")
 	bottom_row.add_child(main._ui_fps_btn)
-	main._ui_backend_btn = make_option_btn("Engine", "V1")
-	bottom_row.add_child(main._ui_backend_btn)
-	update_option_btn(main._ui_backend_btn, "V2" if main.use_nightfall_v2 else "V1")
 	main._ui_depth_btn = make_option_btn("Depth", "0%")
 	bottom_row.add_child(main._ui_depth_btn)
 	main._ui_parallax_btn = make_option_btn("Parallax", "0%")
@@ -280,6 +277,9 @@ func build_ui():
 	render_row.add_child(main._ui_render_btn)
 	main._ui_sharpen_btn = make_option_btn("Sharp", "0%")
 	render_row.add_child(main._ui_sharpen_btn)
+	main._ui_backend_btn = make_option_btn("Engine", "V1")
+	render_row.add_child(main._ui_backend_btn)
+	update_option_btn(main._ui_backend_btn, "V2" if main.use_nightfall_v2 else "V1")
 
 	main._ui_status_label = Label.new()
 	main._ui_status_label.name = "StatusLabel"

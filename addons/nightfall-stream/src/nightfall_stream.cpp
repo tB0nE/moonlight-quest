@@ -6,9 +6,14 @@
 #include "input/input_bridge.h"
 #include "config/computer_manager.h"
 #include "config/config_manager.h"
+#include "network/http_requester.h"
 
 #include <godot_cpp/classes/timer.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 using namespace godot;
 
@@ -19,12 +24,18 @@ NightfallStream::~NightfallStream() {
 }
 
 void NightfallStream::_ready() {
-    config_manager_ = memnew(NightfallConfigManager);
-    computer_manager_ = memnew(NightfallComputerManager);
-    computer_manager_->set_config_manager(config_manager_);
+    set_process(true);
+    config_manager_.instantiate();
+    computer_manager_.instantiate();
+    computer_manager_->set_config_manager(config_manager_.ptr());
+
+    auto *http_req = memnew(HttpRequester);
+    computer_manager_->set_http_requester(http_req);
 
     stream_connection_ = memnew(StreamConnection);
     add_child(stream_connection_);
+
+    computer_manager_->set_parent_node(this);
 
     stream_connection_->connect("stream_started", callable_mp(this, &NightfallStream::_on_stream_started));
     stream_connection_->connect("stream_terminated", callable_mp(this, &NightfallStream::_on_stream_terminated));
@@ -145,14 +156,24 @@ int NightfallStream::get_last_frame_latency_us() const {
 }
 
 Object *NightfallStream::get_computer_manager() const {
-    return computer_manager_;
+    return computer_manager_.ptr();
 }
 
 Object *NightfallStream::get_config_manager() const {
-    return config_manager_;
+    return config_manager_.ptr();
+}
+
+Object *NightfallStream::get_stream_connection() const {
+    return stream_connection_;
+}
+
+void NightfallStream::_on_pair_completed(bool success, const String &msg) {
+    __android_log_print(ANDROID_LOG_ERROR, "NightfallStream", "_on_pair_completed: success=%d msg=%s", success, msg.utf8().get_data());
+    emit_signal("pair_completed", success, msg);
 }
 
 void NightfallStream::_on_stream_started() {
+    __android_log_print(ANDROID_LOG_ERROR, "NightfallStream", "_on_stream_started CALLED");
     state_ = STATE_CONNECTED;
     _reset_reconnect();
     emit_signal("state_changed", (int)state_);
@@ -256,6 +277,8 @@ void NightfallStream::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_last_frame_latency_us"), &NightfallStream::get_last_frame_latency_us);
     ClassDB::bind_method(D_METHOD("get_computer_manager"), &NightfallStream::get_computer_manager);
     ClassDB::bind_method(D_METHOD("get_config_manager"), &NightfallStream::get_config_manager);
+    ClassDB::bind_method(D_METHOD("get_stream_connection"), &NightfallStream::get_stream_connection);
+    ClassDB::bind_method(D_METHOD("_on_pair_completed", "success", "message"), &NightfallStream::_on_pair_completed);
 
     ADD_PROPERTY(PropertyInfo(Variant::BOOL, "auto_reconnect"), "set_auto_reconnect", "get_auto_reconnect");
     ADD_PROPERTY(PropertyInfo(Variant::INT, "max_reconnect_attempts"), "set_max_reconnect_attempts", "get_max_reconnect_attempts");
@@ -270,4 +293,5 @@ void NightfallStream::_bind_methods() {
     ADD_SIGNAL(MethodInfo("connection_status_update", PropertyInfo(Variant::INT, "status")));
     ADD_SIGNAL(MethodInfo("reconnect_scheduled", PropertyInfo(Variant::INT, "attempt"), PropertyInfo(Variant::INT, "max_attempts"), PropertyInfo(Variant::INT, "delay_ms")));
     ADD_SIGNAL(MethodInfo("reconnect_attempt", PropertyInfo(Variant::INT, "attempt"), PropertyInfo(Variant::INT, "max_attempts")));
+    ADD_SIGNAL(MethodInfo("pair_completed", PropertyInfo(Variant::BOOL, "success"), PropertyInfo(Variant::STRING, "message")));
 }

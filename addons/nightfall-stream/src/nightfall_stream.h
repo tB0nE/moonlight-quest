@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config/config_manager.h"
+#include "config/computer_manager.h"
 #include "video/depth_bridge.h"
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/timer.hpp>
@@ -10,8 +12,6 @@
 namespace godot {
 
 class StreamConnection;
-class NightfallComputerManager;
-class NightfallConfigManager;
 class FfmpegDecoder;
 class TextureUploader;
 class AudioRenderer;
@@ -63,11 +63,13 @@ public:
 
     Object *get_computer_manager() const;
     Object *get_config_manager() const;
+    Object *get_stream_connection() const;
 
 protected:
     static void _bind_methods();
 
 private:
+    void _on_pair_completed(bool success, const String &msg);
     void _on_stream_started();
     void _on_stream_terminated(int error_code);
     void _on_stage_starting(const String &stage_name);
@@ -82,8 +84,8 @@ private:
     StreamState state_ = STATE_IDLE;
 
     StreamConnection *stream_connection_ = nullptr;
-    NightfallComputerManager *computer_manager_ = nullptr;
-    NightfallConfigManager *config_manager_ = nullptr;
+    Ref<NightfallComputerManager> computer_manager_;
+    Ref<NightfallConfigManager> config_manager_;
 
     String last_host_;
     Dictionary last_server_info_;

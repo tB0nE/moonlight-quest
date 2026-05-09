@@ -477,11 +477,13 @@ func update_welcome_info():
 
 	var saved_ip = main.get_node("%IPInput").text
 	var has_saved = not saved_ip.is_empty()
-	var has_hosts = main.stream_backend.get_config_manager().get_hosts().size() > 0
+	var _cm = main.stream_backend.get_config_manager() if main.stream_backend else null
+	var _hosts = _cm.get_hosts() if _cm else []
+	var has_hosts = _hosts.size() > 0
 
 	var host_name = main._last_hostname
 	if host_name.is_empty():
-		for h in main.stream_backend.get_config_manager().get_hosts():
+		for h in _hosts:
 			if h.has("localaddress") and h.localaddress == saved_ip:
 				var hname = h.get("hostname", "")
 				if hname != saved_ip and not hname.is_empty():
@@ -585,7 +587,8 @@ func browse_mdns():
 				main.get_node("%IPInput").text = ip
 				save_last_ip(ip)
 				main.state_manager.load_host_state(ip)
-				for h in main.stream_backend.get_config_manager().get_hosts():
+				var _cm4 = main.stream_backend.get_config_manager() if main.stream_backend else null
+				for h in (_cm4.get_hosts() if _cm4 else []):
 					if h.has("localaddress") and h.localaddress == ip:
 						main.current_host_id = h.id
 						break
@@ -604,7 +607,8 @@ func populate_server_list():
 	for child in server_list.get_children():
 		child.queue_free()
 
-	var hosts = main.stream_backend.get_config_manager().get_hosts()
+	var _cm2 = main.stream_backend.get_config_manager() if main.stream_backend else null
+	var hosts = _cm2.get_hosts() if _cm2 else []
 	for h in hosts:
 		var ip = h.get("localaddress", "")
 		var hname = h.get("hostname", "")
@@ -656,7 +660,8 @@ func query_app_list():
 		return
 	main.stream_backend.get_app_list(main.current_host_id, func(success: bool):
 		if success:
-			main._available_apps = main.stream_backend.get_config_manager().get_apps(main.current_host_id)
+			var _cm3 = main.stream_backend.get_config_manager() if main.stream_backend else null
+			main._available_apps = _cm3.get_apps(main.current_host_id) if _cm3 else []
 			if main._available_apps.is_empty():
 				main._available_apps = [{"name": "Desktop", "id": 881448767}]
 			main._selected_app_idx = 0

@@ -87,7 +87,7 @@ func load_state():
 	main.sharpen_mode = save.get_value("screen", "sharpen_mode", 0)
 	main.depth_mode = save.get_value("screen", "depth_mode", 0)
 	main.parallax_mode = save.get_value("screen", "parallax_mode", 0)
-	main.use_nightfall_v2 = save.get_value("stream", "use_nightfall_v2", false)
+	main.use_nightfall_v2 = save.get_value("stream", "use_nightfall_v2", true)
 	if save.has_section_key("screen", "size_x"):
 		main._mesh_size = Vector2(save.get_value("screen", "size_x"), save.get_value("screen", "size_y"))
 		if main._mesh_size.x > 0.1 and main._mesh_size.y > 0.1:

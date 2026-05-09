@@ -52,6 +52,8 @@ public:
 
     void set_custom_data(ConfigTarget target, int host_idx, int app_idx, String key, Variant value);
     Variant get_custom_data(ConfigTarget target, int host_idx, int app_idx, String key, Variant default_value = Variant());
+
+    Ref<ConfigFile> get_config() const { return config; }
 };
 
 } // namespace godot

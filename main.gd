@@ -13,7 +13,7 @@ extends Node3D
 @onready var comp_mgr = MoonlightComputerManager.new()
 var mdns
 var stream_backend: StreamBackend
-var use_nightfall_v2: bool = false
+var use_nightfall_v2: bool = true
 
 func _get_mdns():
 	if not mdns and ClassDB.class_exists("MoonlightMDNS"):
@@ -160,13 +160,13 @@ func _on_stream_started():
 	welcome_screen.reset_connect_button()
 	if _ui_disconnect_btn: _ui_disconnect_btn.visible = true
 	_log("[STREAM] Connection started!")
-	stream_manager.bind_texture()
-	if not use_nightfall_v2:
-		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
-	else:
-		screen_mesh.material_override.set_shader_parameter("main_texture", stream_viewport.get_texture())
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	stream_manager.bind_texture()
+	var stream_tex = stream_viewport.get_texture()
+	screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
+	printerr("[NF-RENDER] _on_stream_started: v2=%s vp_size=%s vp_mode=%d tex=%s tex_w=%d tex_h=%d" % [str(use_nightfall_v2), str(stream_viewport.size), stream_viewport.render_target_update_mode, str(stream_tex), stream_tex.get_width() if stream_tex else 0, stream_tex.get_height() if stream_tex else 0])
+	printerr("[NF-RENDER] stream_target vis=%s mat=%s tex=%s" % [str(stream_target.visible), str(stream_target.material), str(stream_target.texture)])
 	stream_manager.setup_audio()
 	ui_visible = false
 	_set_ui_visible(false)
@@ -246,12 +246,12 @@ func _ready():
 	comp_mgr.set_config_manager(config_mgr)
 	var v2_node = null
 	if ClassDB.class_exists("NightfallStream"):
-		v2_node = NightfallStream.new()
+		v2_node = ClassDB.instantiate("NightfallStream")
 		add_child(v2_node)
 	stream_backend = StreamBackend.new(moon, v2_node)
 	var cfg_save = ConfigFile.new()
 	if cfg_save.load("user://app_state.cfg") == OK:
-		use_nightfall_v2 = cfg_save.get_value("stream", "use_nightfall_v2", false)
+		use_nightfall_v2 = cfg_save.get_value("stream", "use_nightfall_v2", true)
 	if use_nightfall_v2 and not v2_node:
 		use_nightfall_v2 = false
 		_log("[STREAM] Nightfall V2 requested but extension not loaded, falling back to V1")
@@ -261,6 +261,7 @@ func _ready():
 	has_depth_model_v2 = stream_backend.has_depth_model_v2()
 	comp_mgr.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
 	if use_nightfall_v2 and v2_node:
+		v2_node.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
 		v2_node.stream_started.connect(func():
 			_on_stream_started()
 		)
