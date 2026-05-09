@@ -132,6 +132,10 @@ void CurlHttpClient::set_server_cert_pin(const std::string& cert_pem) {
     server_cert_pem_ = cert_pem;
 }
 
+void CurlHttpClient::set_verify_peer(bool verify) {
+    verify_peer_ = verify;
+}
+
 void CurlHttpClient::set_timeout_ms(int ms) {
     timeout_ms_ = ms;
 }

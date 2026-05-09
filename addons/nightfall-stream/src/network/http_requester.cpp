@@ -5,13 +5,12 @@
 using namespace godot;
 
 HttpRequester::HttpRequester() {
-    http_client_ = std::make_shared<nightfall::CurlHttpClient>();
 }
 
 HttpRequester::~HttpRequester() {}
 
 void HttpRequester::request(String url, String method, PackedByteArray body, Dictionary headers, Dictionary ssl_options, Callable callback) {
-    auto client = http_client_;
+    auto client = std::make_shared<nightfall::CurlHttpClient>();
 
     if (ssl_options.has("client_cert") && ssl_options.has("client_key")) {
         String cert = ssl_options["client_cert"];
@@ -28,11 +27,10 @@ void HttpRequester::request(String url, String method, PackedByteArray body, Dic
         }
     }
 
-    if (ssl_options.has("verify_peer")) {
-        bool verify = ssl_options["verify_peer"];
-        if (!verify) {
-            client->set_server_cert_pin("");
-        }
+    bool verify_peer = ssl_options.get("verify_peer", true);
+    client->set_verify_peer(verify_peer);
+    if (!verify_peer) {
+        client->set_server_cert_pin("");
     }
 
     client->set_timeout_ms(15000);
@@ -43,11 +41,6 @@ void HttpRequester::request(String url, String method, PackedByteArray body, Dic
 }
 
 void HttpRequester::_perform_async(std::shared_ptr<nightfall::PlatformHttp> client, String url, String method, PackedByteArray body, Dictionary headers, Dictionary ssl_options, Callable callback) {
-    bool verify_peer = ssl_options.get("verify_peer", true);
-    if (!verify_peer) {
-        client->set_server_cert_pin("");
-    }
-
     std::string url_std = url.utf8().get_data();
     std::string method_std = method.to_upper().utf8().get_data();
 

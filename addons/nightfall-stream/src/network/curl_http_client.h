@@ -16,6 +16,7 @@ public:
 
     void set_client_cert(const std::string& cert_pem, const std::string& key_pem) override;
     void set_server_cert_pin(const std::string& cert_pem) override;
+    void set_verify_peer(bool verify) override;
     void set_timeout_ms(int ms) override;
 
     std::string get_backend_name() const override;

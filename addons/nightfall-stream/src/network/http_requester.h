@@ -15,8 +15,6 @@ class HttpRequester : public RefCounted {
     GDCLASS(HttpRequester, RefCounted);
 
 private:
-    std::shared_ptr<nightfall::PlatformHttp> http_client_;
-
     static void _perform_async(std::shared_ptr<nightfall::PlatformHttp> client, String url, String method, PackedByteArray body, Dictionary headers, Dictionary ssl_options, Callable callback);
 
 protected:

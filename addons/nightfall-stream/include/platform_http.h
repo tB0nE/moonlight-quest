@@ -21,6 +21,7 @@ public:
 
     virtual void set_client_cert(const std::string& cert_pem, const std::string& key_pem) = 0;
     virtual void set_server_cert_pin(const std::string& cert_pem) = 0;
+    virtual void set_verify_peer(bool verify) = 0;
     virtual void set_timeout_ms(int ms) = 0;
 
     virtual std::string get_backend_name() const = 0;
