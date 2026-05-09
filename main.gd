@@ -36,7 +36,7 @@ var _available_apps: Array = []
 var _welcome_screen: String = "welcome"
 var _pair_pin: String = ""
 var _connecting_ip: String = ""
-var _restarting_stream: bool = false
+var _auto_connect: bool = true
 var is_streaming: bool = false
 var stereo_mode: int = 0
 var has_depth_model_v2: bool = false
@@ -176,8 +176,8 @@ func _on_stream_started():
 		starfield.visible = false
 
 func _on_stream_terminated(msg: String):
-	if _restarting_stream:
-		_restarting_stream = false
+	if _auto_connect:
+		_auto_connect = false
 		return
 	is_streaming = false
 	_ui_status_label.text = "Disconnected: " + str(msg)
@@ -321,9 +321,10 @@ func _ready():
 		stereo_mode = 0
 
 	config_mgr.load_config()
+	var saved_ip = ""
 	var save = ConfigFile.new()
 	if save.load("user://last_connection.cfg") == OK:
-		var saved_ip = save.get_value("connection", "ip", "")
+		saved_ip = save.get_value("connection", "ip", "")
 		if saved_ip != "":
 			%IPInput.text = saved_ip
 			state_manager.load_host_state(saved_ip)
@@ -340,6 +341,22 @@ func _ready():
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	ui_controller.update_ui()
 	ui_controller.update_stereo_shader()
+
+	if _auto_connect and use_nightfall_v2:
+		var v2_cm = stream_backend.get_config_manager()
+		if v2_cm:
+			var v2_hosts = v2_cm.get_hosts()
+			if v2_hosts.size() > 0:
+				var h = v2_hosts[0]
+				var host_ip = h.get("localaddress", "") if h.has("localaddress") else saved_ip
+				var host_id = h.get("id", -1) if h.has("id") else -1
+				if host_id != -1 and host_ip != "":
+					current_host_id = host_id
+					%IPInput.text = host_ip
+					_log("[AUTO-CONNECT] Auto-connecting to host_id=%d ip=%s" % [host_id, host_ip])
+					_auto_connect = false
+					await get_tree().create_timer(1.0).timeout
+					stream_manager.start_stream(host_id, _selected_app_id)
 
 	Input.joy_connection_changed.connect(func(device, connected):
 		_on_joy_changed(device, connected)

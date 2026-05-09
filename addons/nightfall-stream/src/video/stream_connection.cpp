@@ -9,6 +9,13 @@
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 
+#include <cerrno>
+#include <cstring>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+
 #ifdef __ANDROID__
 #include <android/log.h>
 #define NF_LOG(...) __android_log_print(ANDROID_LOG_INFO, "StreamConnection", __VA_ARGS__)
@@ -243,11 +250,43 @@ void StreamConnection::_connection_thread_func() {
     clCallbacks.setControllerLED = _cb_set_controller_led;
 
     NF_LOG("[StreamConnection] Starting connection to %s %dx%d@%dfps\n",
-           server_info_.address, stream_config_.width, stream_config_.height, stream_config_.fps);
+           server_info_.address ? server_info_.address : "(null)", stream_config_.width, stream_config_.height, stream_config_.fps);
+
+    if (!server_info_.address || strlen(server_info_.address) == 0) {
+        NF_LOG("[StreamConnection] ERROR: server address is empty! host_address_std_=%s\n", host_address_std_.c_str());
+    }
+
+    NF_LOG("[StreamConnection] server_info: address=%s rtsp=%s appVer=%s gfeVer=%s codecMode=%d\n",
+           server_info_.address ? server_info_.address : "(null)",
+           server_info_.rtspSessionUrl ? server_info_.rtspSessionUrl : "(null)",
+           server_info_.serverInfoAppVersion ? server_info_.serverInfoAppVersion : "(null)",
+           server_info_.serverInfoGfeVersion ? server_info_.serverInfoGfeVersion : "(null)",
+           server_info_.serverCodecModeSupport);
+
+    NF_LOG("[StreamConnection] stream_config: %dx%d@%dfps bitrate=%d packetSize=%d streamingRemotely=%d audioConfig=0x%x videoFormats=0x%x encryption=0x%x colorSpace=%d colorRange=%d\n",
+           stream_config_.width, stream_config_.height, stream_config_.fps,
+           stream_config_.bitrate, stream_config_.packetSize, stream_config_.streamingRemotely,
+           stream_config_.audioConfiguration, stream_config_.supportedVideoFormats,
+           stream_config_.encryptionFlags, stream_config_.colorSpace, stream_config_.colorRange);
+
+    int test_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (test_sock >= 0) {
+        struct sockaddr_in addr;
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(48010);
+        inet_pton(AF_INET, host_address_std_.c_str(), &addr.sin_addr);
+        int cr = ::connect(test_sock, (struct sockaddr*)&addr, sizeof(addr));
+        NF_LOG("[StreamConnection] Pre-flight TCP test to %s:48010: sock=%d connect=%d errno=%d\n",
+               host_address_std_.c_str(), test_sock, cr, errno);
+        close(test_sock);
+    } else {
+        NF_LOG("[StreamConnection] Pre-flight TCP test: socket() failed errno=%d\n", errno);
+    }
 
     int ret = LiStartConnection(&server_info_, &stream_config_, &clCallbacks, &drCallbacks, &arCallbacks, nullptr, 0, nullptr, 0);
 
-    NF_LOG("[StreamConnection] LiStartConnection returned: %d\n", ret);
+    NF_LOG("[StreamConnection] LiStartConnection returned: %d (errno=%d)\n", ret, errno);
 
     is_streaming_.store(false);
     queue_cv_.notify_all();
@@ -314,26 +353,44 @@ void StreamConnection::_clear_packet_queue() {
 }
 
 void StreamConnection::start(const String &host, const Dictionary &server_info, const Dictionary &stream_config, bool disable_hw) {
-    if (is_streaming_.load()) {
-        stop();
+    NF_LOG("[StreamConnection] start() called: is_streaming=%d conn_thread_joinable=%d\n", is_streaming_.load(), connection_thread_.joinable());
+
+    if (connection_thread_.joinable()) {
+        NF_LOG("[StreamConnection] Joining previous connection thread\n");
+        is_streaming_.store(false);
+        decoder_ready_.store(false);
+        queue_cv_.notify_all();
+        LiInterruptConnection();
+        connection_thread_.join();
+        LiStopConnection();
+    }
+
+    if (decode_thread_.joinable()) {
+        decode_thread_.join();
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(queue_mutex_);
+        _clear_packet_queue();
     }
 
     host_address_ = host;
 
     LiInitializeServerInformation(&server_info_);
-    server_info_.address = host.utf8().get_data();
+    host_address_std_ = host.utf8().get_data();
+    server_info_.address = host_address_std_.c_str();
 
     if (server_info.has("rtsp_session_url")) {
-        static std::string rtsp_url = String(server_info["rtsp_session_url"]).utf8().get_data();
-        server_info_.rtspSessionUrl = rtsp_url.c_str();
+        rtsp_url_std_ = String(server_info["rtsp_session_url"]).utf8().get_data();
+        server_info_.rtspSessionUrl = rtsp_url_std_.c_str();
     }
     if (server_info.has("server_app_version")) {
-        static std::string app_ver = String(server_info["server_app_version"]).utf8().get_data();
-        server_info_.serverInfoAppVersion = app_ver.c_str();
+        app_version_std_ = String(server_info["server_app_version"]).utf8().get_data();
+        server_info_.serverInfoAppVersion = app_version_std_.c_str();
     }
     if (server_info.has("server_gfe_version")) {
-        static std::string gfe_ver = String(server_info["server_gfe_version"]).utf8().get_data();
-        server_info_.serverInfoGfeVersion = gfe_ver.c_str();
+        gfe_version_std_ = String(server_info["server_gfe_version"]).utf8().get_data();
+        server_info_.serverInfoGfeVersion = gfe_version_std_.c_str();
     }
     if (server_info.has("server_codec_mode_support")) {
         server_info_.serverCodecModeSupport = (int)server_info["server_codec_mode_support"];

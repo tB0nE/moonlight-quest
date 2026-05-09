@@ -4,6 +4,7 @@
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <atomic>
+#include <string>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -92,6 +93,10 @@ private:
     std::thread connection_thread_;
 
     String host_address_;
+    std::string host_address_std_;
+    std::string rtsp_url_std_;
+    std::string app_version_std_;
+    std::string gfe_version_std_;
     SERVER_INFORMATION server_info_{};
     STREAM_CONFIGURATION stream_config_{};
 

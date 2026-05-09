@@ -75,7 +75,7 @@ func _on_v2_launch_response(response: Dictionary):
 	stream_config["bitrate"] = br
 	stream_config["packet_size"] = response.get("packet_size", 1024)
 	stream_config["streaming_remotely"] = response.get("streaming_remotely", 2)
-	stream_config["audio_configuration"] = response.get("audio_configuration", 0xCA0203)
+	stream_config["audio_configuration"] = response.get("audio_configuration", 0x0302CA)
 	stream_config["supported_video_formats"] = _b().probe_video_format(0, false)
 	stream_config["color_space"] = 1
 	stream_config["color_range"] = 0
