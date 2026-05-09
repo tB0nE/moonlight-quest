@@ -51,11 +51,16 @@ int StreamConnection::_cb_decoder_setup(int videoFormat, int width, int height, 
     self->active_video_format_ = videoFormat;
     NF_LOG("[StreamConnection] Decoder setup: format=0x%x %dx%d@%dfps\n", videoFormat, width, height, redrawRate);
 
-    int ret = self->decoder_->setup(videoFormat, width, height, self->stream_config_.supportedVideoFormats != 0 && (videoFormat & VIDEO_FORMAT_MASK_H264) == 0);
+    int ret = self->decoder_->setup(videoFormat, width, height, false);
     if (ret != 0) return ret;
 
+    int pix_fmt = AV_PIX_FMT_YUV420P;
+    if (self->decoder_->is_hw_decode()) {
+        pix_fmt = AV_PIX_FMT_NV12;
+    }
+
     self->uploader_->setup(width, height,
-                           (int)AV_PIX_FMT_YUV420P,
+                           pix_fmt,
                            (int)AVCOL_SPC_BT709,
                            (int)AVCOL_RANGE_UNSPECIFIED);
 
@@ -88,6 +93,14 @@ void StreamConnection::_cb_decoder_cleanup() {
 int StreamConnection::_cb_submit_decode_unit(PDECODE_UNIT decodeUnit) {
     auto *self = active_instance_;
     if (!self || !self->is_streaming_.load()) return DR_OK;
+
+    static int submit_count = 0;
+    if (submit_count == 0) {
+        NF_LOG("[StreamConnection] First submit: self=%p\n", self);
+    }
+    if (++submit_count <= 5 || submit_count % 300 == 0) {
+        NF_LOG("[StreamConnection] Submit decode unit #%d: fullLen=%d\n", submit_count, decodeUnit->fullLength);
+    }
 
     AVPacket *pkt = av_packet_alloc();
     if (!pkt) return DR_OK;
@@ -288,21 +301,42 @@ void StreamConnection::_connection_thread_func() {
 
     NF_LOG("[StreamConnection] LiStartConnection returned: %d (errno=%d)\n", ret, errno);
 
-    is_streaming_.store(false);
-    queue_cv_.notify_all();
-
-    call_deferred("emit_signal", "stream_terminated", ret);
+    if (ret != 0) {
+        is_streaming_.store(false);
+        queue_cv_.notify_all();
+        call_deferred("emit_signal", "stream_terminated", ret);
+    }
 }
 
 void StreamConnection::_decode_thread_func() {
     AVPacket *pkt = nullptr;
+    NF_LOG("[StreamConnection] Decode thread started this=%p\n", this);
 
-    while (is_streaming_.load() || !packet_queue_.empty()) {
+    {
+        std::unique_lock<std::mutex> lock(queue_mutex_);
+        queue_cv_.wait_for(lock, std::chrono::milliseconds(10000), [this] {
+            return is_streaming_.load() || !packet_queue_.empty();
+        });
+        if (!is_streaming_.load()) {
+            NF_LOG("[StreamConnection] Decode thread: stream never started, exiting\n");
+            return;
+        }
+    }
+
+    NF_LOG("[StreamConnection] Decode thread: stream active, starting decode loop\n");
+
+    while (true) {
         {
             std::unique_lock<std::mutex> lock(queue_mutex_);
             queue_cv_.wait_for(lock, std::chrono::milliseconds(5), [this] {
                 return !packet_queue_.empty() || !is_streaming_.load();
             });
+
+            if (!is_streaming_.load() && packet_queue_.empty()) {
+                NF_LOG("[StreamConnection] Decode thread exiting: streaming=%d queue=%d\n",
+                    is_streaming_.load(), (int)packet_queue_.size());
+                break;
+            }
 
             if (packet_queue_.empty()) continue;
 
@@ -312,30 +346,56 @@ void StreamConnection::_decode_thread_func() {
 
         if (!pkt) continue;
 
-        AVFrame *frame = decoder_->decode_next_frame(pkt);
-        av_packet_free(&pkt);
-
-        if (!frame) continue;
-
-        bool skip = false;
         {
-            std::lock_guard<std::mutex> lock(queue_mutex_);
-            if (packet_queue_.size() > 12) {
-                skip = true;
-            }
-        }
-
-        if (!skip) {
-            auto decode_start = std::chrono::steady_clock::now();
-            uploader_->update_from_frame(frame);
-
-            if (frame != decoder_->get_sw_frame()) {
-                av_frame_unref(frame);
+            AVCodecContext *ctx = decoder_->get_codec_context();
+            if (!ctx) {
+                av_packet_free(&pkt);
+                continue;
             }
 
-            auto decode_end = std::chrono::steady_clock::now();
-            int latency_us = (int)std::chrono::duration_cast<std::chrono::microseconds>(decode_end - decode_start).count();
-            last_frame_latency_us_.store(latency_us);
+            int send_ret = avcodec_send_packet(ctx, pkt);
+            av_packet_free(&pkt);
+
+            if (send_ret < 0 && send_ret != AVERROR(EAGAIN) && send_ret != AVERROR_EOF) {
+                continue;
+            }
+
+            while (true) {
+                AVFrame *tmp = av_frame_alloc();
+                int recv_ret = avcodec_receive_frame(ctx, tmp);
+
+                if (recv_ret == AVERROR(EAGAIN) || recv_ret == AVERROR_EOF) {
+                    av_frame_free(&tmp);
+                    break;
+                }
+                if (recv_ret < 0) {
+                    av_frame_free(&tmp);
+                    static int recv_fail_count = 0;
+                    if (++recv_fail_count <= 5) {
+                        NF_LOG("[StreamConnection] Receive frame failed: %d\n", recv_ret);
+                    }
+                    break;
+                }
+
+                static int decode_ok_count = 0;
+                if (++decode_ok_count <= 5 || decode_ok_count % 300 == 0) {
+                    NF_LOG("[StreamConnection] Decoded frame #%d: %dx%d format=%d\n", decode_ok_count, tmp->width, tmp->height, tmp->format);
+                }
+
+                bool skip = false;
+                {
+                    std::lock_guard<std::mutex> lock(queue_mutex_);
+                    if (packet_queue_.size() > 12) {
+                        skip = true;
+                    }
+                }
+
+                if (!skip) {
+                    uploader_->update_from_frame(tmp);
+                }
+
+                av_frame_free(&tmp);
+            }
         }
     }
 

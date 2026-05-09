@@ -57,6 +57,8 @@ int NightfallStream::get_state() const {
 }
 
 void NightfallStream::start_stream(const String &host, const Dictionary &server_info, const Dictionary &stream_config, bool disable_hw) {
+    __android_log_print(ANDROID_LOG_ERROR, "NightfallStream", "start_stream: host=%s server_info_keys=%d stream_config_keys=%d state=%d stream_conn=%p",
+        host.utf8().get_data(), server_info.size(), stream_config.size(), (int)state_, (void*)stream_connection_);
     if (state_ == STATE_CONNECTING || state_ == STATE_CONNECTED) {
         stop_stream();
     }
@@ -238,6 +240,8 @@ void NightfallStream::_attempt_reconnect() {
 
 void NightfallStream::_do_reconnect() {
     if (state_ != STATE_RECONNECTING) return;
+    __android_log_print(ANDROID_LOG_ERROR, "NightfallStream", "_do_reconnect: last_host_=%s last_server_info_keys=%d last_stream_config_keys=%d",
+        last_host_.utf8().get_data(), last_server_info_.size(), last_stream_config_.size());
     start_stream(last_host_, last_server_info_, last_stream_config_, last_disable_hw_);
 }
 

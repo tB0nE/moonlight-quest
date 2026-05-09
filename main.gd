@@ -36,7 +36,7 @@ var _available_apps: Array = []
 var _welcome_screen: String = "welcome"
 var _pair_pin: String = ""
 var _connecting_ip: String = ""
-var _auto_connect: bool = true
+var _auto_connect: bool = false
 var is_streaming: bool = false
 var stereo_mode: int = 0
 var has_depth_model_v2: bool = false
@@ -260,24 +260,27 @@ func _ready():
 	stream_backend.set_computer_manager(comp_mgr)
 	has_depth_model_v2 = stream_backend.has_depth_model_v2()
 	comp_mgr.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
-	if use_nightfall_v2 and v2_node:
+	moon.log_message.connect(func(msg):
+		if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
+			stats_network_events += 1
+	)
+	moon.connection_started.connect(func():
+		if not use_nightfall_v2:
+			_on_stream_started()
+	)
+	moon.connection_terminated.connect(func(_err, msg):
+		if not use_nightfall_v2:
+			_on_stream_terminated(str(msg))
+	)
+	if v2_node:
 		v2_node.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
 		v2_node.stream_started.connect(func():
-			_on_stream_started()
+			if use_nightfall_v2:
+				_on_stream_started()
 		)
 		v2_node.stream_terminated.connect(func(err_code):
-			_on_stream_terminated(str(err_code))
-		)
-	else:
-		moon.log_message.connect(func(msg):
-			if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
-				stats_network_events += 1
-		)
-		moon.connection_started.connect(func():
-			_on_stream_started()
-		)
-		moon.connection_terminated.connect(func(_err, msg):
-			_on_stream_terminated(str(msg))
+			if use_nightfall_v2:
+				_on_stream_terminated(str(err_code))
 		)
 
 	var interface = XRServer.find_interface("OpenXR")
@@ -337,7 +340,18 @@ func _ready():
 
 	stream_manager.bind_texture()
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	var _wt = welcome_viewport.get_texture()
+	printerr("[NF-SCREEN] visible=%s mat=%s tex=%s tex_w=%d tex_h=%d pos=%s rot=%s mesh_size=%s" % [
+		str(screen_mesh.visible),
+		str(screen_mesh.material_override),
+		str(_wt), _wt.get_width() if _wt else 0, _wt.get_height() if _wt else 0,
+		str(screen_mesh.global_position),
+		str(screen_mesh.rotation),
+		str(screen_mesh.mesh.size) if screen_mesh.mesh else "null"
+	])
+	printerr("[NF-SCREEN] v2=%s streaming=%s passthrough=%d stereo=%d" % [
+		str(use_nightfall_v2), str(is_streaming), passthrough_mode, stereo_mode
+	])
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	ui_controller.update_ui()
 	ui_controller.update_stereo_shader()
@@ -361,6 +375,22 @@ func _ready():
 	Input.joy_connection_changed.connect(func(device, connected):
 		_on_joy_changed(device, connected)
 	)
+
+	_post_ready_check.call_deferred()
+
+func _post_ready_check():
+	await get_tree().create_timer(0.5).timeout
+	var _wt2 = welcome_viewport.get_texture()
+	printerr("[NF-SCREEN-DELAYED] visible=%s mat=%s tex_w=%d tex_h=%d pos=%s" % [
+		str(screen_mesh.visible),
+		str(screen_mesh.material_override),
+		_wt2.get_width() if _wt2 else 0, _wt2.get_height() if _wt2 else 0,
+		str(screen_mesh.global_position)
+	])
+	var _mt = screen_mesh.material_override.get_shader_parameter("main_texture") if screen_mesh.material_override else null
+	printerr("[NF-SCREEN-DELAYED] main_texture=%s stereo_mode=%d passthrough=%d" % [
+		str(_mt), screen_mesh.material_override.get_shader_parameter("stereo_mode") if screen_mesh.material_override else -1, passthrough_mode
+	])
 
 func _on_joy_changed(device: int, connected: bool):
 	pass

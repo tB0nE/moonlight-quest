@@ -2,6 +2,10 @@
 #include "yuv_shader.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 using namespace godot;
 
 TextureUploader::TextureUploader() {
@@ -256,6 +260,15 @@ void TextureUploader::perform_gpu_update() {
     if (!rd) return;
     std::lock_guard<godot::Mutex> lock(*(texture_mutex.ptr()));
     if (pending_gpu_update.exchange(false)) {
+#ifdef __ANDROID__
+        static int gpu_update_count = 0;
+        if (++gpu_update_count <= 3) {
+            __android_log_print(ANDROID_LOG_INFO, "TextureUploader",
+                "perform_gpu_update #%d: tex0=%d tex1=%d tex2=%d",
+                gpu_update_count,
+                rd_texture_rid[0].is_valid(), rd_texture_rid[1].is_valid(), rd_texture_rid[2].is_valid());
+        }
+#endif
         if (rd_texture_rid[0].is_valid())
             rd->texture_update(rd_texture_rid[0], 0, rd_texture_buffers[0]);
         if (rd_texture_rid[1].is_valid())

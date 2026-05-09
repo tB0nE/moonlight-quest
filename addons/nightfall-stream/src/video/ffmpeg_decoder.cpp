@@ -10,6 +10,29 @@
 extern "C" {
 #include <libavcodec/jni.h>
 }
+
+extern "C" JNIEXPORT void JNICALL Java_com_godot_game_GodotApp_initializeMoonlightJNI(JNIEnv *env, jclass clazz) {
+    JavaVM *vm = nullptr;
+    if (env->GetJavaVM(&vm) == 0) {
+        av_jni_set_java_vm(vm, nullptr);
+        __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder", "JNI: Set JavaVM to %p", vm);
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_godot_game_GodotApp_setAndroidContext(JNIEnv *env, jclass clazz, jobject context) {
+    if (context) {
+        jobject global_ref = env->NewGlobalRef(context);
+        if (global_ref) {
+            av_jni_set_android_app_ctx(global_ref, nullptr);
+            __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder", "JNI: Set Android app context to %p (global ref)", global_ref);
+        } else {
+            __android_log_print(ANDROID_LOG_ERROR, "FfmpegDecoder", "JNI: Failed to create global ref for app context");
+        }
+    } else {
+        __android_log_print(ANDROID_LOG_ERROR, "FfmpegDecoder", "JNI: Android app context is NULL!");
+    }
+}
+
 #define NF_LOG(...) __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder", __VA_ARGS__)
 #else
 #define NF_LOG(...) printf(__VA_ARGS__)
@@ -59,6 +82,71 @@ Vector<String> FfmpegDecoder::get_candidate_decoders(int codec_family) {
     else if (codec_family == CODEC_FAMILY_AV1) base_codec_name = "av1";
 
     if (!base_codec_name.is_empty()) {
+        Vector<String> codec_names;
+
+        typedef jint (*JNI_GetCreatedJavaVMs_t)(JavaVM **, jsize, jsize *);
+        JNI_GetCreatedJavaVMs_t jni_get_created = (JNI_GetCreatedJavaVMs_t)dlsym(RTLD_DEFAULT, "JNI_GetCreatedJavaVMs");
+        if (jni_get_created) {
+            JavaVM *vm = nullptr;
+            jsize vm_count = 0;
+            if (jni_get_created(&vm, 1, &vm_count) == JNI_OK && vm_count > 0 && vm) {
+                JNIEnv *env = nullptr;
+                bool attached = false;
+                jint ret = vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
+                if (ret == JNI_EDETACHED) {
+                    ret = vm->AttachCurrentThread(&env, nullptr);
+                    attached = (ret == JNI_OK);
+                }
+                if (env) {
+                    jclass cls = env->FindClass("android/media/MediaCodecList");
+                    if (cls) {
+                        jmethodID mid = env->GetStaticMethodID(cls, "getCodecInfos", "()[Landroid/media/MediaCodecInfo;");
+                        if (mid) {
+                            jobjectArray arr = (jobjectArray)env->CallStaticObjectMethod(cls, mid);
+                            if (arr) {
+                                jsize len = env->GetArrayLength(arr);
+                                for (jsize i = 0; i < len; i++) {
+                                    jobject info = env->GetObjectArrayElement(arr, i);
+                                    if (!info) continue;
+                                    jclass infoCls = env->GetObjectClass(info);
+                                    jmethodID nameMid = env->GetMethodID(infoCls, "getName", "()Ljava/lang/String;");
+                                    if (nameMid) {
+                                        jstring jname = (jstring)env->CallObjectMethod(info, nameMid);
+                                        if (jname) {
+                                            const char *cname = env->GetStringUTFChars(jname, nullptr);
+                                            if (cname) {
+                                                codec_names.push_back(String(cname));
+                                                env->ReleaseStringUTFChars(jname, cname);
+                                            }
+                                            env->DeleteLocalRef(jname);
+                                        }
+                                    }
+                                    env->DeleteLocalRef(info);
+                                }
+                            }
+                        }
+                        env->DeleteLocalRef(cls);
+                    }
+                    if (attached) vm->DetachCurrentThread();
+                }
+            }
+        }
+
+        for (int i = 0; i < codec_names.size(); i++) {
+            String kn = codec_names[i].to_lower();
+            bool matches_family = false;
+            if (codec_family == CODEC_FAMILY_H264 && (kn.find("avc") != -1 || kn.find("h264") != -1))
+                matches_family = true;
+            else if (codec_family == CODEC_FAMILY_H265 && (kn.find("hevc") != -1 || kn.find("h265") != -1))
+                matches_family = true;
+            else if (codec_family == CODEC_FAMILY_AV1 && kn.find("av1") != -1)
+                matches_family = true;
+
+            if (matches_family && (kn.find("low_latency") != -1 || kn.find("low-latency") != -1)) {
+                candidates.push_back(base_codec_name + "_mediacodec_lowlat:" + codec_names[i]);
+            }
+        }
+
         candidates.push_back(base_codec_name + "_mediacodec");
     }
 #endif
@@ -86,9 +174,31 @@ enum AVPixelFormat FfmpegDecoder::_get_hw_format_callback(AVCodecContext *ctx, c
 }
 
 int FfmpegDecoder::_try_open_decoder(const String &codec_name, int width, int height, AVHWDeviceType hw_type, bool disable_hw) {
-    const AVCodec *codec = avcodec_find_decoder_by_name(codec_name.utf8().get_data());
-    if (!codec)
+    String base_name = codec_name;
+    int sep = codec_name.find(":");
+    if (sep != -1) {
+        base_name = codec_name.substr(0, sep);
+    }
+    if (base_name.ends_with("_lowlat")) {
+        base_name = base_name.substr(0, base_name.length() - 7);
+    }
+
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+        "_try_open: base='%s' full='%s' hw=%s w=%d h=%d",
+        base_name.utf8().get_data(), codec_name.utf8().get_data(),
+        (hw_type == AV_HWDEVICE_TYPE_NONE) ? "NONE" : av_hwdevice_get_type_name(hw_type),
+        width, height);
+#endif
+
+    const AVCodec *codec = avcodec_find_decoder_by_name(base_name.utf8().get_data());
+    if (!codec) {
+#ifdef __ANDROID__
+        __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+            "avcodec_find_decoder_by_name FAILED for '%s'", base_name.utf8().get_data());
+#endif
         return -1;
+    }
 
     AVCodecContext *ctx = avcodec_alloc_context3(codec);
     if (!ctx)
@@ -156,7 +266,28 @@ int FfmpegDecoder::_try_open_decoder(const String &codec_name, int width, int he
         av_dict_set(&opts, "ndk_codec", "1", 0);
     }
 
+    String special_component;
+    if (sep != -1) {
+        special_component = codec_name.substr(sep + 1, codec_name.length() - (sep + 1));
+    }
+    if (special_component != String()) {
+        av_dict_set(&opts, "mediacodec_name", special_component.utf8().get_data(), 0);
+    }
+
     int ret = avcodec_open2(ctx, codec, &opts);
+
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+        "avcodec_open2 => %d base=%s full=%s hw=%s w=%d h=%d",
+        ret, base_name.utf8().get_data(), codec_name.utf8().get_data(),
+        (hw_type == AV_HWDEVICE_TYPE_NONE) ? "NONE" : av_hwdevice_get_type_name(hw_type),
+        width, height);
+#else
+    if (ret < 0) {
+        UtilityFunctions::printerr("[FfmpegDecoder] avcodec_open2 failed for ", codec_name, " ret=", ret);
+    }
+#endif
+
     if (opts) av_dict_free(&opts);
 
     if (ret < 0) {
@@ -233,6 +364,16 @@ int FfmpegDecoder::setup(int video_format, int width, int height, bool disable_h
     Vector<AVHWDeviceType> hw_devices;
     if (!disable_hw) hw_devices = _get_supported_hw_devices();
     hw_devices.push_back(AV_HWDEVICE_TYPE_NONE);
+
+#ifdef __ANDROID__
+    __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+        "setup: family=%d w=%d h=%d candidates=%d hw_devices=%d",
+        family, width, height, candidates.size(), hw_devices.size());
+    for (int i = 0; i < candidates.size(); i++) {
+        __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+            "  candidate[%d]: %s", i, candidates[i].utf8().get_data());
+    }
+#endif
 
     bool opened = false;
     String opened_name;
@@ -314,11 +455,23 @@ AVFrame *FfmpegDecoder::decode_next_frame(AVPacket *pkt) {
     if (!v_codec_ctx || !pkt) return nullptr;
 
     int ret = avcodec_send_packet(v_codec_ctx, pkt);
-    if (ret < 0) return nullptr;
+    if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) return nullptr;
 
     av_frame_unref(decode_frame);
     ret = avcodec_receive_frame(v_codec_ctx, decode_frame);
-    if (ret != 0) return nullptr;
+    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) return nullptr;
+    if (ret < 0) return nullptr;
+
+#ifdef __ANDROID__
+    static int log_count = 0;
+    if (++log_count <= 3) {
+        __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+            "decoded frame: fmt=%d w=%d h=%d linesize[0]=%d linesize[1]=%d data[0]=%p data[1]=%p",
+            decode_frame->format, decode_frame->width, decode_frame->height,
+            decode_frame->linesize[0], decode_frame->linesize[1],
+            decode_frame->data[0], decode_frame->data[1]);
+    }
+#endif
 
     if (decode_frame->format == hw_pix_fmt && hw_device_ctx) {
         av_frame_unref(sw_frame);

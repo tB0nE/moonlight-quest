@@ -35,12 +35,12 @@ func handle_input(event: InputEvent):
 			main.suppress_input_frames -= 1
 			return
 		if event is InputEventMouseMotion:
-			main.moon.send_mouse_move_event(int(event.relative.x), int(event.relative.y))
+			main.stream_backend.send_mouse_move_event(int(event.relative.x), int(event.relative.y))
 		elif event is InputEventMouseButton:
 			var action = 7 if event.pressed else 8
-			main.moon.send_mouse_button_event(action, event.button_index)
+			main.stream_backend.send_mouse_button_event(action, event.button_index)
 		elif event is InputEventKey:
-			main.moon.send_keyboard_event(event.keycode, 3 if event.pressed else 4, 0)
+			main.stream_backend.send_keyboard_event(event.keycode, 3 if event.pressed else 4, 0)
 		elif event is InputEventJoypadButton:
 			if event.pressed:
 				pad_buttons |= (1 << event.button_index)
@@ -79,7 +79,7 @@ func handle_input(event: InputEvent):
 			return
 
 		if event is InputEventKey:
-			main.moon.send_keyboard_event(event.keycode, 3 if event.pressed else 4, 0)
+			main.stream_backend.send_keyboard_event(event.keycode, 3 if event.pressed else 4, 0)
 
 func capture_stream_mouse():
 	main.mouse_captured_by_stream = true
@@ -105,7 +105,7 @@ func _send_controller(device: int):
 		if Input.is_joy_button_pressed(device, btn):
 			mapped_buttons |= _BTN_MAP[btn]
 	var active_mask = 1 << device
-	main.moon.send_multi_controller_event(device, active_mask, mapped_buttons, int(lt * 255.0), int(rt * 255.0), _float_to_short(lx), -_float_to_short(ly), _float_to_short(rx), -_float_to_short(ry))
+	main.stream_backend.send_multi_controller_event(device, active_mask, mapped_buttons, int(lt * 255.0), int(rt * 255.0), _float_to_short(lx), -_float_to_short(ly), _float_to_short(rx), -_float_to_short(ry))
 
 func _float_to_short(val: float) -> int:
 	return int(clampf(val, -1.0, 1.0) * 32767.0)

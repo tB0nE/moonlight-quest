@@ -2,6 +2,7 @@
 
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <cstring>
+#include <android/log.h>
 
 using namespace godot;
 
@@ -56,6 +57,9 @@ int OpusDecoderWrapper::decode(const PackedByteArray &opus_data, int max_samples
 
     last_pcm_.resize(buf_size);
 
+    __android_log_print(ANDROID_LOG_INFO, "OpusDecoder", "decode: data_size=%d max_samples=%d channels=%d buf_size=%d",
+        opus_data.size(), max_samples, channels_, buf_size);
+
     int frames = opus_multistream_decode_float(
         decoder_,
         (const unsigned char *)opus_data.ptr(),
@@ -66,7 +70,8 @@ int OpusDecoderWrapper::decode(const PackedByteArray &opus_data, int max_samples
     );
 
     if (frames < 0) {
-        UtilityFunctions::printerr("[OpusDecoder] Decode failed: ", frames, " (", opus_strerror(frames), ")");
+        __android_log_print(ANDROID_LOG_ERROR, "OpusDecoder", "decode FAILED: ret=%d data_size=%d max_samples=%d (%s)",
+            frames, opus_data.size(), max_samples, opus_strerror(frames));
         last_pcm_.resize(0);
         return frames;
     }

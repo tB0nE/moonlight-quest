@@ -107,7 +107,8 @@ func on_pair_pressed():
 	var save = ConfigFile.new()
 	save.set_value("connection", "ip", ip)
 	save.save("user://last_connection.cfg")
-	_b().get_config_manager().load_config() if _b().get_config_manager() else null
+	if _b().get_config_manager():
+		_b().get_config_manager().load_config()
 	await main.host_discovery.query_host_resolution(ip)
 	var paired_host_id = -1
 	for h in _b().get_hosts():
