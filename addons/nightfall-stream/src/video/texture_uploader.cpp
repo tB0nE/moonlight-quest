@@ -216,6 +216,9 @@ void TextureUploader::update_from_frame(AVFrame *frame) {
         }
 
         pending_gpu_update.store(true);
+    }
+
+    if (rd) {
         rs->call_on_render_thread(callable_mp(this, &TextureUploader::perform_gpu_update));
         return;
     }

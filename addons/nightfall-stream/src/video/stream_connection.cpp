@@ -328,7 +328,7 @@ void StreamConnection::_decode_thread_func() {
     while (true) {
         {
             std::unique_lock<std::mutex> lock(queue_mutex_);
-            queue_cv_.wait_for(lock, std::chrono::milliseconds(5), [this] {
+            queue_cv_.wait(lock, [this] {
                 return !packet_queue_.empty() || !is_streaming_.load();
             });
 
@@ -382,17 +382,7 @@ void StreamConnection::_decode_thread_func() {
                     NF_LOG("[StreamConnection] Decoded frame #%d: %dx%d format=%d\n", decode_ok_count, tmp->width, tmp->height, tmp->format);
                 }
 
-                bool skip = false;
-                {
-                    std::lock_guard<std::mutex> lock(queue_mutex_);
-                    if (packet_queue_.size() > 12) {
-                        skip = true;
-                    }
-                }
-
-                if (!skip) {
-                    uploader_->update_from_frame(tmp);
-                }
+                uploader_->update_from_frame(tmp);
 
                 av_frame_free(&tmp);
             }
