@@ -2,9 +2,9 @@
 #include <Limelight.h>
 #include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#include "nf_log.h"
 
 #ifdef __ANDROID__
-#include <android/log.h>
 #include <dlfcn.h>
 #include <jni.h>
 extern "C" {
@@ -15,7 +15,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_godot_game_GodotApp_initializeMoonlig
     JavaVM *vm = nullptr;
     if (env->GetJavaVM(&vm) == 0) {
         av_jni_set_java_vm(vm, nullptr);
-        __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder", "JNI: Set JavaVM to %p", vm);
+        NF_LOG("FfmpegDecoder", "JNI: Set JavaVM to %p", vm);
     }
 }
 
@@ -24,18 +24,15 @@ extern "C" JNIEXPORT void JNICALL Java_com_godot_game_GodotApp_setAndroidContext
         jobject global_ref = env->NewGlobalRef(context);
         if (global_ref) {
             av_jni_set_android_app_ctx(global_ref, nullptr);
-            __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder", "JNI: Set Android app context to %p (global ref)", global_ref);
+            NF_LOG("FfmpegDecoder", "JNI: Set Android app context to %p (global ref)", global_ref);
         } else {
-            __android_log_print(ANDROID_LOG_ERROR, "FfmpegDecoder", "JNI: Failed to create global ref for app context");
+            NF_LOGE("FfmpegDecoder", "JNI: Failed to create global ref for app context");
         }
     } else {
-        __android_log_print(ANDROID_LOG_ERROR, "FfmpegDecoder", "JNI: Android app context is NULL!");
+        NF_LOGE("FfmpegDecoder", "JNI: Android app context is NULL!");
     }
 }
 
-#define NF_LOG(...) __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder", __VA_ARGS__)
-#else
-#define NF_LOG(...) printf(__VA_ARGS__)
 #endif
 
 using namespace godot;
@@ -183,20 +180,16 @@ int FfmpegDecoder::_try_open_decoder(const String &codec_name, int width, int he
         base_name = base_name.substr(0, base_name.length() - 7);
     }
 
-#ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+    NF_LOG("FfmpegDecoder",
         "_try_open: base='%s' full='%s' hw=%s w=%d h=%d",
         base_name.utf8().get_data(), codec_name.utf8().get_data(),
         (hw_type == AV_HWDEVICE_TYPE_NONE) ? "NONE" : av_hwdevice_get_type_name(hw_type),
         width, height);
-#endif
 
     const AVCodec *codec = avcodec_find_decoder_by_name(base_name.utf8().get_data());
     if (!codec) {
-#ifdef __ANDROID__
-        __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+        NF_LOG("FfmpegDecoder",
             "avcodec_find_decoder_by_name FAILED for '%s'", base_name.utf8().get_data());
-#endif
         return -1;
     }
 
@@ -276,17 +269,11 @@ int FfmpegDecoder::_try_open_decoder(const String &codec_name, int width, int he
 
     int ret = avcodec_open2(ctx, codec, &opts);
 
-#ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+    NF_LOG("FfmpegDecoder",
         "avcodec_open2 => %d base=%s full=%s hw=%s w=%d h=%d",
         ret, base_name.utf8().get_data(), codec_name.utf8().get_data(),
         (hw_type == AV_HWDEVICE_TYPE_NONE) ? "NONE" : av_hwdevice_get_type_name(hw_type),
         width, height);
-#else
-    if (ret < 0) {
-        UtilityFunctions::printerr("[FfmpegDecoder] avcodec_open2 failed for ", codec_name, " ret=", ret);
-    }
-#endif
 
     if (opts) av_dict_free(&opts);
 
@@ -365,15 +352,13 @@ int FfmpegDecoder::setup(int video_format, int width, int height, bool disable_h
     if (!disable_hw) hw_devices = _get_supported_hw_devices();
     hw_devices.push_back(AV_HWDEVICE_TYPE_NONE);
 
-#ifdef __ANDROID__
-    __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+    NF_LOG("FfmpegDecoder",
         "setup: family=%d w=%d h=%d candidates=%d hw_devices=%d",
         family, width, height, candidates.size(), hw_devices.size());
     for (int i = 0; i < candidates.size(); i++) {
-        __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+        NF_LOG("FfmpegDecoder",
             "  candidate[%d]: %s", i, candidates[i].utf8().get_data());
     }
-#endif
 
     bool opened = false;
     String opened_name;
@@ -462,16 +447,14 @@ AVFrame *FfmpegDecoder::decode_next_frame(AVPacket *pkt) {
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) return nullptr;
     if (ret < 0) return nullptr;
 
-#ifdef __ANDROID__
     static int log_count = 0;
     if (++log_count <= 3) {
-        __android_log_print(ANDROID_LOG_INFO, "FfmpegDecoder",
+        NF_LOG("FfmpegDecoder",
             "decoded frame: fmt=%d w=%d h=%d linesize[0]=%d linesize[1]=%d data[0]=%p data[1]=%p",
             decode_frame->format, decode_frame->width, decode_frame->height,
             decode_frame->linesize[0], decode_frame->linesize[1],
             decode_frame->data[0], decode_frame->data[1]);
     }
-#endif
 
     if (decode_frame->format == hw_pix_fmt && hw_device_ctx) {
         av_frame_unref(sw_frame);

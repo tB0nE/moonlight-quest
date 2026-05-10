@@ -20,40 +20,22 @@ func start_stream(host_id: int, app_id: int):
 		bitrate = 80000
 	elif w >= 2560:
 		bitrate = 40000
-	if main.use_nightfall_v2:
-		resize_stream_viewport(w, h)
-		var options = {}
-		options["width"] = w
-		options["height"] = h
-		options["fps"] = main.stream_fps
-		options["bitrate"] = bitrate
-		options["packet_size"] = 1024
-		options["streaming_remotely"] = 2
-		options["surroundAudioInfo"] = 0xCA0203
-		main._ui_status_label.text = "Launching stream..."
-		_b().establish_stream(host_id, app_id, options, _on_v2_launch_response)
-		main._log("[STREAM] v2 establish_stream called")
-	else:
-		main.stream_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-		var stream_cfg = MoonlightStreamConfigurationResource.new()
-		stream_cfg.set_width(w)
-		stream_cfg.set_height(h)
-		stream_cfg.set_fps(main.stream_fps)
-		stream_cfg.set_bitrate(bitrate)
-		var stream_opts = MoonlightAdditionalStreamOptions.new()
-		stream_opts.set_disable_hw_acceleration(false)
-		stream_opts.set_disable_audio(false)
-		stream_opts.set_disable_video(false)
-		stream_opts.set_video_codec(0)
-		main.moon.set_render_target(main.stream_target)
-		main.moon.start_play_stream(host_id, app_id, stream_cfg, stream_opts)
-		main._log("[STREAM] v1 start_play_stream called (%dx%d@%d %dMbps)" % [w, h, main.stream_fps, bitrate])
-		await main.get_tree().create_timer(0.1).timeout
-		bind_texture()
+	resize_stream_viewport(w, h)
+	var options = {}
+	options["width"] = w
+	options["height"] = h
+	options["fps"] = main.stream_fps
+	options["bitrate"] = bitrate
+	options["packet_size"] = 1024
+	options["streaming_remotely"] = 2
+	options["surroundAudioInfo"] = 0xCA0203
+	main._ui_status_label.text = "Launching stream..."
+	_b().establish_stream(host_id, app_id, options, _on_v2_launch_response)
+	main._log("[STREAM] establish_stream called")
 
 func _on_v2_launch_response(response: Dictionary):
 	if response.get("status", "") != "success":
-		main._log("[STREAM] v2 launch failed: %s" % response.get("message", "unknown"))
+		main._log("[STREAM] Launch failed: %s" % response.get("message", "unknown"))
 		main._ui_status_label.text = "Launch failed: " + str(response.get("message", "unknown"))
 		return
 
@@ -96,7 +78,7 @@ func _on_v2_launch_response(response: Dictionary):
 
 	var ip = response.get("ip", "")
 	_b().start_stream_v2(ip, server_info, stream_config, false)
-	main._log("[STREAM] v2 start_stream called (%dx%d@%d %dMbps)" % [w, h, fps, br])
+	main._log("[STREAM] start_stream called (%dx%d@%d %dMbps)" % [w, h, fps, br])
 
 func resize_stream_viewport(w: int, h: int):
 	main.stream_viewport.size = Vector2i(w, h)
@@ -165,26 +147,12 @@ func browse_mdns() -> Array:
 	main._log("[mDNS] Found %d hosts" % _mdns_result.size())
 	return _mdns_result
 
-func setup_audio():
-	if main.use_nightfall_v2:
-		return
-	var audio_stream = _b().get_audio_stream()
-	if audio_stream:
-		main.audio_player.stream = audio_stream
-		main.audio_player.play()
-		print("Audio Stream Started")
-
 func bind_texture():
 	var stream_tex = main.stream_viewport.get_texture()
 	main.detection_target.texture = stream_tex
 	if main.depth_estimator:
 		main.depth_estimator.bind_stream_texture()
-	if main.use_nightfall_v2:
-		_setup_v2_yuv_rect()
-	else:
-		if main.is_streaming:
-			main.screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
-			printerr("[NF-RENDER] bind_texture V1: set main_texture vp_mode=%d" % main.stream_viewport.render_target_update_mode)
+	_setup_v2_yuv_rect()
 	var ui_tex = main.ui_viewport.get_texture()
 	main.ui_panel_3d.material_override.albedo_texture = ui_tex
 
@@ -193,7 +161,7 @@ func _setup_v2_yuv_rect():
 		return
 	var mat = _b().get_shader_material()
 	if not mat:
-		main._log("[STREAM] v2: no shader material from TextureUploader yet")
+		main._log("[STREAM] No shader material from TextureUploader yet")
 		return
 	_v2_yuv_rect = ColorRect.new()
 	_v2_yuv_rect.name = "V2YuvRect"
@@ -202,7 +170,7 @@ func _setup_v2_yuv_rect():
 	_v2_yuv_rect.custom_minimum_size = Vector2(main.stream_viewport.size)
 	main.stream_target.visible = false
 	main.stream_viewport.add_child(_v2_yuv_rect)
-	main._log("[STREAM] v2: YUV ColorRect added to StreamViewport")
+	main._log("[STREAM] YUV ColorRect added to StreamViewport")
 
 func teardown_v2_yuv_rect():
 	if _v2_yuv_rect:
@@ -222,7 +190,8 @@ func update_stats():
 	var ip = main.get_node("%IPInput").text
 	var ip_display = ip if not ip.is_empty() else "?"
 	var dropped = _b().get_frames_dropped()
-	var latency_ms = _b().get_last_frame_latency() / 1000.0
+	var decoded = _b().get_frames_decoded()
+	var latency_ms = _b().get_last_frame_latency_us() / 1000.0
 	main._ui_status_label.text = "%s \u2022 %dx%d %s \u2022 %.0ffps \u2022 %.0fms" % [ip_display, vw, vh, hw, main.stats_fps, latency_ms]
 	if dropped > 0:
 		main._ui_status_label.text += " \u2022 drop:%d" % dropped

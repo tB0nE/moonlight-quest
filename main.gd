@@ -1,6 +1,5 @@
 extends Node3D
 
-@onready var moon = $MoonlightStream
 @onready var screen_mesh = $MeshInstance3D
 @onready var ui_panel_3d = %UIPanel3D
 @onready var ui_viewport = %UIViewport
@@ -9,15 +8,14 @@ extends Node3D
 @onready var detection_viewport = %DetectionViewport
 @onready var detection_target = %DetectionTarget
 @onready var welcome_viewport = %WelcomeViewport
-@onready var config_mgr = MoonlightConfigManager.new()
-@onready var comp_mgr = MoonlightComputerManager.new()
+@onready var config_mgr = NightfallConfigManager.new()
+@onready var comp_mgr = NightfallComputerManager.new()
 var mdns
 var stream_backend: StreamBackend
-var use_nightfall_v2: bool = true
 
 func _get_mdns():
-	if not mdns and ClassDB.class_exists("MoonlightMDNS"):
-		mdns = ClassDB.instantiate("MoonlightMDNS")
+	if not mdns and ClassDB.class_exists("MdnsBrowser"):
+		mdns = ClassDB.instantiate("MdnsBrowser")
 	return mdns
 @onready var xr_origin = $XROrigin3D
 @onready var xr_camera = $XROrigin3D/XRCamera3D
@@ -121,7 +119,6 @@ var _ui_res_btn: Button
 var _ui_fps_btn: Button
 var _ui_render_btn: Button
 var _ui_sharpen_btn: Button
-var _ui_backend_btn: Button
 var _ui_depth_btn: Button
 var _ui_parallax_btn: Button
 var _ui_exit_btn: Button
@@ -165,7 +162,7 @@ func _on_stream_started():
 	stream_manager.bind_texture()
 	var stream_tex = stream_viewport.get_texture()
 	screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
-	printerr("[NF-RENDER] _on_stream_started: v2=%s vp_size=%s vp_mode=%d tex=%s tex_w=%d tex_h=%d" % [str(use_nightfall_v2), str(stream_viewport.size), stream_viewport.render_target_update_mode, str(stream_tex), stream_tex.get_width() if stream_tex else 0, stream_tex.get_height() if stream_tex else 0])
+	printerr("[NF-RENDER] _on_stream_started: vp_size=%s vp_mode=%d tex=%s tex_w=%d tex_h=%d" % [str(stream_viewport.size), stream_viewport.render_target_update_mode, str(stream_tex), stream_tex.get_width() if stream_tex else 0, stream_tex.get_height() if stream_tex else 0])
 	printerr("[NF-RENDER] stream_target vis=%s mat=%s tex=%s" % [str(stream_target.visible), str(stream_target.material), str(stream_target.texture)])
 	stream_manager.setup_audio()
 	ui_visible = false
@@ -183,8 +180,7 @@ func _on_stream_terminated(msg: String):
 	_ui_status_label.text = "Disconnected: " + str(msg)
 	if _ui_disconnect_btn: _ui_disconnect_btn.visible = false
 	_log("[STREAM] Connection terminated: %s" % str(msg))
-	if use_nightfall_v2:
-		stream_manager.teardown_v2_yuv_rect()
+	stream_manager.teardown_v2_yuv_rect()
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
@@ -248,39 +244,21 @@ func _ready():
 	if ClassDB.class_exists("NightfallStream"):
 		v2_node = ClassDB.instantiate("NightfallStream")
 		add_child(v2_node)
-	stream_backend = StreamBackend.new(moon, v2_node)
-	var cfg_save = ConfigFile.new()
-	if cfg_save.load("user://app_state.cfg") == OK:
-		use_nightfall_v2 = cfg_save.get_value("stream", "use_nightfall_v2", true)
-	if use_nightfall_v2 and not v2_node:
-		use_nightfall_v2 = false
-		_log("[STREAM] Nightfall V2 requested but extension not loaded, falling back to V1")
-	stream_backend.set_backend(StreamBackend.Backend.V2 if use_nightfall_v2 else StreamBackend.Backend.V1)
+	stream_backend = StreamBackend.new(v2_node)
 	stream_backend.set_config_manager(config_mgr)
 	stream_backend.set_computer_manager(comp_mgr)
 	has_depth_model_v2 = stream_backend.has_depth_model_v2()
-	comp_mgr.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
-	moon.log_message.connect(func(msg):
-		if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
-			stats_network_events += 1
-	)
-	moon.connection_started.connect(func():
-		if not use_nightfall_v2:
-			_on_stream_started()
-	)
-	moon.connection_terminated.connect(func(_err, msg):
-		if not use_nightfall_v2:
-			_on_stream_terminated(str(msg))
-	)
 	if v2_node:
 		v2_node.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
 		v2_node.stream_started.connect(func():
-			if use_nightfall_v2:
-				_on_stream_started()
+			_on_stream_started()
 		)
-		v2_node.stream_terminated.connect(func(err_code):
-			if use_nightfall_v2:
-				_on_stream_terminated(str(err_code))
+		v2_node.stream_terminated.connect(func(err_code, err_msg):
+			_on_stream_terminated(err_msg)
+		)
+		v2_node.log_message.connect(func(msg):
+			if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
+				stats_network_events += 1
 		)
 
 	var interface = XRServer.find_interface("OpenXR")
@@ -349,14 +327,14 @@ func _ready():
 		str(screen_mesh.rotation),
 		str(screen_mesh.mesh.size) if screen_mesh.mesh else "null"
 	])
-	printerr("[NF-SCREEN] v2=%s streaming=%s passthrough=%d stereo=%d" % [
-		str(use_nightfall_v2), str(is_streaming), passthrough_mode, stereo_mode
+	printerr("[NF-SCREEN] streaming=%s passthrough=%d stereo=%d" % [
+		str(is_streaming), passthrough_mode, stereo_mode
 	])
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	ui_controller.update_ui()
 	ui_controller.update_stereo_shader()
 
-	if _auto_connect and use_nightfall_v2:
+	if _auto_connect:
 		var v2_cm = stream_backend.get_config_manager()
 		if v2_cm:
 			var v2_hosts = v2_cm.get_hosts()

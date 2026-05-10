@@ -13,21 +13,9 @@
 
 Open the project in the Godot editor and install the **GodotOpenXRVendors** plugin from the Asset Library (or enable it in Project → Install Plugins). This provides Meta Quest OpenXR vendor extensions.
 
-## 1. Clone and Build the GDExtension
+## 1. Build the GDExtension
 
-The Moonlight GDExtension must be built from source. We maintain a fork with Quest hardware decoding patches:
-
-```bash
-# Clone our fork (quest-hw-decode branch has all patches applied)
-git clone -b quest-hw-decode https://github.com/tB0nE/Moonlight-Godot.git ~/Development/Personal/moonlight-godot-src
-```
-
-The `quest-hw-decode` branch includes:
-- JNI handshake for passing JavaVM/Android context to FFmpeg
-- `ndk_codec=1` option forcing NDK MediaCodec path (HEVC hardware decode)
-- Skip incompatible low-delay flags for MediaCodec
-- Stats API (decoder name, frame counts, HW/SW status)
-- Depth estimation JNI bridge (`submit_depth_frame` / `get_depth_map`)
+The Nightfall streaming GDExtension is built from source within the project:
 
 ### Install vcpkg
 
@@ -39,8 +27,7 @@ git clone https://github.com/microsoft/vcpkg.git ~/Development/Personal/vcpkg
 ### Android (Quest) Build
 
 ```bash
-cd ~/Development/Personal/moonlight-godot-src
-cp CmakeLists.txt CMakeLists.txt  # fix case in filename
+cd <project-root>/addons/nightfall-stream
 
 export VCPKG_ROOT=~/Development/Personal/vcpkg
 export VCPKG_DEFAULT_TRIPLET=arm64-android
@@ -51,14 +38,7 @@ cmake --preset android
 ninja -C build/android
 ```
 
-This produces `build/android/bin/android/libmoonlight-godot.android.template_debug.arm64.so`.
-
-Copy to the project:
-
-```bash
-cp build/android/bin/android/libmoonlight-godot.android.template_debug.arm64.so \
-   <project-root>/addons/moonlight-godot/bin/android/
-```
+This produces `build/android/bin/android/libnightfall-stream.android.template_debug.arm64.so` and deploys it to the Godot addon directory automatically.
 
 > **Important**: Use cmake + ninja. Manual clang++ compilation can produce a `.so` that depends on `libc++_shared.so` which isn't in the APK, causing `UnsatisfiedLinkError` crashes.
 
@@ -70,21 +50,11 @@ For release, rebuild with CMAKE_BUILD_TYPE=Release and strip:
 cmake --preset android -DCMAKE_BUILD_TYPE=Release
 ninja -C build/android
 <path-to-ndk>/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
-  --strip-debug build/android/bin/android/libmoonlight-godot.android.template_release.arm64.so \
-  -o <project-root>/addons/moonlight-godot/bin/android/libmoonlight-godot.android.template_release.arm64.so
+  --strip-debug build/android/bin/android/libnightfall-stream.android.template_release.arm64.so \
+  -o <project-root>/addons/nightfall-stream/bin/android/libnightfall-stream.android.template_release.arm64.so
 ```
 
 > **Size comparison**: Debug ~162MB, Release (stripped) ~35MB.
-
-### Linux (Desktop) Build
-
-```bash
-cd ~/Development/Personal/moonlight-godot-src
-cp CmakeLists.txt CMakeLists.txt
-cmake --preset linux
-ninja -C build/linux
-cp build/linux/libmoonlight-godot.*.so <project-root>/addons/moonlight-godot/bin/linux/
-```
 
 ## 2. Export the APK
 
@@ -157,7 +127,7 @@ adb install -r Nightfall-Android-arm64-v8a-debug.apk
 │   ├── openxr_action_map.tres  # OpenXR controller bindings
 │   └── assets/               # nightfall_icon_v1.png, pc_icon.svg, backgrounds
 ├── addons/
-│   ├── moonlight-godot/       # GDExtension (built from fork)
+│   ├── nightfall-stream/      # GDExtension (built from source)
 │   └── godotopenxrvendors/    # Meta OpenXR vendor plugin v5.0.0
 ├── android/
 │   └── src/main/
@@ -178,8 +148,8 @@ Both presets can coexist on the same device since they use different package nam
 
 ## Key Architecture Notes
 
-- **Fork**: `https://github.com/tB0nE/Moonlight-Godot` (branch: `quest-hw-decode`) — upstream is `html5syt/Moonlight-Godot`
-- **GDExtension Source**: Persistent copy at `~/Development/Personal/moonlight-godot-src/`
+- **GDExtension Source**: `addons/nightfall-stream/src/`
+- **V1 Reference**: The original Moonlight-Godot implementation was used as reference during development. Persistent source at `~/Development/Personal/moonlight-godot-src/`. Last commit with V1 code: `622e13a`.
 - **vcpkg**: Persistent copy at `~/Development/Personal/vcpkg/`
 - **JNI Handshake**: `GodotApp.java` loads the GDExtension library in a static block and calls `initializeMoonlightJNI()` to pass the JavaVM to FFmpeg for MediaCodec. This must happen before Godot initializes.
 - **Android App Context**: `setAndroidContext()` passes the Android app context to FFmpeg via `av_jni_set_android_app_ctx()` with a JNI global reference.

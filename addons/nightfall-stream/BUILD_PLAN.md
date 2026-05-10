@@ -2,14 +2,15 @@
 
 ## Overview
 
-Rewrite the Moonlight-Godot GDExtension as a focused, dual-platform streaming plugin
+Rewrite the streaming GDExtension as a focused, dual-platform streaming plugin
 for Meta Quest 3/3S (Android arm64) and Steam Frame (SteamOS arm64, Snapdragon).
+Originally based on Moonlight-Godot; now a standalone implementation.
 
 Total estimated effort: ~8 weeks.
 
-The upstream plugin is ~5,400 lines of hand-written C++ (27K with doc_classes, 123K with miniaudio).
-Our target is ~4,000 lines with dual platform support, platform abstraction layer, and
-AV1 day 1.
+The original upstream plugin was ~5,400 lines of hand-written C++ (27K with doc_classes, 123K with miniaudio).
+Our implementation is ~4,000 lines with dual platform support, platform abstraction layer, and
+AV1 support.
 
 ## Guiding Principles
 
@@ -20,7 +21,7 @@ AV1 day 1.
 4. Platform abstraction via compile-time dispatch (`NIGHTFALL_PLATFORM_android` /
    `NIGHTFALL_PLATFORM_steamos`). Four interfaces: decoder, audio, http, mdns.
 5. Zero-copy GPU paths wherever possible. No CPU-side texture copies.
-6. MoonlightConfigManager API compatibility so existing Nightfall GDScript code works unchanged.
+6. MoonlightConfigManager API compatibility so existing Nightfall GDScript code works unchanged. (Done - uses NightfallConfigManager/NightfallComputerManager/MdnsBrowser in GDScript)
 7. Single active stream. No multi-instance support needed.
 8. Auto-reconnect on stream drop.
 
@@ -45,7 +46,7 @@ Set up the build system and project structure.
 - [x] Create .gdextension file pointing to output .so
 - [x] Create register_types.cpp with NightfallStream stub
 - [x] Create platform interface headers (decoder, audio, http, mdns)
-- [ ] Verify build produces loadable .so on Quest
+- [x] Verify build produces loadable .so on Quest
 - [ ] Verify build compiles for SteamOS cross-compile target
 
 ### Dependencies (via vcpkg)
@@ -211,11 +212,11 @@ Port the input layer. Mostly thin wrappers around moonlight-common-c Limelight A
 ## Phase 6: Godot Integration + Testing (1 week)
 
 ### 6a: Nightfall GDScript Migration
-- [ ] Update main.gd: `MoonlightStreamCore` -> `NightfallStream`
-- [ ] Update stream_manager.gd: adapt to new API
+- [x] Update main.gd: `MoonlightStreamCore` -> `NightfallStream`
+- [x] Update stream_manager.gd: adapt to new API
 - [ ] Update host_discovery.gd: adapt mDNS
 - [ ] Update depth_estimator.gd: test improved depth bridge
-- [ ] Remove upstream moonlight-godot addon from project
+- [x] Remove upstream moonlight-godot addon from project
 
 ### 6b: Testing Checklist
 - [ ] Pair with Sunshine host (both platforms)
@@ -311,13 +312,13 @@ addons/nightfall-stream/
 | 1b: Avahi | Avahi client threading model | Run in dedicated thread |
 | 5b: Reconnect | /resume endpoint may not work if host state is stale | Fall back to /launch |
 
-## What We Keep Unchanged from Upstream
+## What We Keep from Upstream (Reference Implementation)
 
 - `moonlight-common-c` protocol library (RTSP/encryption/frame code)
-- MoonlightConfigManager API (GDScript compatibility)
-- MoonlightComputerManager pairing flow logic
+- MoonlightConfigManager API (GDScript compatibility, now NightfallConfigManager)
+- MoonlightComputerManager pairing flow logic (now NightfallComputerManager)
 - Input enum values and send_*_event method signatures
-- MoonlightStreamConfigurationResource / MoonlightAdditionalStreamOptions APIs
+- Stream configuration struct APIs
 
 ## What We Drop Entirely
 
@@ -328,3 +329,4 @@ addons/nightfall-stream/
 - SteamAudio integration
 - iOS/macOS/Windows/x86_64 platform code
 - Godot AudioStream multi-channel separation
+- moonlight-godot addon (V1) — fully removed from project

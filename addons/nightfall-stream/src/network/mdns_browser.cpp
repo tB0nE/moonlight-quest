@@ -1,4 +1,5 @@
 #include "mdns_browser.h"
+#include "nf_log.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -7,13 +8,6 @@
 #include <string.h>
 #include <time.h>
 #include <poll.h>
-
-#ifdef __ANDROID__
-#include <android/log.h>
-#define MDNS_LOG(...) __android_log_print(ANDROID_LOG_INFO, "MdnsBrowser", __VA_ARGS__)
-#else
-#define MDNS_LOG(...) printf(__VA_ARGS__)
-#endif
 
 using namespace godot;
 
@@ -226,7 +220,7 @@ Array MdnsBrowser::browse(float timeout) {
 
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
-        MDNS_LOG("Failed to create socket: %s", strerror(errno));
+        NF_LOG("MdnsBrowser", "Failed to create socket: %s", strerror(errno));
         return results;
     }
 
@@ -244,7 +238,7 @@ Array MdnsBrowser::browse(float timeout) {
     local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     local_addr.sin_port = htons(0);
     if (bind(sock, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
-        MDNS_LOG("Failed to bind: %s", strerror(errno));
+        NF_LOG("MdnsBrowser", "Failed to bind: %s", strerror(errno));
         close(sock);
         return results;
     }

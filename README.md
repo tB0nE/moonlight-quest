@@ -84,8 +84,6 @@ Setup:
 
 ## Building
 
-Nightfall depends on a fork of [Moonlight-Godot](https://github.com/html5syt/Moonlight-Godot) by html5syt, with Quest-specific hardware decoding patches.
-
 See [BUILD.md](BUILD.md) for full build instructions including:
 
 - GDExtension compilation (cmake + ninja, not manual clang++)
@@ -97,13 +95,9 @@ Quick start:
 
 ```bash
 # 1. Build the GDExtension
-git clone -b quest-hw-decode https://github.com/tB0nE/Moonlight-Godot.git ~/moonlight-godot-src
-cd ~/moonlight-godot-src
-cp CmakeLists.txt CMakeLists.txt
+cd addons/nightfall-stream
 cmake --preset android
 ninja -C build/android
-cp build/android/bin/android/libmoonlight-godot.android.template_debug.arm64.so \
-   <project-root>/addons/moonlight-godot/bin/android/
 
 # 2. Export the APK
 ./build.sh --debug
@@ -128,5 +122,5 @@ Donations help keep the coffee flowing and the commits coming.
 
 Nightfall is licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for the full text.
 
-Built on [Moonlight-Godot](https://github.com/html5syt/Moonlight-Godot) and compatible with
+Special thanks to the [Moonlight-Godot](https://github.com/html5syt/Moonlight-Godot) project, which served as a reference implementation. Compatible with
 [Apollo](https://github.com/ClassicOldSong/Apollo), [Sunshine](https://github.com/LizardByte/Sunshine), and [Polaris](https://github.com/papi-ux/polaris).

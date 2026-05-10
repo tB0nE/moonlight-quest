@@ -1,10 +1,9 @@
 #include "depth_bridge.h"
+#include "nf_log.h"
 
 #ifdef __ANDROID__
-#include <android/log.h>
 #include <dlfcn.h>
 #include <jni.h>
-#define DB_LOG(...) __android_log_print(ANDROID_LOG_INFO, "DepthBridge", __VA_ARGS__)
 
 static JNIEnv *get_jni_env() {
     typedef jint (*JNI_GetCreatedJavaVMs_t)(JavaVM **, jsize, jsize *);

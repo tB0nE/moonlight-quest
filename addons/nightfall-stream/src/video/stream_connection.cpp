@@ -16,17 +16,15 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#ifdef __ANDROID__
-#include <android/log.h>
-#define NF_LOG(...) __android_log_print(ANDROID_LOG_INFO, "StreamConnection", __VA_ARGS__)
-#else
-#define NF_LOG(...) printf(__VA_ARGS__)
-#endif
+#include "nf_log.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/pixfmt.h>
+#include <libavutil/frame.h>
 }
+
+#include <cstdarg>
 
 using namespace godot;
 
@@ -49,7 +47,7 @@ int StreamConnection::_cb_decoder_setup(int videoFormat, int width, int height, 
     if (!self) return -1;
 
     self->active_video_format_ = videoFormat;
-    NF_LOG("[StreamConnection] Decoder setup: format=0x%x %dx%d@%dfps\n", videoFormat, width, height, redrawRate);
+    NF_LOG("StreamConnection", "Decoder setup: format=0x%x %dx%d@%dfps", videoFormat, width, height, redrawRate);
 
     int ret = self->decoder_->setup(videoFormat, width, height, false);
     if (ret != 0) return ret;
@@ -69,11 +67,11 @@ int StreamConnection::_cb_decoder_setup(int videoFormat, int width, int height, 
 }
 
 void StreamConnection::_cb_decoder_start() {
-    NF_LOG("[StreamConnection] Decoder start\n");
+    NF_LOG("StreamConnection", "Decoder start");
 }
 
 void StreamConnection::_cb_decoder_stop() {
-    NF_LOG("[StreamConnection] Decoder stop\n");
+    NF_LOG("StreamConnection", "Decoder stop");
     auto *self = active_instance_;
     if (self) {
         self->decoder_ready_.store(false);
@@ -81,7 +79,7 @@ void StreamConnection::_cb_decoder_stop() {
 }
 
 void StreamConnection::_cb_decoder_cleanup() {
-    NF_LOG("[StreamConnection] Decoder cleanup\n");
+    NF_LOG("StreamConnection", "Decoder cleanup");
     auto *self = active_instance_;
     if (self) {
         self->decoder_->cleanup();
@@ -96,10 +94,10 @@ int StreamConnection::_cb_submit_decode_unit(PDECODE_UNIT decodeUnit) {
 
     static int submit_count = 0;
     if (submit_count == 0) {
-        NF_LOG("[StreamConnection] First submit: self=%p\n", self);
+        NF_LOG("StreamConnection", "First submit: self=%p", self);
     }
     if (++submit_count <= 5 || submit_count % 300 == 0) {
-        NF_LOG("[StreamConnection] Submit decode unit #%d: fullLen=%d\n", submit_count, decodeUnit->fullLength);
+        NF_LOG("StreamConnection", "Submit decode unit #%d: fullLen=%d", submit_count, decodeUnit->fullLength);
     }
 
     AVPacket *pkt = av_packet_alloc();
@@ -123,6 +121,10 @@ int StreamConnection::_cb_submit_decode_unit(PDECODE_UNIT decodeUnit) {
 
     pkt->pts = decodeUnit->presentationTimeUs;
 
+    auto now = std::chrono::steady_clock::now();
+    auto now_us = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+    self->last_submit_time_us_.store(now_us);
+
     {
         std::lock_guard<std::mutex> lock(self->queue_mutex_);
         if (self->packet_queue_.size() > 512) {
@@ -145,7 +147,7 @@ int StreamConnection::_cb_submit_decode_unit(PDECODE_UNIT decodeUnit) {
 }
 
 void StreamConnection::_cb_connection_started() {
-    NF_LOG("[StreamConnection] Connection started\n");
+    NF_LOG("StreamConnection", "Connection started");
     auto *self = active_instance_;
     if (self) {
         self->is_streaming_.store(true);
@@ -154,17 +156,17 @@ void StreamConnection::_cb_connection_started() {
 }
 
 void StreamConnection::_cb_connection_terminated(int errorCode) {
-    NF_LOG("[StreamConnection] Connection terminated: %d\n", errorCode);
+    NF_LOG("StreamConnection", "Connection terminated: %d", errorCode);
     auto *self = active_instance_;
     if (self) {
         self->is_streaming_.store(false);
         self->queue_cv_.notify_all();
-        self->call_deferred("emit_signal", "stream_terminated", errorCode);
+        self->call_deferred("emit_signal", "stream_terminated", errorCode, get_error_string(errorCode));
     }
 }
 
 void StreamConnection::_cb_stage_starting(int stage) {
-    NF_LOG("[StreamConnection] Stage starting: %s\n", LiGetStageName(stage));
+    NF_LOG("StreamConnection", "Stage starting: %s", LiGetStageName(stage));
     auto *self = active_instance_;
     if (self) {
         self->call_deferred("emit_signal", "stage_starting", String(LiGetStageName(stage)));
@@ -172,7 +174,7 @@ void StreamConnection::_cb_stage_starting(int stage) {
 }
 
 void StreamConnection::_cb_stage_complete(int stage) {
-    NF_LOG("[StreamConnection] Stage complete: %s\n", LiGetStageName(stage));
+    NF_LOG("StreamConnection", "Stage complete: %s", LiGetStageName(stage));
     auto *self = active_instance_;
     if (self) {
         self->call_deferred("emit_signal", "stage_complete", String(LiGetStageName(stage)));
@@ -180,7 +182,7 @@ void StreamConnection::_cb_stage_complete(int stage) {
 }
 
 void StreamConnection::_cb_stage_failed(int stage, int errorCode) {
-    NF_LOG("[StreamConnection] Stage failed: %s (error %d)\n", LiGetStageName(stage), errorCode);
+    NF_LOG("StreamConnection", "Stage failed: %s (error %d)", LiGetStageName(stage), errorCode);
     auto *self = active_instance_;
     if (self) {
         self->call_deferred("emit_signal", "stage_failed", String(LiGetStageName(stage)), errorCode);
@@ -204,7 +206,28 @@ void StreamConnection::_cb_connection_status_update(int connectionStatus) {
 void StreamConnection::_cb_set_hdr_mode(bool hdrEnabled) {
     auto *self = active_instance_;
     if (self) {
-        self->call_deferred("emit_signal", "hdr_mode_changed", hdrEnabled);
+        Dictionary metadata;
+        if (hdrEnabled) {
+            SS_HDR_METADATA hdr_data;
+            if (LiGetHdrMetadata(&hdr_data)) {
+                Array primaries_x, primaries_y;
+                primaries_x.push_back(hdr_data.displayPrimaries[0].x);
+                primaries_x.push_back(hdr_data.displayPrimaries[1].x);
+                primaries_x.push_back(hdr_data.displayPrimaries[2].x);
+                primaries_y.push_back(hdr_data.displayPrimaries[0].y);
+                primaries_y.push_back(hdr_data.displayPrimaries[1].y);
+                primaries_y.push_back(hdr_data.displayPrimaries[2].y);
+                metadata["display_primaries_x"] = primaries_x;
+                metadata["display_primaries_y"] = primaries_y;
+                metadata["white_point_x"] = hdr_data.whitePoint.x;
+                metadata["white_point_y"] = hdr_data.whitePoint.y;
+                metadata["min_display_luminance"] = hdr_data.minDisplayLuminance;
+                metadata["max_display_luminance"] = hdr_data.maxDisplayLuminance;
+                metadata["max_content_light_level"] = hdr_data.maxContentLightLevel;
+                metadata["max_frame_average_light_level"] = hdr_data.maxFrameAverageLightLevel;
+            }
+        }
+        self->call_deferred("emit_signal", "hdr_mode_changed", hdrEnabled, metadata);
     }
 }
 
@@ -227,6 +250,39 @@ void StreamConnection::_cb_set_controller_led(uint16_t controllerNumber, uint8_t
     if (self) {
         self->call_deferred("emit_signal", "controller_led_set", (int)controllerNumber, (int)r, (int)g, (int)b);
     }
+}
+
+void StreamConnection::_cb_log_message(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    char buffer[2048];
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    auto *self = active_instance_;
+    if (self) {
+        self->call_deferred("emit_signal", "log_message", String(buffer));
+    }
+}
+
+AVColorSpace StreamConnection::_resolve_frame_colorspace(AVFrame *frame) const {
+    if (!frame) return AVCOL_SPC_BT709;
+
+    bool hdr_trc = frame->color_trc == AVCOL_TRC_SMPTE2084 || frame->color_trc == AVCOL_TRC_ARIB_STD_B67;
+    bool hdr_primaries = frame->color_primaries == AVCOL_PRI_BT2020;
+    if (hdr_trc || hdr_primaries) {
+        return AVCOL_SPC_BT2020_NCL;
+    }
+
+    AVColorSpace declared = (AVColorSpace)frame->colorspace;
+    if (declared == AVCOL_SPC_UNSPECIFIED || declared == AVCOL_SPC_RGB) {
+#ifdef __ANDROID__
+        return (frame->width >= 1280 || frame->height >= 720) ? AVCOL_SPC_BT709 : AVCOL_SPC_BT470BG;
+#else
+        return (frame->width <= 1024 && frame->height <= 576) ? AVCOL_SPC_BT470BG : AVCOL_SPC_BT709;
+#endif
+    }
+
+    return declared;
 }
 
 void StreamConnection::_connection_thread_func() {
@@ -261,22 +317,23 @@ void StreamConnection::_connection_thread_func() {
     clCallbacks.rumbleTriggers = _cb_rumble_triggers;
     clCallbacks.setMotionEventState = _cb_set_motion_event_state;
     clCallbacks.setControllerLED = _cb_set_controller_led;
+    clCallbacks.logMessage = _cb_log_message;
 
-    NF_LOG("[StreamConnection] Starting connection to %s %dx%d@%dfps\n",
+    NF_LOG("StreamConnection", "Starting connection to %s %dx%d@%dfps",
            server_info_.address ? server_info_.address : "(null)", stream_config_.width, stream_config_.height, stream_config_.fps);
 
     if (!server_info_.address || strlen(server_info_.address) == 0) {
-        NF_LOG("[StreamConnection] ERROR: server address is empty! host_address_std_=%s\n", host_address_std_.c_str());
+        NF_LOG("StreamConnection", "ERROR: server address is empty! host_address_std_=%s", host_address_std_.c_str());
     }
 
-    NF_LOG("[StreamConnection] server_info: address=%s rtsp=%s appVer=%s gfeVer=%s codecMode=%d\n",
+    NF_LOG("StreamConnection", "server_info: address=%s rtsp=%s appVer=%s gfeVer=%s codecMode=%d",
            server_info_.address ? server_info_.address : "(null)",
            server_info_.rtspSessionUrl ? server_info_.rtspSessionUrl : "(null)",
            server_info_.serverInfoAppVersion ? server_info_.serverInfoAppVersion : "(null)",
            server_info_.serverInfoGfeVersion ? server_info_.serverInfoGfeVersion : "(null)",
            server_info_.serverCodecModeSupport);
 
-    NF_LOG("[StreamConnection] stream_config: %dx%d@%dfps bitrate=%d packetSize=%d streamingRemotely=%d audioConfig=0x%x videoFormats=0x%x encryption=0x%x colorSpace=%d colorRange=%d\n",
+    NF_LOG("StreamConnection", "stream_config: %dx%d@%dfps bitrate=%d packetSize=%d streamingRemotely=%d audioConfig=0x%x videoFormats=0x%x encryption=0x%x colorSpace=%d colorRange=%d",
            stream_config_.width, stream_config_.height, stream_config_.fps,
            stream_config_.bitrate, stream_config_.packetSize, stream_config_.streamingRemotely,
            stream_config_.audioConfiguration, stream_config_.supportedVideoFormats,
@@ -290,27 +347,32 @@ void StreamConnection::_connection_thread_func() {
         addr.sin_port = htons(48010);
         inet_pton(AF_INET, host_address_std_.c_str(), &addr.sin_addr);
         int cr = ::connect(test_sock, (struct sockaddr*)&addr, sizeof(addr));
-        NF_LOG("[StreamConnection] Pre-flight TCP test to %s:48010: sock=%d connect=%d errno=%d\n",
+        NF_LOG("StreamConnection", "Pre-flight TCP test to %s:48010: sock=%d connect=%d errno=%d",
                host_address_std_.c_str(), test_sock, cr, errno);
         close(test_sock);
     } else {
-        NF_LOG("[StreamConnection] Pre-flight TCP test: socket() failed errno=%d\n", errno);
+        NF_LOG("StreamConnection", "Pre-flight TCP test: socket() failed errno=%d", errno);
+    }
+
+    const char *launch_params = LiGetLaunchUrlQueryParameters();
+    if (launch_params && strlen(launch_params) > 0) {
+        NF_LOG("StreamConnection", "Launch URL params: %s", launch_params);
     }
 
     int ret = LiStartConnection(&server_info_, &stream_config_, &clCallbacks, &drCallbacks, &arCallbacks, nullptr, 0, nullptr, 0);
 
-    NF_LOG("[StreamConnection] LiStartConnection returned: %d (errno=%d)\n", ret, errno);
+    NF_LOG("StreamConnection", "LiStartConnection returned: %d (errno=%d)", ret, errno);
 
     if (ret != 0) {
         is_streaming_.store(false);
         queue_cv_.notify_all();
-        call_deferred("emit_signal", "stream_terminated", ret);
+        call_deferred("emit_signal", "stream_terminated", ret, get_error_string(ret));
     }
 }
 
 void StreamConnection::_decode_thread_func() {
     AVPacket *pkt = nullptr;
-    NF_LOG("[StreamConnection] Decode thread started this=%p\n", this);
+    NF_LOG("StreamConnection", "Decode thread started this=%p", this);
 
     {
         std::unique_lock<std::mutex> lock(queue_mutex_);
@@ -318,12 +380,12 @@ void StreamConnection::_decode_thread_func() {
             return is_streaming_.load() || !packet_queue_.empty();
         });
         if (!is_streaming_.load()) {
-            NF_LOG("[StreamConnection] Decode thread: stream never started, exiting\n");
+            NF_LOG("StreamConnection", "Decode thread: stream never started, exiting");
             return;
         }
     }
 
-    NF_LOG("[StreamConnection] Decode thread: stream active, starting decode loop\n");
+    NF_LOG("StreamConnection", "Decode thread: stream active, starting decode loop");
 
     while (true) {
         {
@@ -333,7 +395,7 @@ void StreamConnection::_decode_thread_func() {
             });
 
             if (!is_streaming_.load() && packet_queue_.empty()) {
-                NF_LOG("[StreamConnection] Decode thread exiting: streaming=%d queue=%d\n",
+                NF_LOG("StreamConnection", "Decode thread exiting: streaming=%d queue=%d",
                     is_streaming_.load(), (int)packet_queue_.size());
                 break;
             }
@@ -372,14 +434,31 @@ void StreamConnection::_decode_thread_func() {
                     av_frame_free(&tmp);
                     static int recv_fail_count = 0;
                     if (++recv_fail_count <= 5) {
-                        NF_LOG("[StreamConnection] Receive frame failed: %d\n", recv_ret);
+                        NF_LOG("StreamConnection", "Receive frame failed: %d", recv_ret);
                     }
                     break;
                 }
 
                 static int decode_ok_count = 0;
                 if (++decode_ok_count <= 5 || decode_ok_count % 300 == 0) {
-                    NF_LOG("[StreamConnection] Decoded frame #%d: %dx%d format=%d\n", decode_ok_count, tmp->width, tmp->height, tmp->format);
+                    NF_LOG("StreamConnection", "Decoded frame #%d: %dx%d format=%d", decode_ok_count, tmp->width, tmp->height, tmp->format);
+                }
+
+                frames_decoded_.fetch_add(1);
+
+                auto decode_done = std::chrono::steady_clock::now();
+                auto decode_done_us = std::chrono::duration_cast<std::chrono::microseconds>(decode_done.time_since_epoch()).count();
+                int64_t submit_us = last_submit_time_us_.load();
+                if (submit_us > 0 && decode_done_us > submit_us) {
+                    last_frame_latency_us_.store((int)(decode_done_us - submit_us));
+                }
+
+                AVColorSpace frame_cs = _resolve_frame_colorspace(tmp);
+                AVColorRange frame_cr = (AVColorRange)tmp->color_range;
+                if (frame_cs != current_colorspace_ || frame_cr != current_color_range_) {
+                    current_colorspace_ = frame_cs;
+                    current_color_range_ = frame_cr;
+                    uploader_->update_colorspace((int)frame_cs, (int)frame_cr);
                 }
 
                 uploader_->update_from_frame(tmp);
@@ -403,10 +482,10 @@ void StreamConnection::_clear_packet_queue() {
 }
 
 void StreamConnection::start(const String &host, const Dictionary &server_info, const Dictionary &stream_config, bool disable_hw) {
-    NF_LOG("[StreamConnection] start() called: is_streaming=%d conn_thread_joinable=%d\n", is_streaming_.load(), connection_thread_.joinable());
+    NF_LOG("StreamConnection", "start() called: is_streaming=%d conn_thread_joinable=%d", is_streaming_.load(), connection_thread_.joinable());
 
     if (connection_thread_.joinable()) {
-        NF_LOG("[StreamConnection] Joining previous connection thread\n");
+        NF_LOG("StreamConnection", "Joining previous connection thread");
         is_streaming_.store(false);
         decoder_ready_.store(false);
         queue_cv_.notify_all();
@@ -553,8 +632,58 @@ int StreamConnection::get_frames_dropped() const {
     return frames_dropped_.load();
 }
 
+int StreamConnection::get_frames_decoded() const {
+    return frames_decoded_.load();
+}
+
+int StreamConnection::get_decode_queue_size() const {
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    return (int)packet_queue_.size();
+}
+
 int StreamConnection::get_last_frame_latency_us() const {
     return last_frame_latency_us_.load();
+}
+
+String StreamConnection::get_decoder_name() const {
+    if (decoder_.is_valid()) return decoder_->get_decoder_name();
+    return "";
+}
+
+int StreamConnection::get_video_width() const {
+    if (decoder_.is_valid()) return decoder_->get_video_width();
+    return 0;
+}
+
+int StreamConnection::get_video_height() const {
+    if (decoder_.is_valid()) return decoder_->get_video_height();
+    return 0;
+}
+
+bool StreamConnection::is_hw_decode() const {
+    if (decoder_.is_valid()) return decoder_->is_hw_decode();
+    return false;
+}
+
+String StreamConnection::get_error_string(int error_code) {
+    switch (error_code) {
+        case ML_ERROR_GRACEFUL_TERMINATION:
+            return "Connection terminated gracefully";
+        case ML_ERROR_NO_VIDEO_TRAFFIC:
+            return "Terminating connection due to lack of video traffic";
+        case ML_ERROR_NO_VIDEO_FRAME:
+            return "No video frame received";
+        case ML_ERROR_UNEXPECTED_EARLY_TERMINATION:
+            return "Unexpected early termination";
+        case ML_ERROR_PROTECTED_CONTENT:
+            return "Protected content detected";
+        case ML_ERROR_FRAME_CONVERSION:
+            return "Frame conversion error";
+        default:
+            if (error_code > 0)
+                return "Connection error: " + String::num_int64(error_code);
+            return "Unknown error (" + String::num_int64(error_code) + ")";
+    }
 }
 
 void StreamConnection::_bind_methods() {
@@ -569,10 +698,17 @@ void StreamConnection::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_input_bridge"), &StreamConnection::get_input_bridge);
     ClassDB::bind_method(D_METHOD("get_depth_bridge"), &StreamConnection::get_depth_bridge);
     ClassDB::bind_method(D_METHOD("get_frames_dropped"), &StreamConnection::get_frames_dropped);
+    ClassDB::bind_method(D_METHOD("get_frames_decoded"), &StreamConnection::get_frames_decoded);
+    ClassDB::bind_method(D_METHOD("get_decode_queue_size"), &StreamConnection::get_decode_queue_size);
     ClassDB::bind_method(D_METHOD("get_last_frame_latency_us"), &StreamConnection::get_last_frame_latency_us);
+    ClassDB::bind_method(D_METHOD("get_decoder_name"), &StreamConnection::get_decoder_name);
+    ClassDB::bind_method(D_METHOD("get_video_width"), &StreamConnection::get_video_width);
+    ClassDB::bind_method(D_METHOD("get_video_height"), &StreamConnection::get_video_height);
+    ClassDB::bind_method(D_METHOD("is_hw_decode"), &StreamConnection::is_hw_decode);
+    ClassDB::bind_static_method("StreamConnection", D_METHOD("get_error_string", "error_code"), &StreamConnection::get_error_string);
 
     ADD_SIGNAL(MethodInfo("stream_started"));
-    ADD_SIGNAL(MethodInfo("stream_terminated", PropertyInfo(Variant::INT, "error_code")));
+    ADD_SIGNAL(MethodInfo("stream_terminated", PropertyInfo(Variant::INT, "error_code"), PropertyInfo(Variant::STRING, "error_message")));
     ADD_SIGNAL(MethodInfo("stage_starting", PropertyInfo(Variant::STRING, "stage_name")));
     ADD_SIGNAL(MethodInfo("stage_complete", PropertyInfo(Variant::STRING, "stage_name")));
     ADD_SIGNAL(MethodInfo("stage_failed", PropertyInfo(Variant::STRING, "stage_name"), PropertyInfo(Variant::INT, "error_code")));
@@ -581,5 +717,6 @@ void StreamConnection::_bind_methods() {
     ADD_SIGNAL(MethodInfo("motion_event_requested", PropertyInfo(Variant::INT, "controller"), PropertyInfo(Variant::INT, "motion_type"), PropertyInfo(Variant::INT, "rate_hz")));
     ADD_SIGNAL(MethodInfo("controller_led_set", PropertyInfo(Variant::INT, "controller"), PropertyInfo(Variant::INT, "r"), PropertyInfo(Variant::INT, "g"), PropertyInfo(Variant::INT, "b")));
     ADD_SIGNAL(MethodInfo("connection_status_update", PropertyInfo(Variant::INT, "status")));
-    ADD_SIGNAL(MethodInfo("hdr_mode_changed", PropertyInfo(Variant::BOOL, "hdr_enabled")));
+    ADD_SIGNAL(MethodInfo("hdr_mode_changed", PropertyInfo(Variant::BOOL, "hdr_enabled"), PropertyInfo(Variant::DICTIONARY, "metadata")));
+    ADD_SIGNAL(MethodInfo("log_message", PropertyInfo(Variant::STRING, "message")));
 }

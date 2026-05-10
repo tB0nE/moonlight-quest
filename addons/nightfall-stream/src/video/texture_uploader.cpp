@@ -2,9 +2,7 @@
 #include "yuv_shader.h"
 #include <godot_cpp/variant/utility_functions.hpp>
 
-#ifdef __ANDROID__
-#include <android/log.h>
-#endif
+#include "nf_log.h"
 
 using namespace godot;
 
@@ -156,6 +154,24 @@ void TextureUploader::_render_thread_setup(int width, int height, int format, in
     }
 }
 
+void TextureUploader::update_colorspace(int colorspace, int color_range) {
+    if (!shader_material.is_valid()) return;
+
+    AVColorSpace av_cs = (AVColorSpace)colorspace;
+    AVColorRange av_cr = (AVColorRange)color_range;
+
+    int matrix_type = 1;
+    if (av_cs == AVCOL_SPC_BT470BG || av_cs == AVCOL_SPC_SMPTE170M)
+        matrix_type = 0;
+    else if (av_cs == AVCOL_SPC_BT2020_NCL || av_cs == AVCOL_SPC_BT2020_CL)
+        matrix_type = 2;
+
+    int range_val = (av_cr == AVCOL_RANGE_JPEG) ? 1 : 0;
+
+    shader_material->set_shader_parameter("color_matrix_type", matrix_type);
+    shader_material->set_shader_parameter("color_range", range_val);
+}
+
 void TextureUploader::update_from_frame(AVFrame *frame) {
     if (!frame || !use_shader_conversion) return;
 
@@ -240,15 +256,13 @@ void TextureUploader::perform_gpu_update() {
     if (!rd) return;
     std::lock_guard<godot::Mutex> lock(*(texture_mutex.ptr()));
     if (pending_gpu_update.exchange(false)) {
-#ifdef __ANDROID__
         static int gpu_update_count = 0;
         if (++gpu_update_count <= 3) {
-            __android_log_print(ANDROID_LOG_INFO, "TextureUploader",
+            NF_LOG("TextureUploader",
                 "perform_gpu_update #%d: tex0=%d tex1=%d tex2=%d",
                 gpu_update_count,
                 rd_texture_rid[0].is_valid(), rd_texture_rid[1].is_valid(), rd_texture_rid[2].is_valid());
         }
-#endif
         if (rd_texture_rid[0].is_valid())
             rd->texture_update(rd_texture_rid[0], 0, rd_texture_buffers[0]);
         if (rd_texture_rid[1].is_valid())

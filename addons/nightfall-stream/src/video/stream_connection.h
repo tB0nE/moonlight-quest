@@ -13,6 +13,8 @@
 
 extern "C" {
 #include <Limelight.h>
+#include <libavutil/pixfmt.h>
+#include <libavutil/frame.h>
 struct AVPacket;
 struct AVFrame;
 }
@@ -44,7 +46,16 @@ public:
     Ref<DepthBridge> get_depth_bridge() const;
 
     int get_frames_dropped() const;
+    int get_frames_decoded() const;
+    int get_decode_queue_size() const;
     int get_last_frame_latency_us() const;
+
+    String get_decoder_name() const;
+    int get_video_width() const;
+    int get_video_height() const;
+    bool is_hw_decode() const;
+
+    static String get_error_string(int error_code);
 
 protected:
     static void _bind_methods();
@@ -69,10 +80,13 @@ private:
     static void _cb_rumble_triggers(uint16_t controllerNumber, uint16_t leftTriggerMotor, uint16_t rightTriggerMotor);
     static void _cb_set_motion_event_state(uint16_t controllerNumber, uint8_t motionType, uint16_t reportRateHz);
     static void _cb_set_controller_led(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t b);
+    static void _cb_log_message(const char *format, ...);
 
     void _connection_thread_func();
     void _decode_thread_func();
     void _clear_packet_queue();
+
+    AVColorSpace _resolve_frame_colorspace(AVFrame *frame) const;
 
     std::atomic<bool> is_streaming_{false};
     std::atomic<bool> decoder_ready_{false};
@@ -84,10 +98,12 @@ private:
     Ref<DepthBridge> depth_bridge_;
 
     std::atomic<int> frames_dropped_{0};
+    std::atomic<int> frames_decoded_{0};
     std::atomic<int> last_frame_latency_us_{0};
+    std::atomic<int64_t> last_submit_time_us_{0};
 
     std::vector<AVPacket *> packet_queue_;
-    std::mutex queue_mutex_;
+    mutable std::mutex queue_mutex_;
     std::condition_variable queue_cv_;
     std::thread decode_thread_;
     std::thread connection_thread_;
@@ -102,6 +118,8 @@ private:
 
     std::chrono::steady_clock::time_point last_idr_request_;
     int active_video_format_ = 0;
+    AVColorSpace current_colorspace_ = AVCOL_SPC_BT709;
+    AVColorRange current_color_range_ = AVCOL_RANGE_UNSPECIFIED;
 };
 
 } // namespace godot

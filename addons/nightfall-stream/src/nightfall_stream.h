@@ -59,7 +59,16 @@ public:
     Ref<DepthBridge> get_depth_bridge() const;
 
     int get_frames_dropped() const;
+    int get_frames_decoded() const;
+    int get_decode_queue_size() const;
     int get_last_frame_latency_us() const;
+
+    String get_decoder_name() const;
+    int get_video_width() const;
+    int get_video_height() const;
+    bool is_hw_decode() const;
+
+    static String get_error_string(int error_code);
 
     Object *get_computer_manager() const;
     Object *get_config_manager() const;
@@ -71,11 +80,12 @@ protected:
 private:
     void _on_pair_completed(bool success, const String &msg);
     void _on_stream_started();
-    void _on_stream_terminated(int error_code);
+    void _on_stream_terminated(int error_code, const String &error_message);
     void _on_stage_starting(const String &stage_name);
     void _on_stage_complete(const String &stage_name);
     void _on_stage_failed(const String &stage_name, int error_code);
     void _on_connection_status_update(int status);
+    void _on_log_message(const String &message);
 
     void _attempt_reconnect();
     void _reset_reconnect();

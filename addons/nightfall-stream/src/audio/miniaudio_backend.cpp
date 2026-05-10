@@ -7,12 +7,7 @@
 #include <miniaudio.h>
 #pragma GCC diagnostic pop
 
-#ifdef __ANDROID__
-#include <android/log.h>
-#define NF_LOG(...) __android_log_print(ANDROID_LOG_INFO, "MiniaudioBackend", __VA_ARGS__)
-#else
-#define NF_LOG(...) printf(__VA_ARGS__)
-#endif
+#include "nf_log.h"
 
 namespace nightfall {
 
@@ -59,7 +54,7 @@ bool MiniaudioBackend::initialize(int sample_rate, int channels, int buffer_fram
 
     ma_result result = ma_device_init(nullptr, &config, device_);
     if (result != MA_SUCCESS) {
-        NF_LOG("[MiniaudioBackend] Init failed: %d\n", result);
+        NF_LOG("MiniaudioBackend", "Init failed: %d", result);
         delete device_;
         device_ = nullptr;
         delete ring_;
@@ -69,7 +64,7 @@ bool MiniaudioBackend::initialize(int sample_rate, int channels, int buffer_fram
 
     result = ma_device_start(device_);
     if (result != MA_SUCCESS) {
-        NF_LOG("[MiniaudioBackend] Start failed: %d\n", result);
+        NF_LOG("MiniaudioBackend", "Start failed: %d", result);
         ma_device_uninit(device_);
         delete device_;
         device_ = nullptr;
@@ -79,7 +74,7 @@ bool MiniaudioBackend::initialize(int sample_rate, int channels, int buffer_fram
     }
 
     initialized_.store(true);
-    NF_LOG("[MiniaudioBackend] Initialized: %dHz %dch, period=%d, backend=%s\n",
+    NF_LOG("MiniaudioBackend", "Initialized: %dHz %dch, period=%d, backend=%s",
            sample_rate, channels, buffer_frames, ma_get_backend_name(device_->pContext->backend));
     return true;
 }

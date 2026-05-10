@@ -31,6 +31,7 @@ public:
     void setup(int width, int height, int format, int colorspace, int color_range);
     void cleanup();
     void update_from_frame(AVFrame *frame);
+    void update_colorspace(int colorspace, int color_range);
     void perform_gpu_update();
 
     Ref<ShaderMaterial> get_shader_material() const { return shader_material; }

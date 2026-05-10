@@ -17,6 +17,10 @@ int InputBridge::send_mouse_position(int x, int y, int ref_w, int ref_h) {
     return LiSendMousePositionEvent((short)x, (short)y, (short)ref_w, (short)ref_h);
 }
 
+int InputBridge::send_mouse_move_as_position(int delta_x, int delta_y, int ref_w, int ref_h) {
+    return LiSendMouseMoveAsMousePositionEvent((short)delta_x, (short)delta_y, (short)ref_w, (short)ref_h);
+}
+
 int InputBridge::send_mouse_button_pressed(int button) {
     return LiSendMouseButtonEvent(BUTTON_ACTION_PRESS, button);
 }
@@ -29,6 +33,12 @@ int InputBridge::send_keyboard_event(int godot_key, int key_action, int modifier
     int vk = godot_key_to_vk(godot_key);
     if (vk == 0) return 0;
     return LiSendKeyboardEvent((short)vk, (char)key_action, (char)modifiers);
+}
+
+int InputBridge::send_keyboard_event2(int godot_key, int key_action, int modifiers, int flags) {
+    int vk = godot_key_to_vk(godot_key);
+    if (vk == 0) return 0;
+    return LiSendKeyboardEvent2((short)vk, (char)key_action, (char)modifiers, (char)flags);
 }
 
 int InputBridge::send_utf8_text(const String &text) {
@@ -65,6 +75,14 @@ int InputBridge::send_scroll(int clicks) {
 
 int InputBridge::send_high_res_scroll(int amount) {
     return LiSendHighResScrollEvent((short)amount);
+}
+
+int InputBridge::send_hscroll(int clicks) {
+    return LiSendHScrollEvent((signed char)clicks);
+}
+
+int InputBridge::send_high_res_hscroll(int amount) {
+    return LiSendHighResHScrollEvent((short)amount);
 }
 
 int InputBridge::get_host_feature_flags() {
@@ -191,6 +209,8 @@ void InputBridge::_bind_methods() {
     BIND_CONSTANT(MBTN_LEFT);
     BIND_CONSTANT(MBTN_MIDDLE);
     BIND_CONSTANT(MBTN_RIGHT);
+    BIND_CONSTANT(MBTN_X1);
+    BIND_CONSTANT(MBTN_X2);
 
     BIND_CONSTANT(KA_DOWN);
     BIND_CONSTANT(KA_UP);
@@ -248,11 +268,179 @@ void InputBridge::_bind_methods() {
     BIND_CONSTANT(BATTERY_CHARGING);
     BIND_CONSTANT(BATTERY_FULL);
 
+    BIND_CONSTANT(VK_LBUTTON);
+    BIND_CONSTANT(VK_RBUTTON);
+    BIND_CONSTANT(VK_CANCEL);
+    BIND_CONSTANT(VK_MBUTTON);
+    BIND_CONSTANT(VK_XBUTTON1);
+    BIND_CONSTANT(VK_XBUTTON2);
+    BIND_CONSTANT(VK_BACK);
+    BIND_CONSTANT(VK_TAB);
+    BIND_CONSTANT(VK_CLEAR);
+    BIND_CONSTANT(VK_RETURN);
+    BIND_CONSTANT(VK_SHIFT);
+    BIND_CONSTANT(VK_CONTROL);
+    BIND_CONSTANT(VK_MENU);
+    BIND_CONSTANT(VK_PAUSE);
+    BIND_CONSTANT(VK_CAPITAL);
+    BIND_CONSTANT(VK_KANA);
+    BIND_CONSTANT(VK_HANGUL);
+    BIND_CONSTANT(VK_JUNJA);
+    BIND_CONSTANT(VK_FINAL);
+    BIND_CONSTANT(VK_HANJA);
+    BIND_CONSTANT(VK_KANJI);
+    BIND_CONSTANT(VK_ESCAPE);
+    BIND_CONSTANT(VK_CONVERT);
+    BIND_CONSTANT(VK_NONCONVERT);
+    BIND_CONSTANT(VK_ACCEPT);
+    BIND_CONSTANT(VK_MODECHANGE);
+    BIND_CONSTANT(VK_SPACE);
+    BIND_CONSTANT(VK_PRIOR);
+    BIND_CONSTANT(VK_NEXT);
+    BIND_CONSTANT(VK_END);
+    BIND_CONSTANT(VK_HOME);
+    BIND_CONSTANT(VK_LEFT);
+    BIND_CONSTANT(VK_UP);
+    BIND_CONSTANT(VK_RIGHT);
+    BIND_CONSTANT(VK_DOWN);
+    BIND_CONSTANT(VK_SELECT);
+    BIND_CONSTANT(VK_PRINT);
+    BIND_CONSTANT(VK_EXECUTE);
+    BIND_CONSTANT(VK_SNAPSHOT);
+    BIND_CONSTANT(VK_INSERT);
+    BIND_CONSTANT(VK_DELETE);
+    BIND_CONSTANT(VK_HELP);
+    BIND_CONSTANT(VK_0);
+    BIND_CONSTANT(VK_1);
+    BIND_CONSTANT(VK_2);
+    BIND_CONSTANT(VK_3);
+    BIND_CONSTANT(VK_4);
+    BIND_CONSTANT(VK_5);
+    BIND_CONSTANT(VK_6);
+    BIND_CONSTANT(VK_7);
+    BIND_CONSTANT(VK_8);
+    BIND_CONSTANT(VK_9);
+    BIND_CONSTANT(VK_A);
+    BIND_CONSTANT(VK_B);
+    BIND_CONSTANT(VK_C);
+    BIND_CONSTANT(VK_D);
+    BIND_CONSTANT(VK_E);
+    BIND_CONSTANT(VK_F);
+    BIND_CONSTANT(VK_G);
+    BIND_CONSTANT(VK_H);
+    BIND_CONSTANT(VK_I);
+    BIND_CONSTANT(VK_J);
+    BIND_CONSTANT(VK_K);
+    BIND_CONSTANT(VK_L);
+    BIND_CONSTANT(VK_M);
+    BIND_CONSTANT(VK_N);
+    BIND_CONSTANT(VK_O);
+    BIND_CONSTANT(VK_P);
+    BIND_CONSTANT(VK_Q);
+    BIND_CONSTANT(VK_R);
+    BIND_CONSTANT(VK_S);
+    BIND_CONSTANT(VK_T);
+    BIND_CONSTANT(VK_U);
+    BIND_CONSTANT(VK_V);
+    BIND_CONSTANT(VK_W);
+    BIND_CONSTANT(VK_X);
+    BIND_CONSTANT(VK_Y);
+    BIND_CONSTANT(VK_Z);
+    BIND_CONSTANT(VK_LWIN);
+    BIND_CONSTANT(VK_RWIN);
+    BIND_CONSTANT(VK_APPS);
+    BIND_CONSTANT(VK_SLEEP);
+    BIND_CONSTANT(VK_NUMPAD0);
+    BIND_CONSTANT(VK_NUMPAD1);
+    BIND_CONSTANT(VK_NUMPAD2);
+    BIND_CONSTANT(VK_NUMPAD3);
+    BIND_CONSTANT(VK_NUMPAD4);
+    BIND_CONSTANT(VK_NUMPAD5);
+    BIND_CONSTANT(VK_NUMPAD6);
+    BIND_CONSTANT(VK_NUMPAD7);
+    BIND_CONSTANT(VK_NUMPAD8);
+    BIND_CONSTANT(VK_NUMPAD9);
+    BIND_CONSTANT(VK_MULTIPLY);
+    BIND_CONSTANT(VK_ADD);
+    BIND_CONSTANT(VK_SEPARATOR);
+    BIND_CONSTANT(VK_SUBTRACT);
+    BIND_CONSTANT(VK_DECIMAL);
+    BIND_CONSTANT(VK_DIVIDE);
+    BIND_CONSTANT(VK_F1);
+    BIND_CONSTANT(VK_F2);
+    BIND_CONSTANT(VK_F3);
+    BIND_CONSTANT(VK_F4);
+    BIND_CONSTANT(VK_F5);
+    BIND_CONSTANT(VK_F6);
+    BIND_CONSTANT(VK_F7);
+    BIND_CONSTANT(VK_F8);
+    BIND_CONSTANT(VK_F9);
+    BIND_CONSTANT(VK_F10);
+    BIND_CONSTANT(VK_F11);
+    BIND_CONSTANT(VK_F12);
+    BIND_CONSTANT(VK_F13);
+    BIND_CONSTANT(VK_F14);
+    BIND_CONSTANT(VK_F15);
+    BIND_CONSTANT(VK_F16);
+    BIND_CONSTANT(VK_F17);
+    BIND_CONSTANT(VK_F18);
+    BIND_CONSTANT(VK_F19);
+    BIND_CONSTANT(VK_F20);
+    BIND_CONSTANT(VK_F21);
+    BIND_CONSTANT(VK_F22);
+    BIND_CONSTANT(VK_F23);
+    BIND_CONSTANT(VK_F24);
+    BIND_CONSTANT(VK_NUMLOCK);
+    BIND_CONSTANT(VK_SCROLL);
+    BIND_CONSTANT(VK_OEM_1);
+    BIND_CONSTANT(VK_OEM_PLUS);
+    BIND_CONSTANT(VK_OEM_COMMA);
+    BIND_CONSTANT(VK_OEM_MINUS);
+    BIND_CONSTANT(VK_OEM_PERIOD);
+    BIND_CONSTANT(VK_OEM_2);
+    BIND_CONSTANT(VK_OEM_3);
+    BIND_CONSTANT(VK_OEM_4);
+    BIND_CONSTANT(VK_OEM_5);
+    BIND_CONSTANT(VK_OEM_6);
+    BIND_CONSTANT(VK_OEM_7);
+    BIND_CONSTANT(VK_OEM_8);
+    BIND_CONSTANT(VK_OEM_102);
+    BIND_CONSTANT(VK_PROCESSKEY);
+    BIND_CONSTANT(VK_PACKET);
+    BIND_CONSTANT(VK_ATTN);
+    BIND_CONSTANT(VK_CRSEL);
+    BIND_CONSTANT(VK_EXSEL);
+    BIND_CONSTANT(VK_EREOF);
+    BIND_CONSTANT(VK_PLAY);
+    BIND_CONSTANT(VK_ZOOM);
+    BIND_CONSTANT(VK_NONAME);
+    BIND_CONSTANT(VK_PA1);
+    BIND_CONSTANT(VK_OEM_CLEAR);
+    BIND_CONSTANT(VK_VOLUME_MUTE);
+    BIND_CONSTANT(VK_VOLUME_DOWN);
+    BIND_CONSTANT(VK_VOLUME_UP);
+    BIND_CONSTANT(VK_MEDIA_NEXT);
+    BIND_CONSTANT(VK_MEDIA_PREV);
+    BIND_CONSTANT(VK_MEDIA_PLAY);
+    BIND_CONSTANT(VK_BROWSER_BACK);
+    BIND_CONSTANT(VK_BROWSER_FORWARD);
+    BIND_CONSTANT(VK_BROWSER_REFRESH);
+    BIND_CONSTANT(VK_BROWSER_STOP);
+    BIND_CONSTANT(VK_BROWSER_SEARCH);
+    BIND_CONSTANT(VK_BROWSER_FAVORITES);
+    BIND_CONSTANT(VK_BROWSER_HOME);
+    BIND_CONSTANT(VK_LAUNCH_MAIL);
+    BIND_CONSTANT(VK_LAUNCH_MEDIA);
+    BIND_CONSTANT(VK_LAUNCH_APP1);
+    BIND_CONSTANT(VK_LAUNCH_APP2);
+
     ClassDB::bind_method(D_METHOD("send_mouse_move", "delta_x", "delta_y"), &InputBridge::send_mouse_move);
     ClassDB::bind_method(D_METHOD("send_mouse_position", "x", "y", "ref_w", "ref_h"), &InputBridge::send_mouse_position);
+    ClassDB::bind_method(D_METHOD("send_mouse_move_as_position", "delta_x", "delta_y", "ref_w", "ref_h"), &InputBridge::send_mouse_move_as_position);
     ClassDB::bind_method(D_METHOD("send_mouse_button_pressed", "button"), &InputBridge::send_mouse_button_pressed);
     ClassDB::bind_method(D_METHOD("send_mouse_button_released", "button"), &InputBridge::send_mouse_button_released);
     ClassDB::bind_method(D_METHOD("send_keyboard_event", "godot_key", "key_action", "modifiers"), &InputBridge::send_keyboard_event);
+    ClassDB::bind_method(D_METHOD("send_keyboard_event2", "godot_key", "key_action", "modifiers", "flags"), &InputBridge::send_keyboard_event2);
     ClassDB::bind_method(D_METHOD("send_utf8_text", "text"), &InputBridge::send_utf8_text);
     ClassDB::bind_method(D_METHOD("send_controller_event", "button_flags", "left_trigger", "right_trigger", "left_stick_x", "left_stick_y", "right_stick_x", "right_stick_y"), &InputBridge::send_controller_event);
     ClassDB::bind_method(D_METHOD("send_multi_controller_event", "controller_number", "active_gamepad_mask", "button_flags", "left_trigger", "right_trigger", "left_stick_x", "left_stick_y", "right_stick_x", "right_stick_y"), &InputBridge::send_multi_controller_event);
@@ -261,6 +449,8 @@ void InputBridge::_bind_methods() {
     ClassDB::bind_method(D_METHOD("send_controller_battery", "controller_number", "battery_state", "battery_percentage"), &InputBridge::send_controller_battery);
     ClassDB::bind_method(D_METHOD("send_scroll", "clicks"), &InputBridge::send_scroll);
     ClassDB::bind_method(D_METHOD("send_high_res_scroll", "amount"), &InputBridge::send_high_res_scroll);
+    ClassDB::bind_method(D_METHOD("send_hscroll", "clicks"), &InputBridge::send_hscroll);
+    ClassDB::bind_method(D_METHOD("send_high_res_hscroll", "amount"), &InputBridge::send_high_res_hscroll);
     ClassDB::bind_method(D_METHOD("get_host_feature_flags"), &InputBridge::get_host_feature_flags);
     ClassDB::bind_static_method("InputBridge", D_METHOD("godot_key_to_vk", "godot_key"), &InputBridge::godot_key_to_vk);
 }

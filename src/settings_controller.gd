@@ -101,16 +101,6 @@ func cycle_fps():
 		await main.get_tree().create_timer(0.5).timeout
 		main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
 
-func toggle_stream_backend():
-	if main.is_streaming:
-		return
-	main.use_nightfall_v2 = not main.use_nightfall_v2
-	main.stream_backend.set_backend(StreamBackend.Backend.V2 if main.use_nightfall_v2 else StreamBackend.Backend.V1)
-	main.stream_backend.set_config_manager(main.config_mgr)
-	main.stream_backend.set_computer_manager(main.comp_mgr)
-	main.state_manager.save_state()
-	main._log("[SETTINGS] Stream backend: %s" % ("Nightfall V2" if main.use_nightfall_v2 else "Moonlight V1"))
-
 func cycle_resolution():
 	main.resolution_idx += 1
 	if main.resolution_idx >= main.resolutions.size():

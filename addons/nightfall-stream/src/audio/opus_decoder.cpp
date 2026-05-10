@@ -2,7 +2,7 @@
 
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <cstring>
-#include <android/log.h>
+#include "nf_log.h"
 
 using namespace godot;
 
@@ -68,7 +68,7 @@ int OpusDecoderWrapper::decode(const PackedByteArray &opus_data, int max_samples
     );
 
     if (frames < 0) {
-        __android_log_print(ANDROID_LOG_ERROR, "OpusDecoder", "decode FAILED: ret=%d data_size=%d max_samples=%d (%s)",
+        NF_LOGE("OpusDecoder", "decode FAILED: ret=%d data_size=%d max_samples=%d (%s)",
             frames, opus_data.size(), max_samples, opus_strerror(frames));
         last_pcm_.resize(0);
         return frames;

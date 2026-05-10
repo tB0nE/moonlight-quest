@@ -192,8 +192,6 @@ mesh = SubResource("CapsuleMesh_Laser")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1504299286]
 environment = SubResource("Environment_1")
 
-[node name="MoonlightStream" type="MoonlightStreamCore" parent="." unique_id=391084490]
-
 [node name="StreamAudioPlayer" type="AudioStreamPlayer" parent="." unique_id=2001644054]
 unique_name_in_owner = true
 
