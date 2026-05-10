@@ -53,12 +53,10 @@ int OpusDecoderWrapper::decode(const PackedByteArray &opus_data, int max_samples
     if (!decoder_ || opus_data.is_empty()) return -1;
 
     int max_samples = max_samples_per_frame > 0 ? max_samples_per_frame : samples_per_frame_;
+    if (max_samples < 5760) max_samples = 5760;
     int buf_size = max_samples * channels_;
 
     last_pcm_.resize(buf_size);
-
-    __android_log_print(ANDROID_LOG_INFO, "OpusDecoder", "decode: data_size=%d max_samples=%d channels=%d buf_size=%d",
-        opus_data.size(), max_samples, channels_, buf_size);
 
     int frames = opus_multistream_decode_float(
         decoder_,

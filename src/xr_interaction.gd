@@ -32,12 +32,12 @@ func handle_pointer_interaction():
 					uv_x = clampf((asin(clampf(local_pos.x / radius, -1.0, 1.0)) + total_angle * 0.5) / total_angle, 0.0, 1.0)
 				var host_x = int(uv_x * main.stream_viewport.size.x)
 				var host_y = int(uv_y * main.stream_viewport.size.y)
-				main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
-			main.moon.send_mouse_button_event(7, 3)
+				main.stream_backend.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
+			main.stream_backend.send_mouse_button_event(7, 3)
 			main.was_right_clicking = true
 			main.right_click_cooldown = 0.5
 		elif not is_gripping and main.was_right_clicking:
-			main.moon.send_mouse_button_event(8, 3)
+			main.stream_backend.send_mouse_button_event(8, 3)
 			main.was_right_clicking = false
 
 	main.get_node("%ScreenGrabBar").visible = true
@@ -176,16 +176,16 @@ func handle_pointer_interaction():
 
 			if main.is_xr_active:
 				if is_now_clicking:
-					main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
+					main.stream_backend.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
 					if is_now_clicking and not main.was_clicking:
-						main.moon.send_mouse_button_event(7, 1)
+						main.stream_backend.send_mouse_button_event(7, 1)
 						main.was_clicking = true
 				elif main.was_clicking:
-					main.moon.send_mouse_button_event(8, 1)
+					main.stream_backend.send_mouse_button_event(8, 1)
 					main.was_clicking = false
 			else:
 				if is_now_clicking and not main.was_clicking:
-					main.moon.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
+					main.stream_backend.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
 					main.suppress_input_frames = 3
 					main.input_handler.capture_stream_mouse()
 					main.was_clicking = true
@@ -224,7 +224,7 @@ func handle_pointer_interaction():
 
 	elif main.was_clicking:
 		if main.is_streaming:
-			main.moon.send_mouse_button_event(8, 1)
+			main.stream_backend.send_mouse_button_event(8, 1)
 		main.was_clicking = false
 
 func handle_grab():
@@ -366,4 +366,4 @@ func handle_scroll():
 	if absf(right_stick_y) > 0.3:
 		var clicks = int(right_stick_y * 1.5)
 		if clicks != 0:
-			main.moon.send_scroll_event(clicks)
+			main.stream_backend.send_scroll_event(clicks)

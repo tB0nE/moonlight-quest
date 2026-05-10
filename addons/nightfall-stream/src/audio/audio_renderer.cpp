@@ -3,6 +3,9 @@
 
 #include <godot_cpp/variant/utility_functions.hpp>
 #include <cstring>
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
 
 using namespace godot;
 
@@ -50,6 +53,13 @@ int AudioRenderer::init(int audio_configuration, const POPUS_MULTISTREAM_CONFIGU
     sample_rate_ = opus_config->sampleRate;
     samples_per_frame_ = opus_config->samplesPerFrame;
     memcpy(channel_mapping_, opus_config->mapping, sizeof(channel_mapping_));
+
+    __android_log_print(ANDROID_LOG_INFO, "AudioRenderer",
+        "init: audioCfg=0x%x channels=%d sampleRate=%d samplesPerFrame=%d streams=%d coupledStreams=%d mapping=[%d,%d,%d,%d,%d,%d,%d,%d]",
+        audio_configuration, channels_, sample_rate_, samples_per_frame_,
+        opus_config->streams, opus_config->coupledStreams,
+        opus_config->mapping[0], opus_config->mapping[1], opus_config->mapping[2], opus_config->mapping[3],
+        opus_config->mapping[4], opus_config->mapping[5], opus_config->mapping[6], opus_config->mapping[7]);
 
     PackedByteArray mapping;
     mapping.resize(channels_);

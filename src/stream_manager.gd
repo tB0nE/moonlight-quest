@@ -82,11 +82,16 @@ func _on_v2_launch_response(response: Dictionary):
 	stream_config["encryption_flags"] = 0xFFFFFFFF
 
 	var rikey_raw = response.get("rikey_raw", PackedByteArray())
+	var rikeyid = response.get("rikeyid", 0)
 	if rikey_raw.size() == 16:
 		stream_config["remote_input_aes_key"] = rikey_raw
 		var iv = PackedByteArray()
 		iv.resize(16)
 		iv.fill(0)
+		iv[0] = (rikeyid >> 24) & 0xFF
+		iv[1] = (rikeyid >> 16) & 0xFF
+		iv[2] = (rikeyid >> 8) & 0xFF
+		iv[3] = rikeyid & 0xFF
 		stream_config["remote_input_aes_iv"] = iv
 
 	var ip = response.get("ip", "")

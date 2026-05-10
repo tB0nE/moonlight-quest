@@ -189,37 +189,37 @@ func _on_key_press(key_code: int):
 	if key_code == KEY_SHIFT:
 		_shift_on = not _shift_on
 		_apply_modifier_visuals()
-		main.moon.send_keyboard_event(KEY_SHIFT, 3 if _shift_on else 4, 0)
+		main.stream_backend.send_keyboard_event(KEY_SHIFT, 3 if _shift_on else 4, 0)
 		if _shift_on:
 			_held_keys[key_code] = true
 		return
 	if key_code == KEY_CTRL:
 		_ctrl_on = not _ctrl_on
 		_apply_modifier_visuals()
-		main.moon.send_keyboard_event(KEY_CTRL, 3 if _ctrl_on else 4, 0)
+		main.stream_backend.send_keyboard_event(KEY_CTRL, 3 if _ctrl_on else 4, 0)
 		if _ctrl_on:
 			_held_keys[key_code] = true
 		return
 	if key_code == KEY_ALT:
 		_alt_on = not _alt_on
 		_apply_modifier_visuals()
-		main.moon.send_keyboard_event(KEY_ALT, 3 if _alt_on else 4, 0)
+		main.stream_backend.send_keyboard_event(KEY_ALT, 3 if _alt_on else 4, 0)
 		if _alt_on:
 			_held_keys[key_code] = true
 		return
 	if key_code == KEY_CAPSLOCK:
 		_caps_on = not _caps_on
 		_apply_modifier_visuals()
-		main.moon.send_keyboard_event(KEY_CAPSLOCK, 3, 0)
-		main.moon.send_keyboard_event(KEY_CAPSLOCK, 4, 0)
+		main.stream_backend.send_keyboard_event(KEY_CAPSLOCK, 3, 0)
+		main.stream_backend.send_keyboard_event(KEY_CAPSLOCK, 4, 0)
 		return
-	main.moon.send_keyboard_event(key_code, 3, 0)
+	main.stream_backend.send_keyboard_event(key_code, 3, 0)
 	_held_keys[key_code] = true
 
 func _on_key_release(key_code: int):
 	if key_code == KEY_SHIFT or key_code == KEY_CTRL or key_code == KEY_ALT:
 		return
-	main.moon.send_keyboard_event(key_code, 4, 0)
+	main.stream_backend.send_keyboard_event(key_code, 4, 0)
 
 func _apply_modifier_visuals():
 	for kd in _key_data:

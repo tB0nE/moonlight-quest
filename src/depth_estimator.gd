@@ -47,7 +47,7 @@ func process(delta: float):
 	if not enabled or not main.is_streaming:
 		return
 
-	if main.moon.has_method("submit_depth_frame"):
+	if main.stream_backend.has_method("submit_depth_frame"):
 		submit_timer += delta
 		if submit_timer >= submit_interval:
 			submit_timer = 0.0
@@ -55,10 +55,10 @@ func process(delta: float):
 			if img != null and not img.is_empty():
 				var data = img.get_data()
 				if data.size() > 0:
-					main.moon.submit_depth_frame(data, model_size, model_size)
+					main.stream_backend.submit_depth_frame(data, model_size, model_size)
 
-	if main.moon.has_method("get_depth_map"):
-		var depth_bytes = main.moon.get_depth_map()
+	if main.stream_backend.has_method("get_depth_map"):
+		var depth_bytes = main.stream_backend.get_depth_map()
 		if depth_bytes != null and depth_bytes.size() == model_size * model_size:
 			var depth_image = Image.create_from_data(model_size, model_size, false, Image.FORMAT_L8, depth_bytes)
 			depth_texture.update(depth_image)
