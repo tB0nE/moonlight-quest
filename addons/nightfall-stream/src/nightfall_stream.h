@@ -90,12 +90,14 @@ private:
     void _attempt_reconnect();
     void _reset_reconnect();
     void _do_reconnect();
+    void _on_reconnect_timeout();
 
     StreamState state_ = STATE_IDLE;
 
     StreamConnection *stream_connection_ = nullptr;
     Ref<NightfallComputerManager> computer_manager_;
     Ref<NightfallConfigManager> config_manager_;
+    HttpRequester *http_requester_ = nullptr;
 
     String last_host_;
     Dictionary last_server_info_;
@@ -106,6 +108,7 @@ private:
     int max_reconnect_attempts_ = 5;
     int reconnect_delay_ms_ = 2000;
     int reconnect_attempts_ = 0;
+    Timer *reconnect_timer_ = nullptr;
 
     double stage_progress_ = 0.0;
     String current_stage_;

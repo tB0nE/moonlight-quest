@@ -36,7 +36,7 @@ void NightfallConfigManager::load_config() {
     }
 
     if (config->load(config_path) != OK) {
-        NF_LOGE("NightfallConfig", "Config load failed, creating new config at %s", config_path.utf8().get_data());
+        NF_LOG("NightfallConfig", "Config load failed, creating new config at %s", config_path.utf8().get_data());
         save_config();
     }
     _check_and_create_certs();
@@ -48,7 +48,7 @@ void NightfallConfigManager::save_config() {
 
 void NightfallConfigManager::_check_and_create_certs() {
     if (!config->has_section_key("General", "certificate") || !config->has_section_key("General", "key")) {
-        NF_LOGE("NightfallConfig", "Generating new client cert/key pair");
+        NF_LOG("NightfallConfig", "Generating new client cert/key pair");
         Ref<Crypto> crypto;
         crypto.instantiate();
 
@@ -61,9 +61,9 @@ void NightfallConfigManager::_check_and_create_certs() {
         config->set_value("General", "certificate", cert_pem);
         config->set_value("General", "key", key_pem);
         save_config();
-        NF_LOGE("NightfallConfig", "Client cert/key generated and saved (cert_len=%d key_len=%d)", cert_pem.length(), key_pem.length());
+        NF_LOG("NightfallConfig", "Client cert/key generated and saved (cert_len=%d key_len=%d)", cert_pem.length(), key_pem.length());
     } else {
-        NF_LOGE("NightfallConfig", "Existing client cert/key found (cert_len=%d key_len=%d)", String(config->get_value("General", "certificate")).length(), String(config->get_value("General", "key")).length());
+        NF_LOG("NightfallConfig", "Existing client cert/key found (cert_len=%d key_len=%d)", String(config->get_value("General", "certificate")).length(), String(config->get_value("General", "key")).length());
     }
 }
 
@@ -71,7 +71,7 @@ Dictionary NightfallConfigManager::get_client_keys() {
     Dictionary d;
     d["certificate"] = config->get_value("General", "certificate");
     d["key"] = config->get_value("General", "key");
-    NF_LOGE("NightfallConfig", "get_client_keys: cert_len=%d key_len=%d", String(d["certificate"]).length(), String(d["key"]).length());
+    NF_LOG("NightfallConfig", "get_client_keys: cert_len=%d key_len=%d", String(d["certificate"]).length(), String(d["key"]).length());
     return d;
 }
 

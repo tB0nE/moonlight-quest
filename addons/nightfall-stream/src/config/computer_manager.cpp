@@ -37,7 +37,7 @@ void NightfallComputerManager::set_parent_node(Node *node) {
 }
 
 String NightfallComputerManager::start_pair(String ip, int port) {
-    NF_LOGE("NightfallPair", "start_pair called: ip=%s port=%d config_valid=%d", ip.utf8().get_data(), port, config_manager.is_valid());
+    NF_LOG("NightfallPair", "start_pair called: ip=%s port=%d config_valid=%d", ip.utf8().get_data(), port, config_manager.is_valid());
     if (!config_manager.is_valid()) return "";
 
     _reset_pairing();
@@ -46,7 +46,7 @@ String NightfallComputerManager::start_pair(String ip, int port) {
     pair_https_port = cached_https_ports.get(ip, 47984);
     unique_id = _get_unique_id();
     current_uuid = _get_uuid();
-    NF_LOGE("NightfallPair", "unique_id=%s uuid=%s https_port=%d", unique_id.utf8().get_data(), current_uuid.utf8().get_data(), (int)pair_https_port);
+    NF_LOG("NightfallPair", "unique_id=%s uuid=%s https_port=%d", unique_id.utf8().get_data(), current_uuid.utf8().get_data(), (int)pair_https_port);
 
     int pin_val = UtilityFunctions::randi() % 10000;
     pair_pin = String::num_int64(pin_val).pad_zeros(4);
@@ -55,14 +55,14 @@ String NightfallComputerManager::start_pair(String ip, int port) {
     pair_aes_key = _calculate_aes_key(pair_salt, pair_pin);
 
     pair_state = PAIR_STAGE_0_PREFLIGHT;
-    NF_LOGE("NightfallPair", "Pairing starting, pin=%s", pair_pin.utf8().get_data());
+    NF_LOG("NightfallPair", "Pairing starting, pin=%s", pair_pin.utf8().get_data());
     _step_pair();
 
     return pair_pin;
 }
 
 void NightfallComputerManager::_step_pair() {
-    NF_LOGE("NightfallPair", "_step_pair: state=%d", (int)pair_state);
+    NF_LOG("NightfallPair", "_step_pair: state=%d", (int)pair_state);
     if (pair_state == PAIR_IDLE || pair_state == PAIR_FINISHED || pair_state == PAIR_ERROR)
         return;
 
@@ -138,7 +138,7 @@ void NightfallComputerManager::_step_pair() {
 }
 
 void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteArray body, Dictionary headers, String error, int step) {
-    NF_LOGE("NightfallPair", "_on_pair_request_completed: step=%d code=%d body_len=%d error=%s", step, code, body.size(), error.utf8().get_data());
+    NF_LOG("NightfallPair", "_on_pair_request_completed: step=%d code=%d body_len=%d error=%s", step, code, body.size(), error.utf8().get_data());
     is_requesting = false;
     bool failed = false;
     String fail_msg;
@@ -167,7 +167,7 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
     }
 
     if (failed) {
-        NF_LOGE("NightfallPair", "Pair FAILED at step %d: %s", step, fail_msg.utf8().get_data());
+        NF_LOG("NightfallPair", "Pair FAILED at step %d: %s", step, fail_msg.utf8().get_data());
         String uuid = _get_uuid();
         String url = "http://" + pair_ip + ":" + String::num_int64(pair_port) + "/unpair?uniqueid=" + unique_id + "&uuid=" + uuid;
         http_requester->request(url, "GET", PackedByteArray(), Dictionary(), Dictionary(), Callable());
@@ -204,14 +204,14 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             }
 
             if (known_and_paired) {
-                NF_LOGE("NightfallPair", "Already paired with this server");
+                NF_LOG("NightfallPair", "Already paired with this server");
                 pair_state = PAIR_FINISHED;
                 if (parent_node_) { parent_node_->call("_on_pair_completed", true, "Already paired"); }
                 return;
             }
 
             pair_state = PAIR_STAGE_1_GET_CERT;
-            NF_LOGE("NightfallPair", "Stage 0 done, moving to STAGE_1_GET_CERT");
+            NF_LOG("NightfallPair", "Stage 0 done, moving to STAGE_1_GET_CERT");
             _step_pair();
             break;
         }
@@ -225,7 +225,7 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             }
 
             server_cert_pem = _hex_to_bytes(plaincert).get_string_from_ascii();
-            NF_LOGE("NightfallPair", "Stage 1 done, got server cert (len=%d), moving to STAGE_2", server_cert_pem.length());
+            NF_LOG("NightfallPair", "Stage 1 done, got server cert (len=%d), moving to STAGE_2", server_cert_pem.length());
 
             pair_state = PAIR_STAGE_2_CLIENT_CHALLENGE;
             _step_pair();
@@ -248,7 +248,7 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
 
             server_challenge = resp_dec.slice(32, 48);
 
-            NF_LOGE("NightfallPair", "Stage 2 done, moving to STAGE_3_SERVER_RESPONSE");
+            NF_LOG("NightfallPair", "Stage 2 done, moving to STAGE_3_SERVER_RESPONSE");
             pair_state = PAIR_STAGE_3_SERVER_RESPONSE;
             _step_pair();
             break;
@@ -261,13 +261,13 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             }
 
             pair_state = PAIR_STAGE_4_CLIENT_SECRET;
-            NF_LOGE("NightfallPair", "Stage 3 done, moving to STAGE_4_CLIENT_SECRET");
+            NF_LOG("NightfallPair", "Stage 3 done, moving to STAGE_4_CLIENT_SECRET");
             _step_pair();
             break;
         }
         case 4: {
             pair_state = PAIR_STAGE_5_HTTPS_CHALLENGE;
-            NF_LOGE("NightfallPair", "Stage 4 done, moving to STAGE_5_HTTPS_CHALLENGE (https_port=%d)", (int)pair_https_port);
+            NF_LOG("NightfallPair", "Stage 4 done, moving to STAGE_5_HTTPS_CHALLENGE (https_port=%d)", (int)pair_https_port);
             _step_pair();
             break;
         }
@@ -282,7 +282,7 @@ void NightfallComputerManager::_on_pair_request_completed(int code, PackedByteAr
             config_manager->add_host(host_data);
 
             pair_state = PAIR_FINISHED;
-            NF_LOGE("NightfallPair", "Stage 5 done, PAIRING SUCCESSFUL");
+            NF_LOG("NightfallPair", "Stage 5 done, PAIRING SUCCESSFUL");
             if (parent_node_) { parent_node_->call("_on_pair_completed", true, "Pairing successful"); }
             break;
         }
@@ -643,6 +643,11 @@ void NightfallComputerManager::stop_stream(int host_id, Callable callback) {
         }
     }
 
+    if (ip.is_empty()) {
+        NF_LOG("NightfallPair", "stop_stream: host_id %d not found", host_id);
+        return;
+    }
+
     String url = "https://" + ip + ":" + String::num_int64(port) + "/cancel?uniqueid=" + unique_id + "&uuid=" + _get_uuid();
     http_requester->request(url, "GET", PackedByteArray(), Dictionary(), _get_ssl_options(),
             callable_mp(this, &NightfallComputerManager::_on_simple_request_completed).bind(Variant(callback)));
@@ -812,7 +817,7 @@ Dictionary NightfallComputerManager::_get_ssl_options() {
     opts["client_key"] = keys["key"];
     opts["verify_peer"] = false;
 
-    NF_LOGE("NightfallPair", "_get_ssl_options: cert_len=%d key_len=%d", String(keys["certificate"]).length(), String(keys["key"]).length());
+    NF_LOG("NightfallPair", "_get_ssl_options: cert_len=%d key_len=%d", String(keys["certificate"]).length(), String(keys["key"]).length());
     return opts;
 }
 
@@ -829,6 +834,4 @@ void NightfallComputerManager::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_app_cover", "host_id", "app_id", "callback"), &NightfallComputerManager::get_app_cover);
     ClassDB::bind_method(D_METHOD("establish_stream", "host_id", "app_id", "options", "callback"), &NightfallComputerManager::establish_stream);
     ClassDB::bind_method(D_METHOD("stop_stream", "host_id", "callback"), &NightfallComputerManager::stop_stream);
-
-    ADD_SIGNAL(MethodInfo("pair_completed", PropertyInfo(Variant::BOOL, "success"), PropertyInfo(Variant::STRING, "message")));
 }

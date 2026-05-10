@@ -19,6 +19,10 @@ NightfallStream::NightfallStream() {}
 
 NightfallStream::~NightfallStream() {
     stop_stream();
+    if (http_requester_) {
+        memdelete(http_requester_);
+        http_requester_ = nullptr;
+    }
 }
 
 void NightfallStream::_ready() {
@@ -27,8 +31,8 @@ void NightfallStream::_ready() {
     computer_manager_.instantiate();
     computer_manager_->set_config_manager(config_manager_.ptr());
 
-    auto *http_req = memnew(HttpRequester);
-    computer_manager_->set_http_requester(http_req);
+    http_requester_ = memnew(HttpRequester);
+    computer_manager_->set_http_requester(http_requester_);
 
     stream_connection_ = memnew(StreamConnection);
     add_child(stream_connection_);
@@ -56,7 +60,7 @@ int NightfallStream::get_state() const {
 }
 
 void NightfallStream::start_stream(const String &host, const Dictionary &server_info, const Dictionary &stream_config, bool disable_hw) {
-    NF_LOGE("NightfallStream", "start_stream: host=%s server_info_keys=%d stream_config_keys=%d state=%d stream_conn=%p",
+    NF_LOG("NightfallStream", "start_stream: host=%s server_info_keys=%d stream_config_keys=%d state=%d stream_conn=%p",
         host.utf8().get_data(), server_info.size(), stream_config.size(), (int)state_, (void*)stream_connection_);
     if (state_ == STATE_CONNECTING || state_ == STATE_CONNECTED) {
         stop_stream();
@@ -77,6 +81,7 @@ void NightfallStream::start_stream(const String &host, const Dictionary &server_
 void NightfallStream::stop_stream() {
     if (state_ == STATE_IDLE) return;
 
+    StreamState prev_state = state_;
     state_ = STATE_STOPPING;
     _reset_reconnect();
     emit_signal("state_changed", (int)state_);
@@ -85,6 +90,9 @@ void NightfallStream::stop_stream() {
 
     state_ = STATE_IDLE;
     emit_signal("state_changed", (int)state_);
+    if (prev_state == STATE_CONNECTED || prev_state == STATE_RECONNECTING) {
+        emit_signal("stream_terminated", 0, "Disconnected");
+    }
 }
 
 int NightfallStream::probe_video_format(int codec_preference, bool disable_hw) {
@@ -203,12 +211,12 @@ Object *NightfallStream::get_stream_connection() const {
 }
 
 void NightfallStream::_on_pair_completed(bool success, const String &msg) {
-    NF_LOGE("NightfallStream", "_on_pair_completed: success=%d msg=%s", success, msg.utf8().get_data());
+    NF_LOG("NightfallStream", "_on_pair_completed: success=%d msg=%s", success, msg.utf8().get_data());
     emit_signal("pair_completed", success, msg);
 }
 
 void NightfallStream::_on_stream_started() {
-    NF_LOGE("NightfallStream", "_on_stream_started CALLED");
+    NF_LOG("NightfallStream", "_on_stream_started");
     state_ = STATE_CONNECTED;
     _reset_reconnect();
     emit_signal("state_changed", (int)state_);
@@ -229,6 +237,8 @@ void NightfallStream::_on_stream_terminated(int error_code, const String &error_
         emit_signal("state_changed", (int)state_);
         emit_signal("reconnect_attempt", reconnect_attempts_ + 1, max_reconnect_attempts_);
         _attempt_reconnect();
+    } else if (reconnect_attempts_ >= max_reconnect_attempts_) {
+        emit_signal("reconnect_failed");
     }
 }
 
@@ -249,6 +259,8 @@ void NightfallStream::_on_stage_failed(const String &stage_name, int error_code)
         emit_signal("state_changed", (int)state_);
         emit_signal("reconnect_attempt", reconnect_attempts_ + 1, max_reconnect_attempts_);
         _attempt_reconnect();
+    } else if (reconnect_attempts_ >= max_reconnect_attempts_) {
+        emit_signal("reconnect_failed");
     }
 }
 
@@ -263,36 +275,60 @@ void NightfallStream::_on_log_message(const String &message) {
 void NightfallStream::_attempt_reconnect() {
     reconnect_attempts_++;
 
-    UtilityFunctions::print("[NightfallStream] Reconnect attempt ", reconnect_attempts_, "/", max_reconnect_attempts_, " in ", reconnect_delay_ms_, "ms");
+    int delay = reconnect_delay_ms_;
+    for (int i = 1; i < reconnect_attempts_; i++) {
+        delay *= 2;
+        if (delay > 30000) { delay = 30000; break; }
+    }
 
-    call_deferred("emit_signal", "reconnect_scheduled", reconnect_attempts_, max_reconnect_attempts_, reconnect_delay_ms_);
+    NF_LOG("NightfallStream", "Reconnect attempt %d/%d in %dms", reconnect_attempts_, max_reconnect_attempts_, delay);
 
-    Timer *timer = memnew(Timer);
-    timer->set_wait_time((double)reconnect_delay_ms_ / 1000.0);
-    timer->set_one_shot(true);
-    add_child(timer);
-    timer->connect("timeout", callable_mp(this, &NightfallStream::_do_reconnect));
-    timer->start();
+    call_deferred("emit_signal", "reconnect_scheduled", reconnect_attempts_, max_reconnect_attempts_, delay);
+
+    if (reconnect_timer_) {
+        reconnect_timer_->stop();
+        reconnect_timer_->queue_free();
+        reconnect_timer_ = nullptr;
+    }
+    reconnect_timer_ = memnew(Timer);
+    reconnect_timer_->set_wait_time((double)delay / 1000.0);
+    reconnect_timer_->set_one_shot(true);
+    add_child(reconnect_timer_);
+    reconnect_timer_->connect("timeout", callable_mp(this, &NightfallStream::_on_reconnect_timeout));
+    reconnect_timer_->start();
+}
+
+void NightfallStream::_on_reconnect_timeout() {
+    if (reconnect_timer_) {
+        reconnect_timer_->queue_free();
+        reconnect_timer_ = nullptr;
+    }
+    _do_reconnect();
 }
 
 void NightfallStream::_do_reconnect() {
     if (state_ != STATE_RECONNECTING) return;
-    NF_LOGE("NightfallStream", "_do_reconnect: last_host_=%s last_server_info_keys=%d last_stream_config_keys=%d",
+    NF_LOG("NightfallStream", "_do_reconnect: last_host_=%s last_server_info_keys=%d last_stream_config_keys=%d",
         last_host_.utf8().get_data(), last_server_info_.size(), last_stream_config_.size());
     start_stream(last_host_, last_server_info_, last_stream_config_, last_disable_hw_);
 }
 
 void NightfallStream::_reset_reconnect() {
     reconnect_attempts_ = 0;
+    if (reconnect_timer_) {
+        reconnect_timer_->stop();
+        reconnect_timer_->queue_free();
+        reconnect_timer_ = nullptr;
+    }
 }
 
 void NightfallStream::_bind_methods() {
-    BIND_CONSTANT(STATE_IDLE);
-    BIND_CONSTANT(STATE_CONNECTING);
-    BIND_CONSTANT(STATE_CONNECTED);
-    BIND_CONSTANT(STATE_DISCONNECTED);
-    BIND_CONSTANT(STATE_RECONNECTING);
-    BIND_CONSTANT(STATE_STOPPING);
+    BIND_ENUM_CONSTANT(STATE_IDLE);
+    BIND_ENUM_CONSTANT(STATE_CONNECTING);
+    BIND_ENUM_CONSTANT(STATE_CONNECTED);
+    BIND_ENUM_CONSTANT(STATE_DISCONNECTED);
+    BIND_ENUM_CONSTANT(STATE_RECONNECTING);
+    BIND_ENUM_CONSTANT(STATE_STOPPING);
 
     ClassDB::bind_method(D_METHOD("get_version"), &NightfallStream::get_version);
     ClassDB::bind_method(D_METHOD("get_state"), &NightfallStream::get_state);
@@ -342,6 +378,7 @@ void NightfallStream::_bind_methods() {
     ADD_SIGNAL(MethodInfo("connection_status_update", PropertyInfo(Variant::INT, "status")));
     ADD_SIGNAL(MethodInfo("reconnect_scheduled", PropertyInfo(Variant::INT, "attempt"), PropertyInfo(Variant::INT, "max_attempts"), PropertyInfo(Variant::INT, "delay_ms")));
     ADD_SIGNAL(MethodInfo("reconnect_attempt", PropertyInfo(Variant::INT, "attempt"), PropertyInfo(Variant::INT, "max_attempts")));
+    ADD_SIGNAL(MethodInfo("reconnect_failed"));
     ADD_SIGNAL(MethodInfo("pair_completed", PropertyInfo(Variant::BOOL, "success"), PropertyInfo(Variant::STRING, "message")));
     ADD_SIGNAL(MethodInfo("log_message", PropertyInfo(Variant::STRING, "message")));
 }

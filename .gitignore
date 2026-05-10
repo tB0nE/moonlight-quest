@@ -27,6 +27,7 @@ addons/godotopenxrvendors/
 .DS_Store
 .vscode/
 .idea/
+.idea/
 *.swp
 *.tmp
 *.log
@@ -59,3 +60,5 @@ tools/tflite_tmp/
 tools/calibration_data.npz
 tools/depth_anything_v2.onnx
 addons/nightfall-stream/build/
+addons/nightfall-stream/build_android/
+*.unstripped

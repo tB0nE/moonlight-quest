@@ -44,11 +44,7 @@ public:
     int setup(int video_format, int width, int height, bool disable_hw);
     void cleanup();
 
-    bool submit_packet(AVPacket *pkt);
-    bool receive_frame(AVFrame *frame);
     AVFrame *get_sw_frame();
-
-    AVFrame *decode_next_frame(AVPacket *pkt);
 
     String get_decoder_name() const;
     bool is_hw_decode() const;

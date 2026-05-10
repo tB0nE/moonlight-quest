@@ -11,7 +11,7 @@ template <typename T>
 class SpscRingBuffer {
 public:
     explicit SpscRingBuffer(size_t capacity)
-        : buffer_(capacity + 1), mask_(capacity - 1) {
+        : buffer_(capacity + 1) {
     }
 
     size_t write_available() const {
@@ -71,7 +71,6 @@ public:
 
 private:
     std::vector<T> buffer_;
-    size_t mask_;
     alignas(64) std::atomic<size_t> write_pos_{0};
     alignas(64) std::atomic<size_t> read_pos_{0};
 };

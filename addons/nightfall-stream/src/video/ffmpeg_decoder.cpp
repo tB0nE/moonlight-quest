@@ -408,18 +408,6 @@ void FfmpegDecoder::cleanup() {
     is_hw_decode_active = false;
 }
 
-bool FfmpegDecoder::submit_packet(AVPacket *pkt) {
-    if (!v_codec_ctx) return false;
-    int ret = avcodec_send_packet(v_codec_ctx, pkt);
-    return ret >= 0;
-}
-
-bool FfmpegDecoder::receive_frame(AVFrame *frame) {
-    if (!v_codec_ctx) return false;
-    int ret = avcodec_receive_frame(v_codec_ctx, frame);
-    return ret == 0;
-}
-
 AVFrame *FfmpegDecoder::get_sw_frame() {
     return sw_frame;
 }
@@ -435,37 +423,6 @@ bool FfmpegDecoder::is_hw_decode() const {
 
 int FfmpegDecoder::get_video_width() const { return video_width; }
 int FfmpegDecoder::get_video_height() const { return video_height; }
-
-AVFrame *FfmpegDecoder::decode_next_frame(AVPacket *pkt) {
-    if (!v_codec_ctx || !pkt) return nullptr;
-
-    int ret = avcodec_send_packet(v_codec_ctx, pkt);
-    if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) return nullptr;
-
-    av_frame_unref(decode_frame);
-    ret = avcodec_receive_frame(v_codec_ctx, decode_frame);
-    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) return nullptr;
-    if (ret < 0) return nullptr;
-
-    static int log_count = 0;
-    if (++log_count <= 3) {
-        NF_LOG("FfmpegDecoder",
-            "decoded frame: fmt=%d w=%d h=%d linesize[0]=%d linesize[1]=%d data[0]=%p data[1]=%p",
-            decode_frame->format, decode_frame->width, decode_frame->height,
-            decode_frame->linesize[0], decode_frame->linesize[1],
-            decode_frame->data[0], decode_frame->data[1]);
-    }
-
-    if (decode_frame->format == hw_pix_fmt && hw_device_ctx) {
-        av_frame_unref(sw_frame);
-        ret = av_hwframe_transfer_data(sw_frame, decode_frame, 0);
-        if (ret < 0) return nullptr;
-        av_frame_copy_props(sw_frame, decode_frame);
-        return sw_frame;
-    }
-
-    return decode_frame;
-}
 
 void FfmpegDecoder::_bind_methods() {
     ClassDB::bind_method(D_METHOD("probe_video_format", "codec_preference", "disable_hw"), &FfmpegDecoder::probe_video_format);

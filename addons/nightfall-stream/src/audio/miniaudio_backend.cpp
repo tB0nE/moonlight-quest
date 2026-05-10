@@ -20,7 +20,7 @@ MiniaudioBackend::~MiniaudioBackend() {
 void MiniaudioBackend::_ma_data_callback(ma_device *pDevice, void *pOutput, const void * /*pInput*/, uint32_t frameCount) {
     auto *self = static_cast<MiniaudioBackend *>(pDevice->pUserData);
     if (!self || !self->ring_ || self->paused_.load(std::memory_order_relaxed)) {
-        memset(pOutput, 0, frameCount * self->channels_ * sizeof(float));
+        memset(pOutput, 0, frameCount * 2 * sizeof(float));
         return;
     }
 
