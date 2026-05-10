@@ -9,6 +9,7 @@ uniform sampler2D tex_u : filter_linear, repeat_disable;
 uniform sampler2D tex_v : filter_linear, repeat_disable;
 
 uniform bool is_semi_planar;
+uniform bool is_nv12_rd;
 uniform int color_matrix_type;
 uniform int color_range;
 uniform bool swap_uv;
@@ -18,7 +19,15 @@ void fragment() {
 	float u_raw = 0.5;
 	float v_raw = 0.5;
 
-	if (is_semi_planar) {
+	if (is_nv12_rd) {
+		ivec2 tex_size = textureSize(tex_u, 0);
+		int cx = int(UV.x * float(tex_size.x / 2));
+		int cy = int(UV.y * float(tex_size.y));
+		cx = clamp(cx, 0, tex_size.x / 2 - 1);
+		cy = clamp(cy, 0, tex_size.y - 1);
+		u_raw = texelFetch(tex_u, ivec2(cx * 2, cy), 0).r;
+		v_raw = texelFetch(tex_u, ivec2(cx * 2 + 1, cy), 0).r;
+	} else if (is_semi_planar) {
 		vec2 uv_val = texture(tex_u, UV).rg;
 		u_raw = uv_val.r;
 		v_raw = uv_val.g;

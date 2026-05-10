@@ -101,7 +101,7 @@ void TextureUploader::_render_thread_setup(int width, int height, int format, in
         };
 
         create_rd_texture(0, y_w, y_h, RenderingDevice::DATA_FORMAT_R8_UNORM);
-        create_rd_texture(1, uv_w, uv_h, RenderingDevice::DATA_FORMAT_R8_UNORM);
+        create_rd_texture(1, is_nv12 ? y_w : uv_w, uv_h, RenderingDevice::DATA_FORMAT_R8_UNORM);
         create_rd_texture(2, uv_w, uv_h, RenderingDevice::DATA_FORMAT_R8_UNORM);
     } else {
         plane_images[0] = Image::create(y_w, y_h, false, Image::FORMAT_L8);
@@ -135,11 +135,11 @@ void TextureUploader::_render_thread_setup(int width, int height, int format, in
         matrix_type = 0;
 
     int range_val = (av_color_range == AVCOL_RANGE_JPEG) ? 1 : 0;
-    bool shader_semi = is_nv12;
-    if (rd && is_nv12) shader_semi = false;
+    bool shader_semi = is_nv12 && !rd;
 
     if (shader_material.is_valid()) {
         shader_material->set_shader_parameter("is_semi_planar", shader_semi);
+        shader_material->set_shader_parameter("is_nv12_rd", is_nv12 && rd);
         shader_material->set_shader_parameter("color_matrix_type", matrix_type);
         shader_material->set_shader_parameter("color_range", range_val);
         shader_material->set_shader_parameter("swap_uv", false);
@@ -186,30 +186,7 @@ void TextureUploader::update_from_frame(AVFrame *frame) {
         upload_rd(0, 0, frame->width, frame->height, 1);
 
         if (is_nv12) {
-            int uv_w = frame->width / 2;
-            int uv_h = frame->height / 2;
-            int src_stride = frame->linesize[1];
-            int dst_stride = uv_w;
-            int required_size = dst_stride * uv_h;
-
-            if (rd_texture_buffers[1].size() != required_size)
-                rd_texture_buffers[1].resize(required_size);
-            if (rd_texture_buffers[2].size() != required_size)
-                rd_texture_buffers[2].resize(required_size);
-
-            uint8_t *dst_u = rd_texture_buffers[1].ptrw();
-            uint8_t *dst_v = rd_texture_buffers[2].ptrw();
-            uint8_t *src = frame->data[1];
-
-            for (int row = 0; row < uv_h; row++) {
-                uint8_t *srow = src + row * src_stride;
-                uint8_t *drow_u = dst_u + row * dst_stride;
-                uint8_t *drow_v = dst_v + row * dst_stride;
-                for (int x = 0; x < uv_w; x++) {
-                    drow_u[x] = srow[x * 2 + 0];
-                    drow_v[x] = srow[x * 2 + 1];
-                }
-            }
+            upload_rd(1, 1, frame->width, frame->height / 2, 1);
         } else {
             upload_rd(1, 1, frame->width / 2, frame->height / 2, 1);
             upload_rd(2, 2, frame->width / 2, frame->height / 2, 1);
@@ -276,7 +253,7 @@ void TextureUploader::perform_gpu_update() {
             rd->texture_update(rd_texture_rid[0], 0, rd_texture_buffers[0]);
         if (rd_texture_rid[1].is_valid())
             rd->texture_update(rd_texture_rid[1], 0, rd_texture_buffers[1]);
-        if (rd_texture_rid[2].is_valid())
+        if (!is_nv12 && rd_texture_rid[2].is_valid())
             rd->texture_update(rd_texture_rid[2], 0, rd_texture_buffers[2]);
     }
 }
