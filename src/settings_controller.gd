@@ -3,8 +3,43 @@ extends RefCounted
 
 var main: Node3D
 
+var sbs_labels: Array = ["Off", "Stretch", "Crop"]
+var ai_3d_labels: Array = ["2D", "MiDaS"]
+
 func _init(owner: Node3D):
 	main = owner
+
+func get_stereo_mode() -> int:
+	if main.sbs_mode > 0:
+		return main.sbs_mode
+	if main.ai_3d_mode == 0:
+		return 0
+	elif main.ai_3d_mode == 1:
+		return 3
+	else:
+		return 4
+
+func cycle_sbs_mode():
+	main.sbs_mode = (main.sbs_mode + 1) % 3
+	main.ui_controller.update_option_btn(main._ui_sbs_btn, sbs_labels[main.sbs_mode])
+	main.ui_controller.update_3d_btn_state()
+	apply_stereo()
+	main.state_manager.save_state()
+
+func cycle_ai_3d_mode():
+	if main.sbs_mode > 0:
+		return
+	main.ai_3d_mode = (main.ai_3d_mode + 1) % 2
+	main.ui_controller.update_option_btn(main._ui_3d_btn, ai_3d_labels[main.ai_3d_mode])
+	apply_stereo()
+	main.state_manager.save_state()
+
+func apply_stereo():
+	var mode = get_stereo_mode()
+	main.screen_mesh.material_override.set_shader_parameter("stereo_mode", mode)
+	if main.depth_estimator:
+		main.depth_estimator.set_enabled(mode >= 3)
+	main.stream_backend.set_depth_model(1 if mode == 4 else 0)
 
 func toggle_passthrough():
 	if not main.is_xr_active:
@@ -46,39 +81,6 @@ func cycle_sharpen_mode():
 	main.ui_controller.update_option_btn(main._ui_sharpen_btn, main.sharpen_labels[main.sharpen_mode])
 	apply_filter()
 	main.state_manager.save_state()
-
-func cycle_depth_mode():
-	main.depth_mode = (main.depth_mode + 1) % main.depth_labels.size()
-	main.ui_controller.update_option_btn(main._ui_depth_btn, main.depth_labels[main.depth_mode])
-	apply_depth()
-	main.state_manager.save_state()
-
-func cycle_parallax_mode():
-	main.parallax_mode = (main.parallax_mode + 1) % main.parallax_labels.size()
-	main.ui_controller.update_option_btn(main._ui_parallax_btn, main.parallax_labels[main.parallax_mode])
-	apply_parallax()
-	main.state_manager.save_state()
-
-func apply_depth():
-	var mat = main.screen_mesh.material_override
-	if mat:
-		var t = float(main.depth_mode) / 10.0
-		mat.set_shader_parameter("depth_gain", 1.0 + t * 3.6)
-
-func apply_parallax():
-	var mat = main.screen_mesh.material_override
-	if mat:
-		var t = float(main.parallax_mode) / 10.0
-		mat.set_shader_parameter("parallax_depth", 0.5 + t * 0.6)
-
-func get_stereo_mode_count() -> int:
-	return 5 if main.has_depth_model_v2 else 4
-
-func get_stereo_mode_names() -> Array:
-	return ["2D", "SBS Stretch", "SBS Crop", "AI 3D", "AI 3D v2"] if main.has_depth_model_v2 else ["2D", "SBS Stretch", "SBS Crop", "AI 3D"]
-
-func set_depth_model(mode: int):
-	main.stream_backend.set_depth_model(1 if mode == 4 else 0)
 
 func apply_filter():
 	if not main.is_xr_active:

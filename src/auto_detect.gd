@@ -58,7 +58,9 @@ func run():
 		if val != detected_mode:
 			all_match = false
 			break
-	if all_match and main.detection_history.size() >= 5 and detected_mode != main.stereo_mode:
-		main.stereo_mode = detected_mode
+	var current_sbs = main.sbs_mode if main.ai_3d_mode == 0 else 0
+	if all_match and main.detection_history.size() >= 5 and detected_mode != current_sbs:
+		main.sbs_mode = detected_mode
+		main.ai_3d_mode = 0
 		main.ui_controller.update_stereo_shader()
 	main.auto_detect_running = false

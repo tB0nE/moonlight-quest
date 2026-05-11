@@ -146,13 +146,6 @@ func get_last_frame_latency() -> int:
 		return _v2.get_last_frame_latency_us()
 	return 0
 
-func has_depth_model_v2() -> bool:
-	if _v2:
-		var db = _v2.get_depth_bridge()
-		if db:
-			return db.has_depth_model_v2()
-	return false
-
 func set_depth_model(model_id: int):
 	if _v2:
 		var db = _v2.get_depth_bridge()

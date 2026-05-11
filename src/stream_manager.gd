@@ -181,16 +181,15 @@ func teardown_v2_yuv_rect():
 func update_stats():
 	if not main.is_streaming:
 		return
-	var decoder = _b().get_decoder_name()
-	if decoder.is_empty():
-		return
 	var vw = _b().get_video_width()
 	var vh = _b().get_video_height()
+	printerr("[STATS] streaming=%d vw=%d vh=%d" % [main.is_streaming, vw, vh])
+	if vw == 0 or vh == 0:
+		return
 	var hw = "HW" if _b().is_hw_decode() else "SW"
 	var ip = main.get_node("%IPInput").text
 	var ip_display = ip if not ip.is_empty() else "?"
 	var dropped = _b().get_frames_dropped()
-	var decoded = _b().get_frames_decoded()
 	var latency_ms = _b().get_last_frame_latency_us() / 1000.0
 	main._ui_status_label.text = "%s \u2022 %dx%d %s \u2022 %.0ffps \u2022 %.0fms" % [ip_display, vw, vh, hw, main.stats_fps, latency_ms]
 	if dropped > 0:

@@ -36,8 +36,8 @@ var _pair_pin: String = ""
 var _connecting_ip: String = ""
 var _auto_connect: bool = false
 var is_streaming: bool = false
-var stereo_mode: int = 0
-var has_depth_model_v2: bool = false
+var sbs_mode: int = 0
+var ai_3d_mode: int = 0
 var is_xr_active: bool = false
 var was_clicking: bool = false
 var was_right_clicking: bool = false
@@ -75,12 +75,8 @@ var curvature: int = 0
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
 var smooth_mode: int = 0
 var sharpen_mode: int = 0
-var depth_mode: int = 0
-var parallax_mode: int = 0
 var smooth_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%"]
 var sharpen_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%"]
-var depth_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]
-var parallax_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"]
 var _xr_base_render_scale: float = 1.0
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
@@ -114,13 +110,12 @@ var _ui_status_label: Label
 var _ui_pt_btn: Button
 var _ui_curve_btn: Button
 var _ui_bezel_btn: Button
-var _ui_mode_btn: Button
+var _ui_sbs_btn: Button
+var _ui_3d_btn: Button
 var _ui_res_btn: Button
 var _ui_fps_btn: Button
 var _ui_render_btn: Button
 var _ui_sharpen_btn: Button
-var _ui_depth_btn: Button
-var _ui_parallax_btn: Button
 var _ui_exit_btn: Button
 var _ui_disconnect_btn: Button
 var _ui_close_btn: Button
@@ -215,8 +210,8 @@ func _ready():
 	host_discovery = HostDiscovery.new(self)
 
 	depth_estimator.setup()
-	if stereo_mode >= settings_controller.get_stereo_mode_count():
-		stereo_mode = 0
+	sbs_mode = clampi(sbs_mode, 0, 2)
+	ai_3d_mode = clampi(ai_3d_mode, 0, 1)
 
 	virtual_keyboard = VirtualKeyboard.new(self)
 	add_child(virtual_keyboard)
@@ -247,7 +242,6 @@ func _ready():
 	stream_backend = StreamBackend.new(v2_node)
 	stream_backend.set_config_manager(config_mgr)
 	stream_backend.set_computer_manager(comp_mgr)
-	has_depth_model_v2 = stream_backend.has_depth_model_v2()
 	if v2_node:
 		v2_node.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
 		v2_node.stream_started.connect(func():
@@ -276,7 +270,8 @@ func _ready():
 		get_viewport().use_xr = true
 		_xr_base_render_scale = get_viewport().scaling_3d_scale
 		is_xr_active = true
-		stereo_mode = 0
+		sbs_mode = 0
+		ai_3d_mode = 0
 		passthrough_mode = 0
 
 		_create_starfield()
@@ -299,7 +294,8 @@ func _ready():
 		_set_ui_visible(false)
 	else:
 		is_xr_active = false
-		stereo_mode = 0
+		sbs_mode = 0
+		ai_3d_mode = 0
 
 	config_mgr.load_config()
 	var saved_ip = ""
@@ -319,17 +315,7 @@ func _ready():
 	stream_manager.bind_texture()
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
 	var _wt = welcome_viewport.get_texture()
-	printerr("[NF-SCREEN] visible=%s mat=%s tex=%s tex_w=%d tex_h=%d pos=%s rot=%s mesh_size=%s" % [
-		str(screen_mesh.visible),
-		str(screen_mesh.material_override),
-		str(_wt), _wt.get_width() if _wt else 0, _wt.get_height() if _wt else 0,
-		str(screen_mesh.global_position),
-		str(screen_mesh.rotation),
-		str(screen_mesh.mesh.size) if screen_mesh.mesh else "null"
-	])
-	printerr("[NF-SCREEN] streaming=%s passthrough=%d stereo=%d" % [
-		str(is_streaming), passthrough_mode, stereo_mode
-	])
+
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	ui_controller.update_ui()
 	ui_controller.update_stereo_shader()
@@ -358,17 +344,8 @@ func _ready():
 
 func _post_ready_check():
 	await get_tree().create_timer(0.5).timeout
-	var _wt2 = welcome_viewport.get_texture()
-	printerr("[NF-SCREEN-DELAYED] visible=%s mat=%s tex_w=%d tex_h=%d pos=%s" % [
-		str(screen_mesh.visible),
-		str(screen_mesh.material_override),
-		_wt2.get_width() if _wt2 else 0, _wt2.get_height() if _wt2 else 0,
-		str(screen_mesh.global_position)
-	])
-	var _mt = screen_mesh.material_override.get_shader_parameter("main_texture") if screen_mesh.material_override else null
-	printerr("[NF-SCREEN-DELAYED] main_texture=%s stereo_mode=%d passthrough=%d" % [
-		str(_mt), screen_mesh.material_override.get_shader_parameter("stereo_mode") if screen_mesh.material_override else -1, passthrough_mode
-	])
+
+
 
 func _on_joy_changed(device: int, connected: bool):
 	pass

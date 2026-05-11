@@ -102,31 +102,8 @@ void DepthBridge::set_depth_model(int model_index) {
 #endif
 }
 
-bool DepthBridge::has_depth_model_v2() {
-#ifdef __ANDROID__
-    JNIEnv *env = get_jni_env();
-    if (!env) return false;
-
-    jclass app_class = env->FindClass("com/godot/game/GodotApp");
-    if (!app_class) return false;
-
-    jmethodID method = env->GetStaticMethodID(app_class, "hasDepthModelV2", "()Z");
-    if (!method) {
-        env->DeleteLocalRef(app_class);
-        return false;
-    }
-
-    jboolean result = env->CallStaticBooleanMethod(app_class, method);
-    env->DeleteLocalRef(app_class);
-    return (bool)result;
-#else
-    return false;
-#endif
-}
-
 void DepthBridge::_bind_methods() {
     ClassDB::bind_method(D_METHOD("submit_depth_frame", "frame_data", "width", "height"), &DepthBridge::submit_depth_frame);
     ClassDB::bind_method(D_METHOD("get_depth_map"), &DepthBridge::get_depth_map);
     ClassDB::bind_method(D_METHOD("set_depth_model", "model_index"), &DepthBridge::set_depth_model);
-    ClassDB::bind_method(D_METHOD("has_depth_model_v2"), &DepthBridge::has_depth_model_v2);
 }

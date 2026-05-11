@@ -78,13 +78,6 @@ public class GodotApp extends GodotActivity {
 		}
 	}
 
-	public static boolean hasDepthModelV2() {
-		if (depthEstimator != null && depthEstimator.isInitialized()) {
-			return depthEstimator.hasModelV2();
-		}
-		return false;
-	}
-
 	@Override
 	public void onResume() {
 		super.onResume();

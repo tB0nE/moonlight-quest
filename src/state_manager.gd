@@ -20,8 +20,6 @@ func save_state():
 	save.set_value("screen", "passthrough", main.passthrough_mode)
 	save.set_value("screen", "smooth_mode", main.smooth_mode)
 	save.set_value("screen", "sharpen_mode", main.sharpen_mode)
-	save.set_value("screen", "depth_mode", main.depth_mode)
-	save.set_value("screen", "parallax_mode", main.parallax_mode)
 	if main.is_xr_active and main.xr_camera:
 		var ui_offset = main.ui_panel_3d.global_position - main.xr_camera.global_position
 		save.set_value("ui", "offset_x", ui_offset.x)
@@ -39,7 +37,8 @@ func save_host_state():
 	save.load("user://host_state.cfg")
 	save.set_value(ip, "fps", main.stream_fps)
 	save.set_value(ip, "resolution_idx", main.resolution_idx)
-	save.set_value(ip, "stereo_mode", main.stereo_mode)
+	save.set_value(ip, "sbs_mode", main.sbs_mode)
+	save.set_value(ip, "ai_3d_mode", main.ai_3d_mode)
 	save.save("user://host_state.cfg")
 
 func load_host_state(ip: String):
@@ -52,9 +51,21 @@ func load_host_state(ip: String):
 		return
 	main.stream_fps = save.get_value(ip, "fps", 60)
 	main.resolution_idx = save.get_value(ip, "resolution_idx", -1)
-	main.stereo_mode = clampi(save.get_value(ip, "stereo_mode", 0), 0, main.settings_controller.get_stereo_mode_count() - 1)
-	main.screen_mesh.material_override.set_shader_parameter("stereo_mode", main.stereo_mode)
-	main.ui_controller.update_option_btn(main._ui_mode_btn, main.settings_controller.get_stereo_mode_names()[main.stereo_mode])
+	if save.has_section_key(ip, "sbs_mode"):
+		main.sbs_mode = clampi(save.get_value(ip, "sbs_mode", 0), 0, 2)
+		main.ai_3d_mode = clampi(save.get_value(ip, "ai_3d_mode", 0), 0, 1)
+	elif save.has_section_key(ip, "stereo_mode"):
+		var old = clampi(save.get_value(ip, "stereo_mode", 0), 0, 4)
+		if old <= 2:
+			main.sbs_mode = old
+			main.ai_3d_mode = 0
+		else:
+			main.sbs_mode = 0
+			main.ai_3d_mode = 1
+	main.screen_mesh.material_override.set_shader_parameter("stereo_mode", main.settings_controller.get_stereo_mode())
+	main.ui_controller.update_option_btn(main._ui_sbs_btn, main.settings_controller.sbs_labels[main.sbs_mode])
+	main.ui_controller.update_option_btn(main._ui_3d_btn, main.settings_controller.ai_3d_labels[main.ai_3d_mode])
+	main.ui_controller.update_3d_btn_state()
 	main.ui_controller.update_option_btn(main._ui_fps_btn, "%dHz" % main.stream_fps)
 	if main.resolution_idx == -1:
 		main.ui_controller.update_option_btn(main._ui_res_btn, "Auto")
@@ -63,8 +74,8 @@ func load_host_state(ip: String):
 		main.host_resolution = main.resolutions[main.resolution_idx]
 		main.ui_controller.update_option_btn(main._ui_res_btn, main.resolution_labels[main.resolution_idx])
 	if main.depth_estimator:
-		main.depth_estimator.set_enabled(main.stereo_mode >= 3)
-	main.settings_controller.set_depth_model(main.stereo_mode)
+		main.depth_estimator.set_enabled(main.settings_controller.get_stereo_mode() >= 3)
+	main.settings_controller.apply_stereo()
 
 func load_state():
 	var save = ConfigFile.new()
@@ -84,8 +95,6 @@ func load_state():
 	main.passthrough_mode = save.get_value("screen", "passthrough", 0)
 	main.smooth_mode = save.get_value("screen", "smooth_mode", save.get_value("screen", "render_mode", 0))
 	main.sharpen_mode = save.get_value("screen", "sharpen_mode", 0)
-	main.depth_mode = save.get_value("screen", "depth_mode", 0)
-	main.parallax_mode = save.get_value("screen", "parallax_mode", 0)
 	if save.has_section_key("screen", "size_x"):
 		main._mesh_size = Vector2(save.get_value("screen", "size_x"), save.get_value("screen", "size_y"))
 		if main._mesh_size.x > 0.1 and main._mesh_size.y > 0.1:
@@ -102,8 +111,6 @@ func load_state():
 	main.ui_controller.update_option_btn(main._ui_pt_btn, main.passthrough_labels[clampi(main.passthrough_mode, 0, main.passthrough_labels.size() - 1)])
 	main.ui_controller.update_option_btn(main._ui_render_btn, main.smooth_labels[clampi(main.smooth_mode, 0, main.smooth_labels.size() - 1)])
 	main.ui_controller.update_option_btn(main._ui_sharpen_btn, main.sharpen_labels[clampi(main.sharpen_mode, 0, main.sharpen_labels.size() - 1)])
-	main.ui_controller.update_option_btn(main._ui_depth_btn, main.depth_labels[clampi(main.depth_mode, 0, main.depth_labels.size() - 1)])
-	main.ui_controller.update_option_btn(main._ui_parallax_btn, main.parallax_labels[clampi(main.parallax_mode, 0, main.parallax_labels.size() - 1)])
 	main.screen_manager.update_bezel_size()
 	if save.has_section_key("ui", "offset_x") and main.is_xr_active and main.xr_camera:
 		main.ui_panel_3d.global_position = main.xr_camera.global_position + Vector3(
@@ -112,5 +119,3 @@ func load_state():
 			save.get_value("ui", "offset_z"))
 		main.ui_panel_3d.rotation.y = main.xr_camera.rotation.y + save.get_value("ui", "rot_y", 0.0)
 	main.settings_controller.apply_filter()
-	main.settings_controller.apply_depth()
-	main.settings_controller.apply_parallax()

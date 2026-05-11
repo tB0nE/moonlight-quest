@@ -30,21 +30,23 @@ func on_ipinput_gui_input(event: InputEvent):
 
 func on_sbs_toggled():
 	main.auto_detect_enabled = false
-	main.stereo_mode = (main.stereo_mode + 1) % main.settings_controller.get_stereo_mode_count()
-	update_stereo_shader()
-	main.state_manager.save_state()
+	main.settings_controller.cycle_sbs_mode()
 
-func on_resume_auto_pressed():
-	main.auto_detect_enabled = true
-	main.detection_history.clear()
-	update_ui()
+func on_ai_3d_toggled():
+	main.auto_detect_enabled = false
+	main.settings_controller.cycle_ai_3d_mode()
 
 func update_stereo_shader():
-	main.screen_mesh.material_override.set_shader_parameter("stereo_mode", main.stereo_mode)
-	update_option_btn(main._ui_mode_btn, main.settings_controller.get_stereo_mode_names()[main.stereo_mode])
-	if main.depth_estimator:
-		main.depth_estimator.set_enabled(main.stereo_mode >= 3)
-	main.settings_controller.set_depth_model(main.stereo_mode)
+	main.screen_mesh.material_override.set_shader_parameter("stereo_mode", main.settings_controller.get_stereo_mode())
+	update_option_btn(main._ui_sbs_btn, main.settings_controller.sbs_labels[main.sbs_mode])
+	update_option_btn(main._ui_3d_btn, main.settings_controller.ai_3d_labels[main.ai_3d_mode])
+	update_3d_btn_state()
+
+func update_3d_btn_state():
+	if main._ui_3d_btn:
+		var disabled = main.sbs_mode > 0
+		main._ui_3d_btn.disabled = disabled
+		main._ui_3d_btn.modulate.a = 0.3 if disabled else 1.0
 
 func update_ui():
 	main.get_node("%Crosshair").visible = (not main.is_xr_active and not main.mouse_captured_by_stream)
@@ -233,8 +235,6 @@ func build_ui():
 	center_row.add_child(main._ui_curve_btn)
 	main._ui_bezel_btn = make_option_btn("Bezel", "On")
 	center_row.add_child(main._ui_bezel_btn)
-	main._ui_mode_btn = make_option_btn("Mode", "2D")
-	center_row.add_child(main._ui_mode_btn)
 
 	var gap = Control.new()
 	gap.custom_minimum_size = Vector2(0, 10)
@@ -254,29 +254,29 @@ func build_ui():
 	bottom_row.add_child(main._ui_res_btn)
 	main._ui_fps_btn = make_option_btn("Refresh", "60Hz")
 	bottom_row.add_child(main._ui_fps_btn)
-	main._ui_depth_btn = make_option_btn("Depth", "0%")
-	bottom_row.add_child(main._ui_depth_btn)
-	main._ui_parallax_btn = make_option_btn("Parallax", "0%")
-	bottom_row.add_child(main._ui_parallax_btn)
+	main._ui_render_btn = make_option_btn("Smooth", "0%")
+	bottom_row.add_child(main._ui_render_btn)
 
 	var gap2 = Control.new()
 	gap2.custom_minimum_size = Vector2(0, 10)
 	gap2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(gap2)
 
-	var render_row = HBoxContainer.new()
-	render_row.name = "RenderRow"
-	render_row.add_theme_constant_override("separation", 12)
-	render_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	render_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	render_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	render_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(render_row)
+	var mode_row = HBoxContainer.new()
+	mode_row.name = "ModeRow"
+	mode_row.add_theme_constant_override("separation", 12)
+	mode_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	mode_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	mode_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	mode_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(mode_row)
 
-	main._ui_render_btn = make_option_btn("Smooth", "0%")
-	render_row.add_child(main._ui_render_btn)
+	main._ui_sbs_btn = make_option_btn("SBS", "Off")
+	mode_row.add_child(main._ui_sbs_btn)
+	main._ui_3d_btn = make_option_btn("3D AI", "2D")
+	mode_row.add_child(main._ui_3d_btn)
 	main._ui_sharpen_btn = make_option_btn("Sharp", "0%")
-	render_row.add_child(main._ui_sharpen_btn)
+	mode_row.add_child(main._ui_sharpen_btn)
 
 	main._ui_status_label = Label.new()
 	main._ui_status_label.name = "StatusLabel"
@@ -296,13 +296,12 @@ func build_ui():
 	main._ui_pt_btn.button_down.connect(func(): main.settings_controller.toggle_passthrough())
 	main._ui_curve_btn.button_down.connect(func(): main.screen_manager.cycle_curvature())
 	main._ui_bezel_btn.button_down.connect(func(): main.screen_manager.toggle_bezel())
-	main._ui_mode_btn.button_down.connect(func(): on_sbs_toggled())
+	main._ui_sbs_btn.button_down.connect(func(): on_sbs_toggled())
+	main._ui_3d_btn.button_down.connect(func(): on_ai_3d_toggled())
 	main._ui_res_btn.button_down.connect(func(): main.settings_controller.cycle_resolution())
 	main._ui_fps_btn.button_down.connect(func(): main.settings_controller.cycle_fps())
 	main._ui_render_btn.button_down.connect(func(): main.settings_controller.cycle_smooth_mode())
 	main._ui_sharpen_btn.button_down.connect(func(): main.settings_controller.cycle_sharpen_mode())
-	main._ui_depth_btn.button_down.connect(func(): main.settings_controller.cycle_depth_mode())
-	main._ui_parallax_btn.button_down.connect(func(): main.settings_controller.cycle_parallax_mode())
 
 	update_host_label()
 

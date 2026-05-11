@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class DepthEstimator {
     private static final String TAG = "DepthEstimator";
     private static final int OUTPUT_SIZE = 256;
-    private static final int DA_INPUT_SIZE = 252;
+    private static final int DA_INPUT_SIZE = 256;
     private static final String MODEL_MIDAS = "midas-midas-v2-w8a8.tflite";
     private static final String MODEL_DEPTH_ANYTHING = "depth-anything-v2-small.tflite";
 
@@ -40,7 +40,7 @@ public class DepthEstimator {
     private final AtomicReference<byte[]> latestDepthMap = new AtomicReference<>();
 
     private byte[] previousDepthBytes = null;
-    private byte[] smoothedDepthBytes = null;
+    private float[] smoothedDepthFloat = null;
 
     private Context appContext;
 
@@ -111,7 +111,7 @@ public class DepthEstimator {
                 Thread.yield();
             }
             previousDepthBytes = null;
-            smoothedDepthBytes = null;
+            smoothedDepthFloat = null;
             activeInterpreter = target;
             activeModelIndex = modelIndex;
             Log.i(TAG, "Switched to model " + (modelIndex == 0 ? "MiDaS" : "Depth Anything V2"));
@@ -120,10 +120,6 @@ public class DepthEstimator {
 
     public int getActiveModel() {
         return activeModelIndex;
-    }
-
-    public boolean hasModelV2() {
-        return tfliteDepthAnything != null;
     }
 
     public void submitFrame(byte[] rgbaPixels, int width, int height) {
@@ -210,8 +206,7 @@ public class DepthEstimator {
         tfliteDepthAnything.run(inputBufferDA, outputBufferDA);
         outputBufferDA.rewind();
 
-        byte[] rawDepth = postProcess(outputBufferDA, DA_INPUT_SIZE);
-        return bilinearResize(rawDepth, DA_INPUT_SIZE, OUTPUT_SIZE);
+        return postProcess(outputBufferDA, DA_INPUT_SIZE);
     }
 
     private byte[] postProcess(ByteBuffer output, int size) {
@@ -225,97 +220,143 @@ public class DepthEstimator {
         }
 
         float range = max - min;
-        byte[] depthBytes = new byte[size * size];
+        float[] rawDepth = new float[size * size];
         if (range > 0) {
             floatOut.rewind();
             for (int i = 0; i < floatOut.capacity(); i++) {
-                float normalized = (floatOut.get() - min) / range;
-                float contrast = (float) Math.pow(normalized, 0.5);
-                depthBytes[i] = (byte) (contrast * 255.0f);
+                rawDepth[i] = (floatOut.get() - min) / range;
             }
         }
 
-        depthBytes = boxBlur(depthBytes, size);
-        return temporalSmooth(depthBytes);
-    }
+        float[] dilated = dilate(rawDepth, size, 6);
+        float[] blurred = separableBoxBlur(dilated, size, 14);
+        float[] smoothed = temporalSmooth(blurred, size);
 
-    private byte[] bilinearResize(byte[] src, int srcSize, int dstSize) {
-        byte[] dst = new byte[dstSize * dstSize];
-        float scale = (float) srcSize / dstSize;
-        for (int y = 0; y < dstSize; y++) {
-            float srcYf = y * scale;
-            int y0 = Math.min((int) srcYf, srcSize - 1);
-            int y1 = Math.min(y0 + 1, srcSize - 1);
-            float fy = srcYf - y0;
-            for (int x = 0; x < dstSize; x++) {
-                float srcXf = x * scale;
-                int x0 = Math.min((int) srcXf, srcSize - 1);
-                int x1 = Math.min(x0 + 1, srcSize - 1);
-                float fx = srcXf - x0;
-                float v00 = (src[y0 * srcSize + x0] & 0xFF);
-                float v10 = (src[y0 * srcSize + x1] & 0xFF);
-                float v01 = (src[y1 * srcSize + x0] & 0xFF);
-                float v11 = (src[y1 * srcSize + x1] & 0xFF);
-                float val = v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy;
-                dst[y * dstSize + x] = (byte) (val + 0.5f);
+        byte[] depthBytes = new byte[size * size];
+        float sMin = Float.MAX_VALUE, sMax = Float.MIN_VALUE;
+        for (int i = 0; i < smoothed.length; i++) {
+            if (smoothed[i] < sMin) sMin = smoothed[i];
+            if (smoothed[i] > sMax) sMax = smoothed[i];
+        }
+        float sRange = sMax - sMin;
+        if (sRange > 0) {
+            for (int i = 0; i < smoothed.length; i++) {
+                float normalized = (smoothed[i] - sMin) / sRange;
+                depthBytes[i] = (byte) (normalized * 255.0f);
             }
         }
-        return dst;
+
+        return depthBytes;
     }
 
-    private byte[] boxBlur(byte[] depth, int size) {
-        byte[] result = new byte[depth.length];
-        int r = 2;
+    private float[] dilate(float[] depth, int size, int radius) {
+        float[] horizontal = new float[depth.length];
         for (int y = 0; y < size; y++) {
             for (int x = 0; x < size; x++) {
-                int sum = 0;
-                int count = 0;
-                for (int dy = -r; dy <= r; dy++) {
-                    for (int dx = -r; dx <= r; dx++) {
-                        int nx = x + dx;
-                        int ny = y + dy;
-                        if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
-                            sum += depth[ny * size + nx] & 0xFF;
-                            count++;
-                        }
-                    }
+                float maxVal = 0.0f;
+                for (int dx = -radius; dx <= radius; dx++) {
+                    int nx = Math.min(Math.max(x + dx, 0), size - 1);
+                    float v = depth[y * size + nx];
+                    if (v > maxVal) maxVal = v;
                 }
-                result[y * size + x] = (byte) (sum / count);
+                horizontal[y * size + x] = maxVal;
+            }
+        }
+        float[] result = new float[depth.length];
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                float maxVal = 0.0f;
+                for (int dy = -radius; dy <= radius; dy++) {
+                    int ny = Math.min(Math.max(y + dy, 0), size - 1);
+                    float v = horizontal[ny * size + x];
+                    if (v > maxVal) maxVal = v;
+                }
+                result[y * size + x] = maxVal;
             }
         }
         return result;
     }
 
-    private byte[] temporalSmooth(byte[] newDepth) {
-        if (previousDepthBytes == null) {
-            previousDepthBytes = newDepth.clone();
-            smoothedDepthBytes = newDepth.clone();
+    private float[] separableBoxBlur(float[] depth, int size, int radius) {
+        float[] horizontal = new float[depth.length];
+        int diam = radius * 2 + 1;
+        for (int y = 0; y < size; y++) {
+            float sum = 0.0f;
+            for (int x = -radius; x <= radius; x++) {
+                int nx = Math.min(Math.max(x, 0), size - 1);
+                sum += depth[y * size + nx];
+            }
+            horizontal[y * size + 0] = sum / diam;
+            for (int x = 1; x < size; x++) {
+                int addX = Math.min(x + radius, size - 1);
+                int remX = Math.max(x - radius - 1, 0);
+                sum += depth[y * size + addX] - depth[y * size + remX];
+                horizontal[y * size + x] = sum / diam;
+            }
+        }
+        float[] result = new float[depth.length];
+        for (int x = 0; x < size; x++) {
+            float sum = 0.0f;
+            for (int y = -radius; y <= radius; y++) {
+                int ny = Math.min(Math.max(y, 0), size - 1);
+                sum += horizontal[ny * size + x];
+            }
+            result[0 * size + x] = sum / diam;
+            for (int y = 1; y < size; y++) {
+                int addY = Math.min(y + radius, size - 1);
+                int remY = Math.max(y - radius - 1, 0);
+                sum += horizontal[addY * size + x] - horizontal[remY * size + x];
+                result[y * size + x] = sum / diam;
+            }
+        }
+        return result;
+    }
+
+    private float[] temporalSmooth(float[] newDepth, int size) {
+        int len = size * size;
+        if (smoothedDepthFloat == null) {
+            smoothedDepthFloat = newDepth.clone();
+            previousDepthBytes = new byte[len];
+            for (int i = 0; i < len; i++) {
+                previousDepthBytes[i] = (byte) (newDepth[i] * 255.0f);
+            }
             return newDepth;
         }
 
-        float smoothing = 0.15f;
-
-        long totalDiff = 0;
-        for (int i = 0; i < newDepth.length; i++) {
-            totalDiff += Math.abs((newDepth[i] & 0xFF) - (previousDepthBytes[i] & 0xFF));
+        double totalDiff = 0.0;
+        double totalSqDiff = 0.0;
+        for (int i = 0; i < len; i++) {
+            float oldVal = (previousDepthBytes[i] & 0xFF) / 255.0f;
+            float diff = newDepth[i] - oldVal;
+            totalDiff += Math.abs(diff);
+            totalSqDiff += diff * diff;
         }
-        double avgDiff = (double) totalDiff / newDepth.length;
+        double meanDiff = totalDiff / len;
+        double stdDev = Math.sqrt(totalSqDiff / len - meanDiff * meanDiff);
+        double depthDiff = Math.max(meanDiff, stdDev);
 
-        if (avgDiff > 80.0) {
-            smoothing = 0.5f;
-        } else if (avgDiff > 50.0) {
-            smoothing = 0.3f;
+        float smoothing;
+        if (depthDiff > 0.1) {
+            smoothing = 1.0f;
+        } else if (depthDiff > 0.01) {
+            smoothing = (float) (depthDiff * 2.0);
+            smoothing = Math.min(smoothing, 1.0f);
+        } else {
+            smoothing = 0.0f;
         }
 
-        byte[] result = new byte[newDepth.length];
-        for (int i = 0; i < newDepth.length; i++) {
-            float prev = smoothedDepthBytes[i] & 0xFF;
-            float curr = newDepth[i] & 0xFF;
-            result[i] = (byte) (prev * (1.0f - smoothing) + curr * smoothing);
+        float[] result = new float[len];
+        for (int i = 0; i < len; i++) {
+            float prev = smoothedDepthFloat[i];
+            float curr = newDepth[i];
+            result[i] = prev * (1.0f - smoothing) + curr * smoothing;
         }
 
-        previousDepthBytes = newDepth.clone();
-        smoothedDepthBytes = result.clone();
+        for (int i = 0; i < len; i++) {
+            previousDepthBytes[i] = (byte) (newDepth[i] * 255.0f);
+        }
+        smoothedDepthFloat = result;
+
         return result;
     }
 
