@@ -30,6 +30,9 @@ func handle_pointer_interaction():
 					var radius = 10.0 if main.curvature == 1 else 4.0
 					var total_angle = ms.x / radius
 					uv_x = clampf((asin(clampf(local_pos.x / radius, -1.0, 1.0)) + total_angle * 0.5) / total_angle, 0.0, 1.0)
+				if main.settings_controller.get_stereo_mode() >= 3:
+					var shift = _compute_parallax_shift(uv_x)
+					uv_x = clampf(uv_x - shift, 0.0, 1.0)
 				var host_x = int(uv_x * main.stream_viewport.size.x)
 				var host_y = int(uv_y * main.stream_viewport.size.y)
 				main.stream_backend.send_mouse_position_event(host_x, host_y, main.stream_viewport.size.x, main.stream_viewport.size.y)
@@ -194,6 +197,9 @@ func handle_pointer_interaction():
 				var radius = 10.0 if main.curvature == 1 else 4.0
 				var total_angle = ms.x / radius
 				uv_x = clampf((asin(clampf(local_pos.x / radius, -1.0, 1.0)) + total_angle * 0.5) / total_angle, 0.0, 1.0)
+			if main.settings_controller.get_stereo_mode() >= 3:
+				var shift = _compute_parallax_shift(uv_x)
+				uv_x = clampf(uv_x - shift, 0.0, 1.0)
 			var host_x = int(uv_x * main.stream_viewport.size.x)
 			var host_y = int(uv_y * main.stream_viewport.size.y)
 
@@ -379,6 +385,42 @@ func _set_corner_color(handle: MeshInstance3D, color: Color, alpha: float = 1.0)
 	for child in handle.get_children():
 		if child is MeshInstance3D:
 			child.material_override.albedo_color = c
+
+func _compute_parallax_shift(uv_x: float) -> float:
+	if not main.depth_estimator or not main.depth_estimator.depth_texture:
+		return 0.0
+	var tex = main.depth_estimator.depth_texture
+	var img = tex.get_image()
+	if not img or img.is_empty():
+		return 0.0
+	var parallax = 0.042
+	var half_parallax = parallax * 0.5
+	var convergence = main.screen_mesh.material_override.get_shader_parameter("convergence")
+	if convergence == null:
+		convergence = 0.5
+	var balance_shift = main.screen_mesh.material_override.get_shader_parameter("balance_shift")
+	if balance_shift == null:
+		balance_shift = 0.5
+	var depth_x = int(clampf(uv_x - half_parallax, 0.0, 1.0) * (img.get_width() - 1))
+	var depth_y = int(img.get_height() * 0.5)
+	depth_x = clampi(depth_x, 0, img.get_width() - 1)
+	depth_y = clampi(depth_y, 0, img.get_height() - 1)
+	var depth = img.get_pixel(depth_x, depth_y).r
+	var depth_diff = clampf(depth - convergence, -convergence, 1.0 - convergence)
+	var dist_from_convergence = absf(depth - convergence)
+	var zone_radius = 0.70
+	var fade_multiplier = smoothstep(0.0, zone_radius, dist_from_convergence)
+	depth_diff *= fade_multiplier
+	var shift = parallax * depth_diff
+	if (depth - convergence) < 0.0:
+		shift *= (1.0 - balance_shift)
+	else:
+		shift *= balance_shift
+	var h_dist = absf(uv_x - 0.5) * 2.0
+	var vignette_start = 0.7
+	var vignette = 1.0 - smoothstep(vignette_start, 1.0, pow(h_dist, 1.5))
+	shift *= vignette
+	return shift
 
 func handle_scroll():
 	if not main.is_xr_active or not main.is_streaming:

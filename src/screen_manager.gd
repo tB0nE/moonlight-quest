@@ -61,17 +61,18 @@ func update_corner_positions():
 		var chord_half = sin(half_angle) * radius
 		var extra = chord_half - mesh_size.x * 0.5
 		if main.curvature == 2:
-			extra += 0.12
+			extra += 0.22
 		else:
-			extra += 0.08
+			extra += 0.15
 		extra_out = extra
-		corner_z = -(cos(half_angle) * radius - radius) - 0.02
+		corner_z = -(cos(half_angle) * radius - radius) - 0.04
 	var offsets = [
 		Vector2(-0.5, 0.5),
 		Vector2(0.5, 0.5),
 		Vector2(-0.5, -0.5),
 		Vector2(0.5, -0.5),
 	]
+	var y_extra = 0.12 if main.curvature > 0 else 0.08
 	for i in range(4):
 		var cx = offsets[i].x * (mesh_size.x + 0.08)
 		if main.curvature > 0:
@@ -80,7 +81,7 @@ func update_corner_positions():
 			var a = -half_angle if offsets[i].x < 0 else half_angle
 			cx = sin(a) * radius
 			cx += -extra_out if offsets[i].x < 0 else extra_out
-		main.corner_handles[i].position = Vector3(cx, offsets[i].y * (mesh_size.y + 0.08), corner_z)
+		main.corner_handles[i].position = Vector3(cx, offsets[i].y * (mesh_size.y + y_extra), corner_z)
 	main.get_node("%ScreenGrabBar").position.y = -mesh_size.y / 2.0 - 0.08
 
 func create_bezel():
