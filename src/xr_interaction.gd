@@ -323,7 +323,7 @@ func handle_corner_resize():
 	if main.curvature == 0:
 		main.screen_mesh.mesh.size = Vector2(new_w, new_h)
 	else:
-		main._apply_curvature()
+		main.screen_manager.apply_curvature()
 
 	var col_shape = main.screen_mesh.get_node_or_null("Area3D/CollisionShape3D")
 	if col_shape:
@@ -346,8 +346,8 @@ func handle_corner_resize():
 				concave.set_faces(faces)
 				col_shape.shape = concave
 
-	main.update_corner_positions()
-	main._update_bezel_size()
+	main.screen_manager.update_corner_positions()
+	main.screen_manager.update_bezel_size()
 
 	var still_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if not still_clicking:
