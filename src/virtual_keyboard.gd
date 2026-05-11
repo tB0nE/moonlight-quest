@@ -59,12 +59,13 @@ func build():
 	mesh_instance.mesh = quad
 	var tex_mat = StandardMaterial3D.new()
 	tex_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	tex_mat.albedo_color = Color(1, 1, 1, 0.45)
+	tex_mat.albedo_color = Color(1, 1, 1, 0.85)
 	tex_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	tex_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	tex_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	tex_mat.albedo_texture = viewport.get_texture()
 	mesh_instance.set_surface_override_material(0, tex_mat)
+	mesh_instance.extra_cull_margin = 10.0
 	add_child(mesh_instance)
 
 	area = Area3D.new()
@@ -242,28 +243,36 @@ func _apply_modifier_visuals():
 
 var _saved_offset: Vector3 = Vector3.ZERO
 var _saved_rot_y: float = 0.0
+var _saved_rot_x: float = 0.0
 var _has_saved_offset: bool = false
 
 func toggle():
-	visible = not visible
-	grab_bar.visible = visible
-	if visible:
+	var new_vis = not visible
+	if new_vis:
 		if _has_saved_offset:
 			global_position = main.screen_mesh.global_position + main.screen_mesh.global_transform.basis * _saved_offset
 			rotation.y = main.screen_mesh.global_rotation.y + _saved_rot_y
+			rotation.x = _saved_rot_x
 		else:
 			var cam_pos = main.xr_camera.global_position
 			var cam_fwd = -main.xr_camera.global_transform.basis.z
 			global_position = cam_pos + cam_fwd * 1.0 + Vector3(0, -0.3, 0)
 			var to_cam = (cam_pos - global_position).normalized()
+			rotation = Vector3.ZERO
 			rotation.y = atan2(to_cam.x, to_cam.z)
+			rotation.x = -PI / 4.0
 			_has_saved_offset = true
 		_save_offset()
-	else:
-		_save_offset()
+	visible = new_vis
+	grab_bar.visible = new_vis
+	if area:
+		area.process_mode = Node.PROCESS_MODE_INHERIT if new_vis else Node.PROCESS_MODE_DISABLED
+	if grab_bar_area:
+		grab_bar_area.process_mode = Node.PROCESS_MODE_INHERIT if new_vis else Node.PROCESS_MODE_DISABLED
 
 func _save_offset():
 	var scr_basis = main.screen_mesh.global_transform.basis.inverse()
 	_saved_offset = scr_basis * (global_position - main.screen_mesh.global_position)
 	_saved_rot_y = rotation.y - main.screen_mesh.global_rotation.y
+	_saved_rot_x = rotation.x
 	_has_saved_offset = true

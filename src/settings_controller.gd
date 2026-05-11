@@ -76,6 +76,11 @@ func cycle_smooth_mode():
 	apply_filter()
 	main.state_manager.save_state()
 
+func cycle_cursor_mode():
+	main.cursor_mode = (main.cursor_mode + 1) % main.cursor_labels.size()
+	main.ui_controller.update_option_btn(main._ui_cursor_btn, main.cursor_labels[main.cursor_mode])
+	main.state_manager.save_state()
+
 func cycle_sharpen_mode():
 	main.sharpen_mode = (main.sharpen_mode + 1) % main.sharpen_labels.size()
 	main.ui_controller.update_option_btn(main._ui_sharpen_btn, main.sharpen_labels[main.sharpen_mode])
@@ -88,7 +93,7 @@ func apply_filter():
 	var mat = main.screen_mesh.material_override
 	if mat:
 		mat.set_shader_parameter("filter_mode", main.smooth_mode)
-		mat.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.1)
+		mat.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.2)
 
 func cycle_fps():
 	var rates = [60, 90, 120]

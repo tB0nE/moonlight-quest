@@ -61,13 +61,36 @@ func handle_pointer_interaction():
 
 	var laser = main.get_node("%Laser")
 	laser.visible = main.is_xr_active
+	var on_screen = false
 	if active_raycast.is_colliding():
-		if main.contact_dot:
-			main.contact_dot.global_position = active_raycast.get_collision_point()
-			main.contact_dot.visible = true
+		var hit_point = active_raycast.get_collision_point()
+		var _col = active_raycast.get_collider()
+		var _par = _col.get_parent() if _col else null
+		on_screen = (_par == main.screen_mesh)
+		if main.cursor_mode == 0 or not on_screen:
+			if main.contact_dot:
+				main.contact_dot.global_position = hit_point
+				main.contact_dot.visible = true
+			if main.pointer_cursor:
+				main.pointer_cursor.visible = false
+		else:
+			if main.pointer_cursor:
+				main.pointer_cursor.global_position = hit_point
+				var to_cam = (main.xr_camera.global_position - hit_point).normalized()
+				main.pointer_cursor.look_at(main.pointer_cursor.global_position + to_cam, Vector3.UP)
+				main.pointer_cursor.rotate_object_local(Vector3.UP, PI)
+				var face = -main.pointer_cursor.global_transform.basis.z
+				var right = main.pointer_cursor.global_transform.basis.x
+				var up = main.pointer_cursor.global_transform.basis.y
+				main.pointer_cursor.global_position = hit_point + face * 0.002 + right * 0.03 - up * 0.04
+				main.pointer_cursor.visible = true
+			if main.contact_dot:
+				main.contact_dot.visible = false
 	else:
 		if main.contact_dot:
 			main.contact_dot.visible = false
+		if main.pointer_cursor:
+			main.pointer_cursor.visible = false
 
 	if active_raycast.is_colliding():
 		var collider = active_raycast.get_collider()
@@ -283,7 +306,13 @@ func handle_corner_resize():
 	var local_hit = main.screen_mesh.to_local(hit_world)
 
 	var aspect = 16.0 / 9.0
-	var raw_w = absf(local_hit.x) * 2.0
+	var raw_w = 0.0
+	if main.curvature == 0:
+		raw_w = absf(local_hit.x) * 2.0
+	else:
+		var radius = 10.0 if main.curvature == 1 else 4.0
+		var a = asin(clampf(local_hit.x / radius, -1.0, 1.0))
+		raw_w = absf(a) * radius * 2.0
 	var new_w = maxf(raw_w, 0.6)
 	var new_h = new_w / aspect
 	if new_h < 0.4:

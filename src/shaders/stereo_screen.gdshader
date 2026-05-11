@@ -9,27 +9,53 @@ uniform float balance_shift = 0.5;
 uniform int filter_mode = 0;
 uniform float sharpen = 0.0;
 
+vec3 cas_sharpen(sampler2D tex, vec2 uv, float strength) {
+    vec2 texel = 1.0 / vec2(textureSize(tex, 0));
+
+    vec3 c = texture(tex, uv).rgb;
+    vec3 n = texture(tex, uv + vec2( 0.0, -texel.y)).rgb;
+    vec3 w = texture(tex, uv + vec2(-texel.x,  0.0)).rgb;
+    vec3 e = texture(tex, uv + vec2( texel.x,  0.0)).rgb;
+    vec3 s = texture(tex, uv + vec2( 0.0,  texel.y)).rgb;
+
+    vec3 mn = min(c, min(n, min(w, min(e, s))));
+    vec3 mx = max(c, max(n, max(w, max(e, s))));
+    vec3 range = mx - mn;
+
+    vec3 peak = max(mx, vec3(0.0001));
+    vec3 weight = vec3(strength) * clamp((peak - range) / peak, vec3(0.0), vec3(1.0));
+
+    vec3 avg = (n + w + e + s) * 0.25;
+    return c + weight * (c - avg);
+}
+
 vec3 filtered_texture(sampler2D tex, vec2 uv) {
     vec2 texel = 1.0 / vec2(textureSize(tex, 0));
     vec3 original = texture(tex, uv).rgb;
+
     if (filter_mode == 0 && sharpen <= 0.0) {
         return original;
     }
-    float s = float(filter_mode) * 0.5;
-    vec3 blurred = original * 4.0;
-    blurred += texture(tex, uv + vec2(-1.0, -1.0) * texel * s).rgb;
-    blurred += texture(tex, uv + vec2( 1.0, -1.0) * texel * s).rgb;
-    blurred += texture(tex, uv + vec2(-1.0,  1.0) * texel * s).rgb;
-    blurred += texture(tex, uv + vec2( 1.0,  1.0) * texel * s).rgb;
-    blurred += texture(tex, uv + vec2(-1.0,  0.0) * texel * s).rgb * 2.0;
-    blurred += texture(tex, uv + vec2( 1.0,  0.0) * texel * s).rgb * 2.0;
-    blurred += texture(tex, uv + vec2( 0.0, -1.0) * texel * s).rgb * 2.0;
-    blurred += texture(tex, uv + vec2( 0.0,  1.0) * texel * s).rgb * 2.0;
-    blurred /= 16.0;
-    if (filter_mode == 0) {
-        return original + sharpen * (original - blurred);
+
+    if (filter_mode > 0) {
+        float s = float(filter_mode) * 0.5;
+        vec3 blurred = original * 4.0;
+        blurred += texture(tex, uv + vec2(-1.0, -1.0) * texel * s).rgb;
+        blurred += texture(tex, uv + vec2( 1.0, -1.0) * texel * s).rgb;
+        blurred += texture(tex, uv + vec2(-1.0,  1.0) * texel * s).rgb;
+        blurred += texture(tex, uv + vec2( 1.0,  1.0) * texel * s).rgb;
+        blurred += texture(tex, uv + vec2(-1.0,  0.0) * texel * s).rgb * 2.0;
+        blurred += texture(tex, uv + vec2( 1.0,  0.0) * texel * s).rgb * 2.0;
+        blurred += texture(tex, uv + vec2( 0.0, -1.0) * texel * s).rgb * 2.0;
+        blurred += texture(tex, uv + vec2( 0.0,  1.0) * texel * s).rgb * 2.0;
+        blurred /= 16.0;
+        if (sharpen > 0.0) {
+            return blurred + sharpen * (original - blurred);
+        }
+        return blurred;
     }
-    return blurred + sharpen * (original - blurred);
+
+    return cas_sharpen(tex, uv, sharpen);
 }
 
 void fragment() {

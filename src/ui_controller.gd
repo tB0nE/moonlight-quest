@@ -277,6 +277,8 @@ func build_ui():
 	mode_row.add_child(main._ui_3d_btn)
 	main._ui_sharpen_btn = make_option_btn("Sharp", "0%")
 	mode_row.add_child(main._ui_sharpen_btn)
+	main._ui_cursor_btn = make_option_btn("Cursor", "Circle")
+	mode_row.add_child(main._ui_cursor_btn)
 
 	main._ui_status_label = Label.new()
 	main._ui_status_label.name = "StatusLabel"
@@ -302,6 +304,7 @@ func build_ui():
 	main._ui_fps_btn.button_down.connect(func(): main.settings_controller.cycle_fps())
 	main._ui_render_btn.button_down.connect(func(): main.settings_controller.cycle_smooth_mode())
 	main._ui_sharpen_btn.button_down.connect(func(): main.settings_controller.cycle_sharpen_mode())
+	main._ui_cursor_btn.button_down.connect(func(): main.settings_controller.cycle_cursor_mode())
 
 	update_host_label()
 

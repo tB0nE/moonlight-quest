@@ -85,6 +85,8 @@ var resolution_idx: int = -1
 var resolutions: Array = [Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]
 var resolution_labels: Array = ["1080p", "1440p", "4K"]
 
+var cursor_mode: int = 0
+var cursor_labels: Array = ["Circle", "Pointer"]
 var corner_handles: Array = []
 var grabbed_corner_idx: int = -1
 var corner_anchor_world: Vector3 = Vector3.ZERO
@@ -116,6 +118,7 @@ var _ui_res_btn: Button
 var _ui_fps_btn: Button
 var _ui_render_btn: Button
 var _ui_sharpen_btn: Button
+var _ui_cursor_btn: Button
 var _ui_exit_btn: Button
 var _ui_disconnect_btn: Button
 var _ui_close_btn: Button
@@ -268,6 +271,7 @@ func _ready():
 
 		get_viewport().size = render_size
 		get_viewport().use_xr = true
+		get_viewport().msaa_3d = Viewport.MSAA_2X
 		_xr_base_render_scale = get_viewport().scaling_3d_scale
 		is_xr_active = true
 		sbs_mode = 0
@@ -278,9 +282,9 @@ func _ready():
 
 		await get_tree().create_timer(0.5).timeout
 		_reposition_screen_and_ui()
-		screen_mesh.visible = false
-		await get_tree().process_frame
-		screen_mesh.visible = true
+
+		screen_mesh.extra_cull_margin = 10.0
+		ui_panel_3d.extra_cull_margin = 10.0
 
 		state_manager.load_state()
 
@@ -434,16 +438,18 @@ func _set_ui_visible(vis: bool):
 	var area = ui_panel_3d.get_node_or_null("Area3D")
 	if area:
 		area.process_mode = Node.PROCESS_MODE_INHERIT if vis else Node.PROCESS_MODE_DISABLED
-	if is_xr_active:
-		if vis:
-			var cam_pos = xr_camera.global_position
-			var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
-			ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
-			if _ui_has_saved_offset:
-				ui_panel_3d.global_position = screen_mesh.global_position + screen_mesh.global_transform.basis * _ui_saved_offset
+	if is_xr_active and vis:
+		var cam_pos = xr_camera.global_position
+		var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
+		if _ui_has_saved_offset:
+			ui_panel_3d.global_position = screen_mesh.global_position + screen_mesh.global_transform.basis * _ui_saved_offset
+			ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
+		ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
+		ui_panel_3d.rotation.x = -0.26
+		_ui_has_saved_offset = true
+	elif is_xr_active:
 		var scr_basis = screen_mesh.global_transform.basis.inverse()
 		_ui_saved_offset = scr_basis * (ui_panel_3d.global_position - screen_mesh.global_position)
-		_ui_saved_rot_y = ui_panel_3d.rotation.y - screen_mesh.global_rotation.y
 		_ui_has_saved_offset = true
 
 func _reposition_screen_and_ui():
@@ -452,16 +458,16 @@ func _reposition_screen_and_ui():
 	var cam_pos = xr_camera.global_position
 	var cam_fwd = -xr_camera.global_transform.basis.z
 	var cam_right = xr_camera.global_transform.basis.x
-	screen_mesh.global_position = cam_pos + cam_fwd * 2.0 + Vector3(0, 0.3, 0)
+	screen_mesh.global_position = cam_pos + cam_fwd * 4.0
 	var screen_to_cam = (cam_pos - screen_mesh.global_position).normalized()
 	screen_mesh.rotation = Vector3.ZERO
 	screen_mesh.rotation.y = atan2(screen_to_cam.x, screen_to_cam.z)
-	var ui_dir = (cam_fwd - cam_right).normalized()
-	ui_panel_3d.global_position = cam_pos + ui_dir * 1.8
-	ui_panel_3d.global_position.y -= 0.4
+	ui_panel_3d.global_position = cam_pos + cam_fwd * 1.5 - cam_right * 1.2
+	ui_panel_3d.global_position.y = cam_pos.y - 0.5
 	var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
 	ui_panel_3d.rotation = Vector3.ZERO
 	ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
+	ui_panel_3d.rotation.x = -0.26
 	_log("[POS] Screen at %s, UI at %s, Cam at %s" % [str(screen_mesh.global_position), str(ui_panel_3d.global_position), str(cam_pos)])
 
 func _load_controller_models():
@@ -502,6 +508,7 @@ func _apply_controller_textures(node: Node, is_left: bool):
 		_apply_controller_textures(child, is_left)
 
 var contact_dot: MeshInstance3D
+var pointer_cursor: MeshInstance3D
 
 func _create_contact_dot():
 	contact_dot = MeshInstance3D.new()
@@ -519,6 +526,24 @@ func _create_contact_dot():
 	contact_dot.material_override = dot_mat
 	contact_dot.visible = false
 	add_child(contact_dot)
+
+	pointer_cursor = MeshInstance3D.new()
+	pointer_cursor.name = "PointerCursor"
+	var ptr_mesh = QuadMesh.new()
+	ptr_mesh.size = Vector2(0.06, 0.08)
+	pointer_cursor.mesh = ptr_mesh
+	var ptr_mat = StandardMaterial3D.new()
+	ptr_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ptr_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ptr_mat.render_priority = 127
+	ptr_mat.no_depth_test = true
+	ptr_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	ptr_mat.albedo_texture = load("res://src/assets/mouse_pointer_01.png")
+	ptr_mat.albedo_color = Color(1, 1, 1, 1.0)
+	pointer_cursor.material_override = ptr_mat
+	pointer_cursor.visible = false
+	pointer_cursor.extra_cull_margin = 10.0
+	add_child(pointer_cursor)
 
 func _create_starfield():
 	var particles = GPUParticles3D.new()

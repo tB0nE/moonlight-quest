@@ -25,9 +25,8 @@ passthrough, and AI depth estimation, all built native on Godot 4 and OpenXR.
 - **HEVC hardware decoding** - NDK MediaCodec pipeline for low-latency H.265 on Quest 3/3S
 - **Stereoscopic 3D** - five modes: 2D, SBS Stretch, SBS Crop, AI 3D (MiDaS), and AI 3D v2 (Depth Anything)
 - **AI depth estimation** - MiDaS v2 and Depth Anything V2 TFLite models convert any 2D stream into stereoscopic 3D via DIBR
-- **Depth & Parallax tuning** - independent sliders for depth map contrast (1x–4.6x) and parallax shift (0.5–1.1), toggle in real-time
-- **Shader smoothing & sharpening** - Gaussian blur (0–50%) plus unsharp mask sharpening (0–50%) on the stream
-- **Touch-style pointer** - laser pointer with trigger-to-click, grip for right-click, thumbstick scroll
+- **Shader smoothing & sharpening** - Gaussian blur (0–50%) plus CAS adaptive sharpening (0–50%) on the stream
+- **Touch-style pointer** - laser pointer with trigger-to-click, grip for right-click, thumbstick scroll; circle or arrow cursor
 - **Passthrough** - see your real room with the stream floating in front of you
 - **Curved screen** - flat, slight curve, or full curve with a single button press
 - **Quest Touch Plus models** - real controller models instead of placeholder boxes
@@ -122,5 +121,5 @@ Donations help keep the coffee flowing and the commits coming.
 
 Nightfall is licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE) for the full text.
 
-Special thanks to the [Moonlight-Godot](https://github.com/html5syt/Moonlight-Godot) project, which served as a reference implementation. Compatible with
+Special thanks to the [Moonlight-Godot](https://github.com/html5syt/Moonlight-Godot) project, which served as a reference implementation, and to [Janyger](https://github.com/Janyger) for AI 3D contributions to Artemis. Compatible with
 [Apollo](https://github.com/ClassicOldSong/Apollo), [Sunshine](https://github.com/LizardByte/Sunshine), and [Polaris](https://github.com/papi-ux/polaris).
