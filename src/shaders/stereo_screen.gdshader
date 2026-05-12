@@ -181,7 +181,7 @@ vec3 filtered_stream(vec2 uv) {
 }
 
 void fragment() {
-	vec2 uv = UV;
+	vec2 uv = clamp(UV, vec2(0.002), vec2(0.998));
 	
 	if (stereo_mode == 0) {
 		ALBEDO = filtered_stream(uv);
