@@ -95,7 +95,7 @@ func apply_filter():
 	var mat = main.screen_mesh.material_override
 	if mat:
 		mat.set_shader_parameter("filter_mode", main.smooth_mode)
-		mat.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.2)
+		mat.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.016)
 
 func apply_display_refresh_rate():
 	if not main.is_xr_active:

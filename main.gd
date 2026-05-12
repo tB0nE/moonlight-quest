@@ -79,6 +79,7 @@ var sharpen_mode: int = 0
 var smooth_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%"]
 var sharpen_labels: Array = ["0%", "10%", "20%", "30%", "40%", "50%"]
 var _xr_base_render_scale: float = 1.0
+var _xr_render_width: int = 1680
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
@@ -311,6 +312,7 @@ func _ready():
 	var interface = XRServer.find_interface("OpenXR")
 	if interface and interface.is_initialized():
 		var render_size = interface.get_render_target_size()
+		_xr_render_width = int(render_size.x)
 		_log("[XR] OpenXR render target: %dx%d" % [render_size.x, render_size.y])
 		_log("[XR] Blend modes: %s" % str(interface.get_supported_environment_blend_modes()))
 

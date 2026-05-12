@@ -103,7 +103,10 @@ func resize_stream_viewport(w: int, h: int):
 	if _v2_yuv_rect:
 		_v2_yuv_rect.custom_minimum_size = Vector2(w, h)
 	main.screen_manager.resize_screen_to_aspect(w, h)
-	main._log("[STREAM] Viewport resized to %dx%d" % [w, h])
+	if main._xr_render_width > 0:
+		var scale = float(w) / float(main._xr_render_width)
+		main.screen_mesh.material_override.set_shader_parameter("blur_scale", scale)
+	main._log("[STREAM] Viewport resized to %dx%d (blur_scale=%.2f)" % [w, h, float(w) / float(main._xr_render_width) if main._xr_render_width > 0 else 1.0])
 
 func on_pair_pressed():
 	var ip = main.get_node("%IPInput").text

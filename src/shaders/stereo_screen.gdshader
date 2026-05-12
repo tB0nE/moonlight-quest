@@ -15,6 +15,7 @@ uniform sampler2D tex_v : filter_linear, repeat_disable;
 uniform int yuv_mode = 0;
 uniform int color_matrix_type = 1;
 uniform int color_range = 0;
+uniform float blur_scale = 1.0;
 
 vec3 yuv_to_rgb(vec2 uv) {
 	float y_raw = texture(tex_y, uv).r;
@@ -74,6 +75,7 @@ vec3 srgb_to_linear(vec3 c) {
 }
 
 vec3 sample_stream(vec2 uv) {
+	uv = clamp(uv, vec2(0.0), vec2(1.0));
 	if (yuv_mode > 0) {
 		return srgb_to_linear(yuv_to_rgb(uv));
 	}
@@ -81,7 +83,7 @@ vec3 sample_stream(vec2 uv) {
 }
 
 vec3 cas_sharpen_stream(vec2 uv, float strength) {
-	vec2 texel = 1.0 / vec2(textureSize(tex_y, 0));
+	vec2 texel = 1.0 / vec2(textureSize(tex_y, 0)) * blur_scale;
 
 	vec3 c = sample_stream(uv);
 	vec3 n = sample_stream(uv + vec2( 0.0, -texel.y));
@@ -122,7 +124,7 @@ vec3 cas_sharpen_rgb(sampler2D tex, vec2 uv, float strength) {
 
 vec3 filtered_stream(vec2 uv) {
 	if (yuv_mode > 0) {
-		vec2 texel = 1.0 / vec2(textureSize(tex_y, 0));
+		vec2 texel = 1.0 / vec2(textureSize(tex_y, 0)) * blur_scale;
 		vec3 original = sample_stream(uv);
 
 		if (filter_mode == 0 && sharpen <= 0.0) {
@@ -130,7 +132,7 @@ vec3 filtered_stream(vec2 uv) {
 		}
 
 		if (filter_mode > 0) {
-			float s = float(filter_mode) * 0.5;
+			float s = 0.125 * float(filter_mode) + 0.175;
 			vec3 blurred = original * 4.0;
 			blurred += sample_stream(uv + vec2(-1.0, -1.0) * texel * s);
 			blurred += sample_stream(uv + vec2( 1.0, -1.0) * texel * s);
@@ -158,7 +160,7 @@ vec3 filtered_stream(vec2 uv) {
 	}
 
 	if (filter_mode > 0) {
-		float s = float(filter_mode) * 0.5;
+		float s = 0.125 * float(filter_mode) + 0.175;
 		vec3 blurred = original * 4.0;
 		blurred += texture(main_texture, uv + vec2(-1.0, -1.0) * texel * s).rgb;
 		blurred += texture(main_texture, uv + vec2( 1.0, -1.0) * texel * s).rgb;

@@ -276,6 +276,7 @@ func build_ui():
 	vbox.add_child(row3)
 
 	main._ui_wide_btn = make_option_btn("Wide", "Off")
+	main._ui_wide_btn.disabled = true
 	row3.add_child(main._ui_wide_btn)
 	main._ui_sbs_btn = make_option_btn("SBS", "Off")
 	row3.add_child(main._ui_sbs_btn)
