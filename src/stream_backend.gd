@@ -74,6 +74,22 @@ func stop_play_stream():
 	if _v2:
 		_v2.stop_stream()
 
+func cancel_host_stream(host_id: int):
+	var cm = get_computer_manager()
+	if not cm:
+		return
+	var hosts = get_hosts()
+	var ip = ""
+	var port = 47984
+	for h in hosts:
+		if h.has("id") and h.id == host_id:
+			ip = h.get("localaddress", "")
+			port = h.get("https_port", 47984)
+			break
+	if ip.is_empty():
+		return
+	cm.cancel_host_stream(host_id, ip, port)
+
 func is_streaming() -> bool:
 	if _v2:
 		return _v2.get_state() == 2

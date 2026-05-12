@@ -108,6 +108,7 @@ public:
 
     void establish_stream(int host_id, int app_id, Dictionary options, Callable callback);
     void stop_stream(int host_id, Callable callback);
+    void cancel_host_stream(int host_id, String ip, int port);
 };
 
 } // namespace godot

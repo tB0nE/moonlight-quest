@@ -658,6 +658,13 @@ void NightfallComputerManager::_on_simple_request_completed(int code, PackedByte
         callback.call(code == 200 ? body.get_string_from_utf8() : "");
 }
 
+void NightfallComputerManager::cancel_host_stream(int host_id, String ip, int port) {
+    if (ip.is_empty()) return;
+    String url = "https://" + ip + ":" + String::num_int64(port) + "/cancel?uniqueid=" + unique_id + "&uuid=" + _get_uuid();
+    http_requester->request(url, "GET", PackedByteArray(), Dictionary(), _get_ssl_options(), Callable());
+    NF_LOG("NightfallPair", "cancel_host_stream: sent /cancel to %s:%d", ip.utf8().get_data(), port);
+}
+
 PackedByteArray NightfallComputerManager::_generate_random_bytes(int size) {
     Ref<Crypto> c;
     c.instantiate();
@@ -834,4 +841,5 @@ void NightfallComputerManager::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_app_cover", "host_id", "app_id", "callback"), &NightfallComputerManager::get_app_cover);
     ClassDB::bind_method(D_METHOD("establish_stream", "host_id", "app_id", "options", "callback"), &NightfallComputerManager::establish_stream);
     ClassDB::bind_method(D_METHOD("stop_stream", "host_id", "callback"), &NightfallComputerManager::stop_stream);
+    ClassDB::bind_method(D_METHOD("cancel_host_stream", "host_id", "ip", "port"), &NightfallComputerManager::cancel_host_stream, DEFVAL(47984));
 }

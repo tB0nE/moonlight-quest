@@ -155,6 +155,8 @@ func exit_app():
 	get_tree().quit()
 
 func disconnect_stream():
+	if current_host_id >= 0:
+		stream_backend.cancel_host_stream(current_host_id)
 	stream_backend.stop_play_stream()
 
 func _bind_yuv_textures():
