@@ -78,7 +78,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 expand_mode = 1
-stretch_mode = 5
+stretch_mode = 6
 
 [node name="DetectionViewport" type="SubViewport" parent="." unique_id=843900632]
 unique_name_in_owner = true

@@ -102,6 +102,7 @@ func resize_stream_viewport(w: int, h: int):
 	main.stream_target.custom_minimum_size = Vector2(w, h)
 	if _v2_yuv_rect:
 		_v2_yuv_rect.custom_minimum_size = Vector2(w, h)
+	main.screen_manager.resize_screen_to_aspect(w, h)
 	main._log("[STREAM] Viewport resized to %dx%d" % [w, h])
 
 func on_pair_pressed():
@@ -205,6 +206,9 @@ func update_stats():
 	var vh = _b().get_video_height()
 	if vw == 0 or vh == 0:
 		return
+	var cur_size = main.stream_viewport.size
+	if cur_size.x != vw or cur_size.y != vh:
+		resize_stream_viewport(vw, vh)
 	var hw = "HW" if _b().is_hw_decode() else "SW"
 	var ip = main.get_node("%IPInput").text
 	var ip_display = ip if not ip.is_empty() else "?"

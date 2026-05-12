@@ -153,6 +153,23 @@ func toggle_bezel():
 	main.ui_controller.update_option_btn(main._ui_bezel_btn, "On" if main.bezel_enabled else "Off")
 	main.state_manager.save_state()
 
+func resize_screen_to_aspect(stream_w: int, stream_h: int):
+	var aspect = float(stream_w) / float(stream_h)
+	var new_w = main._mesh_size.x
+	var new_h = new_w / aspect
+	if new_h < 0.4:
+		new_h = 0.4
+		new_w = new_h * aspect
+	main._mesh_size = Vector2(new_w, new_h)
+	if main.curvature == 0:
+		main.screen_mesh.mesh.size = main._mesh_size
+		set_screen_collision_flat(main._mesh_size)
+	else:
+		apply_curvature()
+	update_corner_positions()
+	if main.bezel_mesh:
+		update_bezel_size()
+
 func cycle_curvature():
 	main.curvature = (main.curvature + 1) % 3
 	apply_curvature()
