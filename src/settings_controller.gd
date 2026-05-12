@@ -2,6 +2,8 @@ class_name SettingsController
 extends RefCounted
 
 var main: Node3D
+var _restart_pending: bool = false
+var _restart_seq: int = 0
 
 var sbs_labels: Array = ["Off", "Stretch", "Crop"]
 var ai_3d_labels: Array = ["2D", "MiDaS"]
@@ -128,14 +130,8 @@ func cycle_fps():
 	var idx = rates.find(main.stream_fps)
 	main.stream_fps = rates[(idx + 1) % rates.size()]
 	main.ui_controller.update_option_btn(main._ui_fps_btn, "%d" % main.stream_fps)
-	apply_display_refresh_rate()
 	main.state_manager.save_state()
-	if main.is_streaming and main.current_host_id >= 0:
-		main._log("[FPS] Restarting stream at %dfps" % main.stream_fps)
-		main._restarting_stream = true
-		main.stream_backend.stop_play_stream()
-		await main.get_tree().create_timer(0.5).timeout
-		main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
+	_schedule_stream_restart()
 
 func cycle_resolution():
 	main.resolution_idx += 1
@@ -149,12 +145,7 @@ func cycle_resolution():
 		main.ui_controller.update_option_btn(main._ui_res_btn, main.resolution_labels[main.resolution_idx])
 	update_wide_btn_label()
 	main.state_manager.save_state()
-	if main.is_streaming and main.current_host_id >= 0:
-		main._log("[RES] Restarting stream at %dx%d" % [main.host_resolution.x, main.host_resolution.y])
-		main._restarting_stream = true
-		main.stream_backend.stop_play_stream()
-		await main.get_tree().create_timer(0.5).timeout
-		main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
+	_schedule_stream_restart()
 
 func cycle_bitrate():
 	main.bitrate_idx += 1
@@ -163,23 +154,30 @@ func cycle_bitrate():
 	var label = main.bitrate_labels[main.bitrate_idx + 1] if main.bitrate_idx >= 0 else "Auto"
 	main.ui_controller.update_option_btn(main._ui_bitrate_btn, label)
 	main.state_manager.save_state()
-	if main.is_streaming and main.current_host_id >= 0:
-		main._log("[BITRATE] Restarting stream at %s" % label)
-		main._restarting_stream = true
-		main.stream_backend.stop_play_stream()
-		await main.get_tree().create_timer(0.5).timeout
-		main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
+	_schedule_stream_restart()
 
 func cycle_double_h():
 	main.double_h = not main.double_h
 	update_wide_btn_label()
 	main.state_manager.save_state()
-	if main.is_streaming and main.current_host_id >= 0:
-		main._log("[WIDE] Restarting stream (double_h=%s)" % str(main.double_h))
-		main._restarting_stream = true
-		main.stream_backend.stop_play_stream()
-		await main.get_tree().create_timer(0.5).timeout
-		main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
+	_schedule_stream_restart()
+
+func _schedule_stream_restart():
+	if not main.is_streaming or main.current_host_id < 0:
+		return
+	_restart_pending = true
+	_restart_seq += 1
+	var my_seq = _restart_seq
+	await main.get_tree().create_timer(0.8).timeout
+	if _restart_seq != my_seq:
+		return
+	_restart_pending = false
+	main._log("[RESTART] Restarting stream")
+	apply_display_refresh_rate()
+	main._restarting_stream = true
+	main.stream_backend.stop_play_stream()
+	await main.get_tree().create_timer(0.5).timeout
+	main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
 
 func update_wide_btn_label():
 	if main.double_h:

@@ -229,7 +229,7 @@ func build_ui():
 	row1.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(row1)
 
-	main._ui_pt_btn = make_option_btn("PT", "On")
+	main._ui_pt_btn = make_option_btn("Passthrough", "On")
 	row1.add_child(main._ui_pt_btn)
 	main._ui_curve_btn = make_option_btn("Curve", "Flat")
 	row1.add_child(main._ui_curve_btn)
