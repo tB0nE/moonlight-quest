@@ -35,6 +35,7 @@ var _welcome_screen: String = "welcome"
 var _pair_pin: String = ""
 var _connecting_ip: String = ""
 var _auto_connect: bool = false
+var _restarting_stream: bool = false
 var is_streaming: bool = false
 var sbs_mode: int = 0
 var ai_3d_mode: int = 0
@@ -193,6 +194,7 @@ func _bind_yuv_textures():
 
 func _on_stream_started():
 	is_streaming = true
+	_restarting_stream = false
 	_ui_status_label.text = "Connecting..."
 	ui_controller.update_host_label()
 	welcome_screen.reset_connect_button()
@@ -211,9 +213,12 @@ func _on_stream_started():
 		starfield.visible = false
 
 func _on_stream_terminated(msg: String):
-	printerr("[NF] _on_stream_terminated: auto=%s msg=%s" % [str(_auto_connect), str(msg)])
+	printerr("[NF] _on_stream_terminated: auto=%s restarting=%s msg=%s" % [str(_auto_connect), str(_restarting_stream), str(msg)])
 	if _auto_connect:
 		_auto_connect = false
+		return
+	if _restarting_stream:
+		is_streaming = false
 		return
 	is_streaming = false
 	_ui_status_label.text = "Disconnected: " + str(msg)

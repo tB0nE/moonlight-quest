@@ -210,10 +210,11 @@ func update_stats():
 	var ip_display = ip if not ip.is_empty() else "?"
 	var dropped = _b().get_frames_dropped()
 	var latency_ms = _b().get_last_frame_latency() / 1000.0
-	var txt = ip_display + " \u2022 " + str(vw) + "x" + str(vh) + " " + hw
-	txt += " \u2022 " + str(int(main.stats_fps)) + "fps"
+	var bitrate_mbps = bitrate / 1000.0
+	var refresh_hz = main.display_refresh_rate
+	var txt = ip_display + " \u2022 " + str(vw) + "x" + str(vh) + " " + str(main.stream_fps) + "fps " + str(int(bitrate_mbps)) + "Mbps " + hw
 	txt += " \u2022 " + str(int(latency_ms)) + "ms"
+	txt += " \u2022 " + str(int(refresh_hz)) + "Hz \u2022 " + str(int(main.stats_fps)) + "fps"
 	if dropped > 0:
 		txt += " \u2022 drop:" + str(dropped)
 	main._ui_status_label.text = txt
-	printerr("[STATS] set label to: " + txt)

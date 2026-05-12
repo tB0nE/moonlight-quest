@@ -311,7 +311,8 @@ func handle_corner_resize():
 
 	var local_hit = main.screen_mesh.to_local(hit_world)
 
-	var aspect = 16.0 / 9.0
+	var sv = main.stream_viewport.size
+	var aspect = float(sv.x) / float(sv.y) if sv.y > 0 else 16.0 / 9.0
 	var raw_w = 0.0
 	if main.curvature == 0:
 		raw_w = absf(local_hit.x) * 2.0
