@@ -145,11 +145,21 @@ Array MdnsBrowser::_parse_dns_response(const uint8_t *data, int len) {
             }
         } else if (rtype == 1) {
             if (rdlength == 4) {
-                String ip = String::num(data[offset]) + "." +
-                        String::num(data[offset + 1]) + "." +
-                        String::num(data[offset + 2]) + "." +
-                        String::num(data[offset + 3]);
+                String ip = String::num_int64(data[offset]) + "." +
+                        String::num_int64(data[offset + 1]) + "." +
+                        String::num_int64(data[offset + 2]) + "." +
+                        String::num_int64(data[offset + 3]);
                 a_records[name.to_lower()] = ip;
+            }
+        } else if (rtype == 28) {
+            if (rdlength == 16) {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "%d.%d.%d.%d.%d.%d.%d.%d.%d.%d.%d.%d.%d.%d.%d.%d",
+                    data[offset], data[offset + 1], data[offset + 2], data[offset + 3],
+                    data[offset + 4], data[offset + 5], data[offset + 6], data[offset + 7],
+                    data[offset + 8], data[offset + 9], data[offset + 10], data[offset + 11],
+                    data[offset + 12], data[offset + 13], data[offset + 14], data[offset + 15]);
+                a_records[name.to_lower()] = String(buf);
             }
         } else if (rtype == 16) {
             Dictionary txt;

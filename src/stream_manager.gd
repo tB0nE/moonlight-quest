@@ -117,7 +117,6 @@ func on_pair_pressed():
 	save.save("user://last_connection.cfg")
 	if _b().get_config_manager():
 		_b().get_config_manager().load_config()
-	await main.host_discovery.query_host_resolution(ip)
 	var paired_host_id = -1
 	for h in _b().get_hosts():
 		if h.has("localaddress") and h.localaddress == ip:
@@ -126,6 +125,7 @@ func on_pair_pressed():
 	if paired_host_id != -1:
 		main.current_host_id = paired_host_id
 		main._ui_status_label.text = "Already paired, starting stream..."
+		await main.host_discovery.query_host_resolution(ip)
 		await start_stream(paired_host_id, main._selected_app_id)
 	else:
 		main._ui_status_label.text = "Pairing with " + ip + "..."
@@ -203,7 +203,6 @@ func update_stats():
 	if not main.is_streaming:
 		return
 	if not main._ui_status_label:
-		printerr("[STATS] status_label is NULL")
 		return
 	var vw = _b().get_video_width()
 	var vh = _b().get_video_height()

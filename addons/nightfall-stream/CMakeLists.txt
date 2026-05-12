@@ -126,6 +126,7 @@ if(TARGET_PLATFORM STREQUAL "steamos" OR TARGET_PLATFORM STREQUAL "linux")
 endif()
 
 if(ANDROID)
+    target_compile_definitions(${LIBNAME} PRIVATE _FORTIFY_SOURCE=0)
     target_link_libraries(${LIBNAME} PRIVATE atomic m log)
 endif()
 

@@ -26,7 +26,11 @@ public class GodotApp extends GodotActivity {
 			}
 		}
 		try {
-			System.loadLibrary("nightfall-stream.android.template_debug.arm64");
+			if (BuildConfig.DEBUG) {
+				System.loadLibrary("nightfall-stream.android.template_debug.arm64");
+			} else {
+				System.loadLibrary("nightfall-stream.android.template_release.arm64");
+			}
 			initializeMoonlightJNI();
 			jniResult = "SUCCESS";
 		} catch (Throwable e) {

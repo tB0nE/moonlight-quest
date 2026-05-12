@@ -399,36 +399,23 @@ func build_pin_screen(parent: Node):
 	pin_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(pin_label)
 
-	var done_spacer = Control.new()
-	done_spacer.custom_minimum_size = Vector2(0, 60)
-	done_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	screen.add_child(done_spacer)
-
-	var done_btn = Button.new()
-	done_btn.name = "DoneBtn"
-	done_btn.custom_minimum_size = Vector2(400, 90)
-	done_btn.add_theme_font_size_override("font_size", 36)
-	done_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	screen.add_child(done_btn)
-
 	var bottom_spacer = Control.new()
 	bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_spacer)
 
 	var back_btn = Button.new()
-	back_btn.custom_minimum_size = Vector2(300, 60)
-	back_btn.add_theme_font_size_override("font_size", 28)
+	back_btn.custom_minimum_size = Vector2(400, 90)
+	back_btn.add_theme_font_size_override("font_size", 36)
 	back_btn.text = "Back"
 	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	screen.add_child(back_btn)
 
 	var bottom_margin = Control.new()
 	bottom_margin.custom_minimum_size = Vector2(0, 40)
-	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_margin)
 
-	done_btn.pressed.connect(func(): show_welcome_screen("welcome"))
 	back_btn.pressed.connect(func(): show_welcome_screen("server"))
 
 func show_welcome_screen(name: String):
@@ -559,7 +546,8 @@ func browse_mdns():
 	if hosts.size() > 0 and discover_list:
 		for host in hosts:
 			var ip = host.get("ip", "")
-			var friendly = host.get("friendly_name", host.get("instance", ip))
+			var friendly = host.get("friendly_name", host.get("hostname", ip))
+			main._log("[mDNS] Discovered: ip='" + ip + "' friendly='" + friendly + "' port=" + str(host.get("port", "?")))
 			var btn = Button.new()
 			btn.custom_minimum_size = Vector2(400, 60)
 			btn.add_theme_font_size_override("font_size", 22)
@@ -580,15 +568,21 @@ func browse_mdns():
 			press_style.set_bg_color(Color(0.3, 0.35, 0.5, 1.0))
 			btn.add_theme_stylebox_override("pressed", press_style)
 			btn.pressed.connect(func():
+				main._log("[mDNS] Selected host: ip='" + ip + "' friendly='" + friendly + "'")
 				main.get_node("%IPInput").text = ip
 				save_last_ip(ip)
 				main.state_manager.load_host_state(ip)
 				var _cm4 = main.stream_backend.get_config_manager() if main.stream_backend else null
+				var found_host = false
 				for h in (_cm4.get_hosts() if _cm4 else []):
 					if h.has("localaddress") and h.localaddress == ip:
 						main.current_host_id = h.id
+						found_host = true
 						break
-				show_welcome_screen("welcome")
+				if found_host:
+					show_welcome_screen("welcome")
+				else:
+					start_pair(ip)
 			)
 			discover_list.add_child(btn)
 	if scan_btn:
@@ -618,13 +612,11 @@ func populate_server_list():
 		btn.text = display
 		server_list.add_child(btn)
 		btn.pressed.connect(func():
-			main._connecting_ip = ip
 			main.get_node("%IPInput").text = ip
-			var paired = h.get("paired", false) if h.has("paired") else true
-			if not paired:
-				start_pair(ip)
-			else:
-				show_welcome_screen("welcome")
+			save_last_ip(ip)
+			main.state_manager.load_host_state(ip)
+			main.current_host_id = h.id
+			show_welcome_screen("welcome")
 		)
 
 func start_pair(ip: String):

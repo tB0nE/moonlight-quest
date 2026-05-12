@@ -206,15 +206,15 @@ func _on_stream_started():
 	stream_manager.bind_texture()
 	_bind_yuv_textures()
 	stream_manager.setup_audio()
-	ui_visible = true
-	_set_ui_visible(true)
+	ui_visible = false
+	_set_ui_visible(false)
 	var starfield = get_node_or_null("Starfield")
 	if starfield:
 		starfield.emitting = false
 		starfield.visible = false
 
 func _on_stream_terminated(msg: String):
-	printerr("[NF] _on_stream_terminated: auto=%s restarting=%s msg=%s" % [str(_auto_connect), str(_restarting_stream), str(msg)])
+	_log("[NF] _on_stream_terminated: auto=" + str(_auto_connect) + " restarting=" + str(_restarting_stream) + " msg=" + str(msg))
 	if _auto_connect:
 		_auto_connect = false
 		return
