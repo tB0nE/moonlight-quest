@@ -220,65 +220,69 @@ func build_ui():
 	top_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(top_margin)
 
-	var center_row = HBoxContainer.new()
-	center_row.name = "CenterRow"
-	center_row.add_theme_constant_override("separation", 12)
-	center_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	center_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	center_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	center_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(center_row)
+	var row1 = HBoxContainer.new()
+	row1.name = "Row1"
+	row1.add_theme_constant_override("separation", 12)
+	row1.alignment = BoxContainer.ALIGNMENT_CENTER
+	row1.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	row1.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row1.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(row1)
 
-	main._ui_pt_btn = make_option_btn("Passthrough", "On")
-	center_row.add_child(main._ui_pt_btn)
+	main._ui_pt_btn = make_option_btn("PT", "On")
+	row1.add_child(main._ui_pt_btn)
 	main._ui_curve_btn = make_option_btn("Curve", "Flat")
-	center_row.add_child(main._ui_curve_btn)
+	row1.add_child(main._ui_curve_btn)
 	main._ui_bezel_btn = make_option_btn("Bezel", "On")
-	center_row.add_child(main._ui_bezel_btn)
+	row1.add_child(main._ui_bezel_btn)
+	main._ui_cursor_btn = make_option_btn("Cursor", "Circle")
+	row1.add_child(main._ui_cursor_btn)
 
 	var gap = Control.new()
 	gap.custom_minimum_size = Vector2(0, 10)
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(gap)
 
-	var bottom_row = HBoxContainer.new()
-	bottom_row.name = "BottomRow"
-	bottom_row.add_theme_constant_override("separation", 12)
-	bottom_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	bottom_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bottom_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(bottom_row)
+	var row2 = HBoxContainer.new()
+	row2.name = "Row2"
+	row2.add_theme_constant_override("separation", 12)
+	row2.alignment = BoxContainer.ALIGNMENT_CENTER
+	row2.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	row2.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row2.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(row2)
 
-	main._ui_res_btn = make_option_btn("Resolution", "Auto")
-	bottom_row.add_child(main._ui_res_btn)
-	main._ui_fps_btn = make_option_btn("Refresh", "60Hz")
-	bottom_row.add_child(main._ui_fps_btn)
+	main._ui_res_btn = make_option_btn("Res", "HD")
+	row2.add_child(main._ui_res_btn)
+	main._ui_fps_btn = make_option_btn("FPS", "60")
+	row2.add_child(main._ui_fps_btn)
+	main._ui_bitrate_btn = make_option_btn("Mbit", "Auto")
+	row2.add_child(main._ui_bitrate_btn)
 	main._ui_render_btn = make_option_btn("Smooth", "0%")
-	bottom_row.add_child(main._ui_render_btn)
+	row2.add_child(main._ui_render_btn)
 
 	var gap2 = Control.new()
 	gap2.custom_minimum_size = Vector2(0, 10)
 	gap2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(gap2)
 
-	var mode_row = HBoxContainer.new()
-	mode_row.name = "ModeRow"
-	mode_row.add_theme_constant_override("separation", 12)
-	mode_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	mode_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	mode_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	mode_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(mode_row)
+	var row3 = HBoxContainer.new()
+	row3.name = "Row3"
+	row3.add_theme_constant_override("separation", 12)
+	row3.alignment = BoxContainer.ALIGNMENT_CENTER
+	row3.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	row3.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row3.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(row3)
 
+	main._ui_wide_btn = make_option_btn("Wide", "Off")
+	row3.add_child(main._ui_wide_btn)
 	main._ui_sbs_btn = make_option_btn("SBS", "Off")
-	mode_row.add_child(main._ui_sbs_btn)
+	row3.add_child(main._ui_sbs_btn)
 	main._ui_3d_btn = make_option_btn("3D AI", "2D")
-	mode_row.add_child(main._ui_3d_btn)
+	row3.add_child(main._ui_3d_btn)
 	main._ui_sharpen_btn = make_option_btn("Sharp", "0%")
-	mode_row.add_child(main._ui_sharpen_btn)
-	main._ui_cursor_btn = make_option_btn("Cursor", "Circle")
-	mode_row.add_child(main._ui_cursor_btn)
+	row3.add_child(main._ui_sharpen_btn)
 
 	main._ui_status_label = Label.new()
 	main._ui_status_label.name = "StatusLabel"
@@ -302,6 +306,8 @@ func build_ui():
 	main._ui_3d_btn.button_down.connect(func(): on_ai_3d_toggled())
 	main._ui_res_btn.button_down.connect(func(): main.settings_controller.cycle_resolution())
 	main._ui_fps_btn.button_down.connect(func(): main.settings_controller.cycle_fps())
+	main._ui_bitrate_btn.button_down.connect(func(): main.settings_controller.cycle_bitrate())
+	main._ui_wide_btn.button_down.connect(func(): main.settings_controller.cycle_double_h())
 	main._ui_render_btn.button_down.connect(func(): main.settings_controller.cycle_smooth_mode())
 	main._ui_sharpen_btn.button_down.connect(func(): main.settings_controller.cycle_sharpen_mode())
 	main._ui_cursor_btn.button_down.connect(func(): main.settings_controller.cycle_cursor_mode())

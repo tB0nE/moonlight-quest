@@ -95,14 +95,43 @@ func apply_filter():
 		mat.set_shader_parameter("filter_mode", main.smooth_mode)
 		mat.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.2)
 
+func apply_display_refresh_rate():
+	if not main.is_xr_active:
+		return
+	var interface = XRServer.find_interface("OpenXR")
+	if not interface:
+		return
+	var target_hz: float = 72.0
+	match main.stream_fps:
+		30: target_hz = 72.0
+		60: target_hz = 72.0
+		90: target_hz = 90.0
+		120: target_hz = 120.0
+	var available = interface.get_available_display_refresh_rates()
+	if available.is_empty():
+		main._log("[REFRESH] No available refresh rates reported")
+		main.display_refresh_rate = target_hz
+		return
+	var best: float = 0.0
+	for rate in available:
+		if rate >= target_hz and (best == 0.0 or rate < best):
+			best = rate
+	if best == 0.0:
+		available.sort()
+		best = available[available.size() - 1]
+	interface.set_display_refresh_rate(best)
+	main.display_refresh_rate = best
+	main._log("[REFRESH] Set headset to %.0fHz (target %.0fHz for %dfps)" % [best, target_hz, main.stream_fps])
+
 func cycle_fps():
-	var rates = [60, 90, 120]
+	var rates = [30, 60, 90, 120]
 	var idx = rates.find(main.stream_fps)
 	main.stream_fps = rates[(idx + 1) % rates.size()]
-	main.ui_controller.update_option_btn(main._ui_fps_btn, "%dHz" % main.stream_fps)
+	main.ui_controller.update_option_btn(main._ui_fps_btn, "%d" % main.stream_fps)
+	apply_display_refresh_rate()
 	main.state_manager.save_state()
 	if main.is_streaming and main.current_host_id >= 0:
-		main._log("[FPS] Restarting stream at %dHz" % main.stream_fps)
+		main._log("[FPS] Restarting stream at %dfps" % main.stream_fps)
 		main._restarting_stream = true
 		main.stream_backend.stop_play_stream()
 		await main.get_tree().create_timer(0.5).timeout
@@ -118,6 +147,7 @@ func cycle_resolution():
 	else:
 		main.host_resolution = main.resolutions[main.resolution_idx]
 		main.ui_controller.update_option_btn(main._ui_res_btn, main.resolution_labels[main.resolution_idx])
+	update_wide_btn_label()
 	main.state_manager.save_state()
 	if main.is_streaming and main.current_host_id >= 0:
 		main._log("[RES] Restarting stream at %dx%d" % [main.host_resolution.x, main.host_resolution.y])
@@ -125,3 +155,35 @@ func cycle_resolution():
 		main.stream_backend.stop_play_stream()
 		await main.get_tree().create_timer(0.5).timeout
 		main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
+
+func cycle_bitrate():
+	main.bitrate_idx += 1
+	if main.bitrate_idx >= main.bitrate_labels.size():
+		main.bitrate_idx = -1
+	var label = main.bitrate_labels[main.bitrate_idx + 1] if main.bitrate_idx >= 0 else "Auto"
+	main.ui_controller.update_option_btn(main._ui_bitrate_btn, label)
+	main.state_manager.save_state()
+	if main.is_streaming and main.current_host_id >= 0:
+		main._log("[BITRATE] Restarting stream at %s" % label)
+		main._restarting_stream = true
+		main.stream_backend.stop_play_stream()
+		await main.get_tree().create_timer(0.5).timeout
+		main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
+
+func cycle_double_h():
+	main.double_h = not main.double_h
+	update_wide_btn_label()
+	main.state_manager.save_state()
+	if main.is_streaming and main.current_host_id >= 0:
+		main._log("[WIDE] Restarting stream (double_h=%s)" % str(main.double_h))
+		main._restarting_stream = true
+		main.stream_backend.stop_play_stream()
+		await main.get_tree().create_timer(0.5).timeout
+		main.stream_manager.start_stream(main.current_host_id, main._selected_app_id)
+
+func update_wide_btn_label():
+	if main.double_h:
+		var w = main.host_resolution.x * 2
+		main.ui_controller.update_option_btn(main._ui_wide_btn, "%dx%d" % [w, main.host_resolution.y])
+	else:
+		main.ui_controller.update_option_btn(main._ui_wide_btn, "Off")

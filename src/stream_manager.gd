@@ -14,12 +14,13 @@ func _b() -> StreamBackend:
 func start_stream(host_id: int, app_id: int):
 	var w = main.host_resolution.x
 	var h = main.host_resolution.y
+	if main.double_h:
+		w *= 2
 	main._log("[STREAM] Starting stream host_id=%d app_id=%d res=%dx%d@%d" % [host_id, app_id, w, h, main.stream_fps])
-	bitrate = 20000
-	if w >= 3840:
-		bitrate = 80000
-	elif w >= 2560:
-		bitrate = 40000
+	if main.bitrate_idx >= 0:
+		bitrate = main.bitrates[main.bitrate_idx] * 1000
+	else:
+		bitrate = _auto_bitrate(w, h)
 	resize_stream_viewport(w, h)
 	var options = {}
 	options["width"] = w
@@ -62,6 +63,7 @@ func _on_v2_launch_response(response: Dictionary):
 	stream_config["color_space"] = 1
 	stream_config["color_range"] = 0
 	stream_config["encryption_flags"] = 0xFFFFFFFF
+	stream_config["client_refresh_rate_x100"] = int(main.display_refresh_rate * 100)
 
 	var rikey_raw = response.get("rikey_raw", PackedByteArray())
 	var rikeyid = response.get("rikeyid", 0)
@@ -79,6 +81,21 @@ func _on_v2_launch_response(response: Dictionary):
 	var ip = response.get("ip", "")
 	_b().start_stream_v2(ip, server_info, stream_config, false)
 	main._log("[STREAM] start_stream called (%dx%d@%d %dMbps)" % [w, h, fps, br])
+
+func _auto_bitrate(w: int, h: int) -> int:
+	var pixels = w * h
+	if pixels >= 3840 * 2160:
+		return 80000
+	elif pixels >= 2560 * 1440:
+		return 40000
+	elif pixels >= 3440 * 1440:
+		return 50000
+	elif pixels >= 1920 * 1080:
+		return 20000
+	elif pixels >= 1600 * 1200:
+		return 20000
+	else:
+		return 10000
 
 func resize_stream_viewport(w: int, h: int):
 	main.stream_viewport.size = Vector2i(w, h)

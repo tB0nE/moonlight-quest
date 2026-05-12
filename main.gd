@@ -81,9 +81,14 @@ var _xr_base_render_scale: float = 1.0
 var _mesh_size: Vector2 = Vector2(3.2, 1.8)
 var stream_fps: int = 60
 var host_resolution: Vector2i = Vector2i(1920, 1080)
-var resolution_idx: int = -1
-var resolutions: Array = [Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]
-var resolution_labels: Array = ["1080p", "1440p", "4K"]
+var resolution_idx: int = 1
+var resolutions: Array = [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160), Vector2i(1600, 1200), Vector2i(3440, 1440)]
+var resolution_labels: Array = ["720", "HD", "2K", "4K", "4:3", "21:9"]
+var double_h: bool = false
+var bitrate_idx: int = -1
+var bitrates: Array = [5, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120]
+var bitrate_labels: Array = ["Auto", "5", "10", "15", "20", "30", "40", "50", "60", "80", "100", "120"]
+var display_refresh_rate: float = 72.0
 
 var cursor_mode: int = 0
 var cursor_labels: Array = ["Circle", "Pointer"]
@@ -116,6 +121,8 @@ var _ui_sbs_btn: Button
 var _ui_3d_btn: Button
 var _ui_res_btn: Button
 var _ui_fps_btn: Button
+var _ui_bitrate_btn: Button
+var _ui_wide_btn: Button
 var _ui_render_btn: Button
 var _ui_sharpen_btn: Button
 var _ui_cursor_btn: Button
@@ -277,6 +284,8 @@ func _ready():
 		sbs_mode = 0
 		ai_3d_mode = 0
 		passthrough_mode = 0
+
+		settings_controller.apply_display_refresh_rate()
 
 		_create_starfield()
 

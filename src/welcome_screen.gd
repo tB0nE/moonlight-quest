@@ -155,7 +155,7 @@ func build_welcome_screen(parent: Node):
 	screen.add_child(exit_btn)
 
 	var bottom_pad = Control.new()
-	bottom_pad.custom_minimum_size = Vector2(0, 30)
+	bottom_pad.custom_minimum_size = Vector2(0, 40)
 	bottom_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_pad)
 
@@ -237,14 +237,6 @@ func build_server_screen(parent: Node):
 	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_spacer)
 
-	var exit_btn = Button.new()
-	exit_btn.custom_minimum_size = Vector2(300, 60)
-	exit_btn.add_theme_font_size_override("font_size", 28)
-	exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	exit_btn.text = "Exit"
-	screen.add_child(exit_btn)
-
 	var back_btn = Button.new()
 	back_btn.custom_minimum_size = Vector2(300, 60)
 	back_btn.add_theme_font_size_override("font_size", 28)
@@ -252,10 +244,14 @@ func build_server_screen(parent: Node):
 	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	screen.add_child(back_btn)
 
+	var bottom_margin = Control.new()
+	bottom_margin.custom_minimum_size = Vector2(0, 40)
+	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(bottom_margin)
+
 	add_btn.pressed.connect(func(): show_welcome_screen("ip"))
 	scan_btn.pressed.connect(func(): browse_mdns())
 	back_btn.pressed.connect(func(): show_welcome_screen("welcome"))
-	exit_btn.pressed.connect(func(): main.get_tree().quit())
 
 func build_ip_screen(parent: Node):
 	var screen = VBoxContainer.new()
@@ -346,20 +342,17 @@ func build_ip_screen(parent: Node):
 	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_spacer)
 
-	var exit_btn = Button.new()
-	exit_btn.custom_minimum_size = Vector2(300, 60)
-	exit_btn.add_theme_font_size_override("font_size", 28)
-	exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	exit_btn.text = "Exit"
-	screen.add_child(exit_btn)
-
 	var back_btn = Button.new()
 	back_btn.custom_minimum_size = Vector2(300, 60)
 	back_btn.add_theme_font_size_override("font_size", 28)
 	back_btn.text = "Back"
 	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	screen.add_child(back_btn)
+
+	var bottom_margin = Control.new()
+	bottom_margin.custom_minimum_size = Vector2(0, 40)
+	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(bottom_margin)
 
 	pair_btn.pressed.connect(func():
 		var ip = ip_input.text
@@ -370,7 +363,6 @@ func build_ip_screen(parent: Node):
 		start_pair(ip)
 	)
 	back_btn.pressed.connect(func(): show_welcome_screen("server"))
-	exit_btn.pressed.connect(func(): main.get_tree().quit())
 
 func build_pin_screen(parent: Node):
 	var screen = VBoxContainer.new()
@@ -424,16 +416,20 @@ func build_pin_screen(parent: Node):
 	bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	screen.add_child(bottom_spacer)
 
-	var exit_btn = Button.new()
-	exit_btn.custom_minimum_size = Vector2(300, 60)
-	exit_btn.add_theme_font_size_override("font_size", 28)
-	exit_btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	exit_btn.text = "Exit"
-	screen.add_child(exit_btn)
+	var back_btn = Button.new()
+	back_btn.custom_minimum_size = Vector2(300, 60)
+	back_btn.add_theme_font_size_override("font_size", 28)
+	back_btn.text = "Back"
+	back_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	screen.add_child(back_btn)
+
+	var bottom_margin = Control.new()
+	bottom_margin.custom_minimum_size = Vector2(0, 40)
+	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	screen.add_child(bottom_margin)
 
 	done_btn.pressed.connect(func(): show_welcome_screen("welcome"))
-	exit_btn.pressed.connect(func(): main.get_tree().quit())
+	back_btn.pressed.connect(func(): show_welcome_screen("server"))
 
 func show_welcome_screen(name: String):
 	main._welcome_screen = name

@@ -29,6 +29,8 @@ func save_host_state():
 	save.set_value(ip, "resolution_idx", main.resolution_idx)
 	save.set_value(ip, "sbs_mode", main.sbs_mode)
 	save.set_value(ip, "ai_3d_mode", main.ai_3d_mode)
+	save.set_value(ip, "bitrate_idx", main.bitrate_idx)
+	save.set_value(ip, "double_h", main.double_h)
 	save.save("user://host_state.cfg")
 
 func load_host_state(ip: String):
@@ -40,7 +42,9 @@ func load_host_state(ip: String):
 	if not save.has_section(ip):
 		return
 	main.stream_fps = save.get_value(ip, "fps", 60)
-	main.resolution_idx = save.get_value(ip, "resolution_idx", -1)
+	main.resolution_idx = save.get_value(ip, "resolution_idx", 1)
+	main.bitrate_idx = save.get_value(ip, "bitrate_idx", -1)
+	main.double_h = save.get_value(ip, "double_h", false)
 	if save.has_section_key(ip, "sbs_mode"):
 		main.sbs_mode = clampi(save.get_value(ip, "sbs_mode", 0), 0, 2)
 		main.ai_3d_mode = clampi(save.get_value(ip, "ai_3d_mode", 0), 0, 1)
@@ -56,13 +60,17 @@ func load_host_state(ip: String):
 	main.ui_controller.update_option_btn(main._ui_sbs_btn, main.settings_controller.sbs_labels[main.sbs_mode])
 	main.ui_controller.update_option_btn(main._ui_3d_btn, main.settings_controller.ai_3d_labels[main.ai_3d_mode])
 	main.ui_controller.update_3d_btn_state()
-	main.ui_controller.update_option_btn(main._ui_fps_btn, "%dHz" % main.stream_fps)
+	main.ui_controller.update_option_btn(main._ui_fps_btn, "%d" % main.stream_fps)
 	if main.resolution_idx == -1:
+		main.host_resolution = Vector2i(1920, 1080)
 		main.ui_controller.update_option_btn(main._ui_res_btn, "Auto")
 	else:
 		main.resolution_idx = clampi(main.resolution_idx, 0, main.resolutions.size() - 1)
 		main.host_resolution = main.resolutions[main.resolution_idx]
 		main.ui_controller.update_option_btn(main._ui_res_btn, main.resolution_labels[main.resolution_idx])
+	var bitrate_label = main.bitrate_labels[main.bitrate_idx + 1] if main.bitrate_idx >= 0 else "Auto"
+	main.ui_controller.update_option_btn(main._ui_bitrate_btn, bitrate_label)
+	main.settings_controller.update_wide_btn_label()
 	if main.depth_estimator:
 		main.depth_estimator.set_enabled(main.settings_controller.get_stereo_mode() >= 3)
 	main.settings_controller.apply_stereo()
