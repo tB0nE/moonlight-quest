@@ -155,6 +155,42 @@ func exit_app():
 func disconnect_stream():
 	stream_backend.stop_play_stream()
 
+func _bind_yuv_textures():
+	var mat = stream_backend.get_shader_material()
+	if not mat:
+		_log("[YUV] No shader material from stream backend, using SubViewport path")
+		var stream_tex = stream_viewport.get_texture()
+		screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
+		screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
+		return
+	var tex_y = mat.get_shader_parameter("tex_y")
+	var tex_u = mat.get_shader_parameter("tex_u")
+	var tex_v = mat.get_shader_parameter("tex_v")
+	var is_nv12_rd = mat.get_shader_parameter("is_nv12_rd")
+	var is_semi_planar = mat.get_shader_parameter("is_semi_planar")
+	var cmt = mat.get_shader_parameter("color_matrix_type")
+	var cr = mat.get_shader_parameter("color_range")
+	if tex_y:
+		screen_mesh.material_override.set_shader_parameter("tex_y", tex_y)
+		screen_mesh.material_override.set_shader_parameter("tex_u", tex_u)
+		screen_mesh.material_override.set_shader_parameter("tex_v", tex_v)
+		screen_mesh.material_override.set_shader_parameter("color_matrix_type", cmt)
+		screen_mesh.material_override.set_shader_parameter("color_range", cr)
+		var yuv_mode_val = 0
+		if is_nv12_rd:
+			yuv_mode_val = 1
+		elif is_semi_planar:
+			yuv_mode_val = 2
+		else:
+			yuv_mode_val = 3
+		screen_mesh.material_override.set_shader_parameter("yuv_mode", yuv_mode_val)
+		_log("[YUV] Direct YUV binding: mode=%d nv12_rd=%s semi_planar=%s" % [yuv_mode_val, str(is_nv12_rd), str(is_semi_planar)])
+	else:
+		var stream_tex = stream_viewport.get_texture()
+		screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
+		screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
+		_log("[YUV] No Y textures, falling back to SubViewport path")
+
 func _on_stream_started():
 	is_streaming = true
 	_ui_status_label.text = "Connecting..."
@@ -165,10 +201,7 @@ func _on_stream_started():
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	stream_manager.bind_texture()
-	var stream_tex = stream_viewport.get_texture()
-	screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
-	printerr("[NF-RENDER] _on_stream_started: vp_size=%s vp_mode=%d tex=%s tex_w=%d tex_h=%d" % [str(stream_viewport.size), stream_viewport.render_target_update_mode, str(stream_tex), stream_tex.get_width() if stream_tex else 0, stream_tex.get_height() if stream_tex else 0])
-	printerr("[NF-RENDER] stream_target vis=%s mat=%s tex=%s" % [str(stream_target.visible), str(stream_target.material), str(stream_target.texture)])
+	_bind_yuv_textures()
 	stream_manager.setup_audio()
 	ui_visible = false
 	_set_ui_visible(false)
@@ -186,6 +219,7 @@ func _on_stream_terminated(msg: String):
 	if _ui_disconnect_btn: _ui_disconnect_btn.visible = false
 	_log("[STREAM] Connection terminated: %s" % str(msg))
 	stream_manager.teardown_v2_yuv_rect()
+	screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
