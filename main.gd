@@ -203,14 +203,15 @@ func _on_stream_started():
 	stream_manager.bind_texture()
 	_bind_yuv_textures()
 	stream_manager.setup_audio()
-	ui_visible = false
-	_set_ui_visible(false)
+	ui_visible = true
+	_set_ui_visible(true)
 	var starfield = get_node_or_null("Starfield")
 	if starfield:
 		starfield.emitting = false
 		starfield.visible = false
 
 func _on_stream_terminated(msg: String):
+	printerr("[NF] _on_stream_terminated: auto=%s msg=%s" % [str(_auto_connect), str(msg)])
 	if _auto_connect:
 		_auto_connect = false
 		return
@@ -220,6 +221,9 @@ func _on_stream_terminated(msg: String):
 	_log("[STREAM] Connection terminated: %s" % str(msg))
 	stream_manager.teardown_v2_yuv_rect()
 	screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
+	screen_mesh.material_override.set_shader_parameter("tex_y", null)
+	screen_mesh.material_override.set_shader_parameter("tex_u", null)
+	screen_mesh.material_override.set_shader_parameter("tex_v", null)
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
@@ -469,6 +473,9 @@ func _input(event):
 func _toggle_ui():
 	ui_visible = not ui_visible
 	_set_ui_visible(ui_visible)
+	if ui_visible:
+		var ui_tex = ui_viewport.get_texture()
+		ui_panel_3d.material_override.albedo_texture = ui_tex
 	if _ui_disconnect_btn:
 		_ui_disconnect_btn.visible = is_streaming
 
