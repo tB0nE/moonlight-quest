@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/var/home/tyrone/Development/Personal/moonlight-quest/build/android/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
