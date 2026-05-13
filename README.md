@@ -23,14 +23,17 @@ passthrough, and AI depth estimation, all built native on Godot 4 and OpenXR.
 
 - **VR-native streaming** - floating screen in 3D space with grab bars, corner resize, and curvature options
 - **HEVC hardware decoding** - NDK MediaCodec pipeline for low-latency H.265 on Quest 3/3S
-- **Stereoscopic 3D** - five modes: 2D, SBS Stretch, SBS Crop, AI 3D (MiDaS), and AI 3D v2 (Depth Anything)
-- **AI depth estimation** - MiDaS v2 and Depth Anything V2 TFLite models convert any 2D stream into stereoscopic 3D via DIBR
-- **Shader smoothing & sharpening** - Gaussian blur (0–50%) plus CAS adaptive sharpening (0–50%) on the stream
+- **Stereoscopic 3D** - real-time AI depth conversion via MiDaS turns any 2D game into stereoscopic 3D, no server-side setup required
+- **SBS support** - Stretch and Crop modes for native side-by-side 3D content
+- **Shader smoothing & sharpening** - Gaussian blur plus CAS adaptive sharpening on the stream
+- **Flexible stream configuration** - resolution presets (720p–4K including 4:3 and 21:9), 30–120 FPS, auto or manual bitrate, auto display refresh rate matching
 - **Touch-style pointer** - laser pointer with trigger-to-click, grip for right-click, thumbstick scroll; circle or arrow cursor
 - **Passthrough** - see your real room with the stream floating in front of you
 - **Curved screen** - flat, slight curve, or full curve with a single button press
 - **Quest Touch Plus models** - real controller models instead of placeholder boxes
-- **Starfield environment** - ambient particle starfield for immersion
+- **Compatibility** - works with any GameStream-compatible server
+- **Ease of use** - pair and connect in seconds; AI 3D requires no additional server-side configuration
+- **Fake gamepad** - controller input emulation for scenarios where gamepad input is preferred over mouse/keyboard
 
 <div align="center">
 <img src="src/assets/nightfall_shot.png" width="720" alt="Nightfall running on Quest" />
@@ -43,6 +46,18 @@ There is no native Moonlight client on the Quest. Existing options like Moonligh
 Nightfall is built from scratch as a native OpenXR application. The stream lives in 3D space - you can grab it, curve it, resize it, and place it wherever you want. AI depth estimation turns any 2D game into stereoscopic 3D in real-time, something flat clients simply cannot do because they don't have per-eye rendering access.
 
 Beyond gaming, a native streaming client on the Quest that works with any server - Windows, Mac, or Linux - becomes a serious desktop streaming tool. Pull up your IDE, terminal, or browser on a massive virtual screen with passthrough so you can still see your desk. The Quest becomes a portable workstation, not just a headset.
+
+### Roadmap
+
+- **Stream quality improvements** - higher fidelity at lower bandwidth through optimized encoding and rendering pipelines
+- **Stream performance improvements** - reduce latency and overhead throughout the capture, encode, decode, and display chain
+- **SBS auto-detection** - automatically detect side-by-side content and switch modes, then restore previous setting when SBS ends
+- **SBS mouse tracking** - resolve pointer positioning in SBS mode; evaluate ReShade filter integration or build a native solution
+- **Hand-tracked input devices** - use Quest hand tracking to track physical keyboard and mouse position; upload controller/keyboard/mouse 3D models for visual representation
+- **Keyboard layout templates** - pre-built keyboard layouts for common configurations; a keyboard is a keyboard, same as a mouse
+- **Additional environments** - new background scenes beyond the default
+- **SBS game menu** - an in-VR game launcher for SBS content, paired with a companion PC app for managing game shortcuts
+- **Server processing layer** - a companion app running on the Sunshine server that offloads processing from the headset, similar to WiVRn's architecture; potential for significant quality and performance gains
 
 ## Usage and Requirements
 
