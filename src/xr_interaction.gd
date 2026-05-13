@@ -268,6 +268,10 @@ func handle_grab():
 	var cam_pos = main.xr_camera.global_position
 	main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
 
+	if main.grabbed_node == main.screen_mesh and main.comp_layer:
+		main.comp_layer.global_position = main.screen_mesh.global_position
+		main.comp_layer.global_rotation = main.screen_mesh.global_rotation
+
 	if main.is_xr_active and main.grab_start_hand_basis != Basis():
 		var hand_fwd = -active_raycast.global_transform.basis.z
 		var hand_pitch = atan2(-hand_fwd.y, Vector2(hand_fwd.x, hand_fwd.z).length())
@@ -280,6 +284,9 @@ func handle_grab():
 		if absf(euler.x) < 0.052:
 			euler.x = 0.0
 		main.grabbed_node.rotation = euler
+
+	if main.grabbed_node == main.screen_mesh and main.comp_layer:
+		main.comp_layer.global_rotation = main.screen_mesh.global_rotation
 
 	var still_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if not still_clicking:
@@ -355,6 +362,7 @@ func handle_corner_resize():
 
 	main.screen_manager.update_corner_positions()
 	main.screen_manager.update_bezel_size()
+	main._update_comp_layer_size()
 
 	var still_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if not still_clicking:

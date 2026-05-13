@@ -102,6 +102,10 @@ func resize_stream_viewport(w: int, h: int):
 	main.stream_target.custom_minimum_size = Vector2(w, h)
 	if _v2_yuv_rect:
 		_v2_yuv_rect.custom_minimum_size = Vector2(w, h)
+	if main.comp_viewport:
+		main.comp_viewport.size = Vector2i(w, h)
+	if main.comp_layer and main.comp_layer is OpenXRCompositionLayerQuad:
+		main.comp_layer.set_quad_size(main._mesh_size)
 	main.screen_manager.resize_screen_to_aspect(w, h)
 	if main._xr_render_width > 0:
 		var scale = float(w) / float(main._xr_render_width)

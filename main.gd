@@ -111,6 +111,13 @@ var settings_controller: SettingsController
 var state_manager: StateManager
 var host_discovery: HostDiscovery
 
+var comp_layer: Node3D = null
+var comp_viewport: SubViewport = null
+var comp_yuv_rect: ColorRect = null
+var comp_shader_mat: ShaderMaterial = null
+var use_comp_layer: bool = false
+var comp_layer_available: bool = false
+
 var _log_lines: PackedStringArray = []
 var _ui_viewport_size := Vector2i(520, 260)
 var _ui_mesh_size := Vector2(1.04, 0.52)
@@ -151,6 +158,48 @@ func _flush_log():
 			f.store_line(line)
 		f.close()
 
+func _setup_comp_layer():
+	if not ClassDB.class_exists("OpenXRCompositionLayerQuad"):
+		_log("[COMP] OpenXRCompositionLayerQuad not available")
+		return
+	comp_layer = OpenXRCompositionLayerQuad.new()
+	comp_layer.name = "CompQuadLayer"
+	comp_layer.set_sort_order(1)
+	comp_layer.set_enable_hole_punch(false)
+	comp_layer.set_alpha_blend(true)
+	comp_layer.set_quad_size(_mesh_size)
+	comp_layer.visible = false
+	xr_origin.add_child(comp_layer)
+
+	comp_viewport = SubViewport.new()
+	comp_viewport.name = "CompViewport"
+	comp_viewport.disable_3d = true
+	comp_viewport.transparent_bg = true
+	comp_viewport.size = Vector2i(1920, 1080)
+	comp_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(comp_viewport)
+
+	comp_yuv_rect = ColorRect.new()
+	comp_yuv_rect.name = "CompYuvRect"
+	comp_yuv_rect.anchors_preset = 15
+	comp_yuv_rect.anchor_right = 1.0
+	comp_yuv_rect.anchor_bottom = 1.0
+	comp_yuv_rect.grow_horizontal = 2
+	comp_yuv_rect.grow_vertical = 2
+	comp_shader_mat = ShaderMaterial.new()
+	comp_shader_mat.shader = load("res://src/shaders/yuv_display.gdshader")
+	comp_yuv_rect.material = comp_shader_mat
+	comp_viewport.add_child(comp_yuv_rect)
+
+	comp_layer.set_layer_viewport(comp_viewport)
+	comp_layer_available = true
+	_log("[COMP] Composition layer quad created")
+
+	if comp_layer.is_natively_supported():
+		_log("[COMP] Quad layer natively supported by runtime")
+	else:
+		_log("[COMP] Quad layer NOT natively supported, will use fallback mesh")
+
 func exit_app():
 	get_tree().quit()
 
@@ -166,6 +215,7 @@ func _bind_yuv_textures():
 		var stream_tex = stream_viewport.get_texture()
 		screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
 		screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
+		_bind_comp_fallback_texture(stream_tex)
 		return
 	var tex_y = mat.get_shader_parameter("tex_y")
 	var tex_u = mat.get_shader_parameter("tex_u")
@@ -189,11 +239,30 @@ func _bind_yuv_textures():
 			yuv_mode_val = 3
 		screen_mesh.material_override.set_shader_parameter("yuv_mode", yuv_mode_val)
 		_log("[YUV] Direct YUV binding: mode=%d nv12_rd=%s semi_planar=%s" % [yuv_mode_val, str(is_nv12_rd), str(is_semi_planar)])
+		_bind_comp_yuv_textures(tex_y, tex_u, tex_v, yuv_mode_val, cmt, cr)
 	else:
 		var stream_tex = stream_viewport.get_texture()
 		screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
 		screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
 		_log("[YUV] No Y textures, falling back to SubViewport path")
+		_bind_comp_fallback_texture(stream_tex)
+
+func _bind_comp_yuv_textures(tex_y, tex_u, tex_v, yuv_mode: int, cmt, cr):
+	if not comp_shader_mat:
+		return
+	comp_shader_mat.set_shader_parameter("tex_y", tex_y)
+	comp_shader_mat.set_shader_parameter("tex_u", tex_u)
+	comp_shader_mat.set_shader_parameter("tex_v", tex_v)
+	comp_shader_mat.set_shader_parameter("yuv_mode", yuv_mode)
+	comp_shader_mat.set_shader_parameter("color_matrix_type", cmt)
+	comp_shader_mat.set_shader_parameter("color_range", cr)
+	_log("[COMP] YUV textures bound to composition layer shader (mode=%d)" % yuv_mode)
+
+func _bind_comp_fallback_texture(stream_tex):
+	if not comp_shader_mat:
+		return
+	comp_shader_mat.set_shader_parameter("main_texture", stream_tex)
+	comp_shader_mat.set_shader_parameter("yuv_mode", 0)
 
 func _on_stream_started():
 	is_streaming = true
@@ -207,13 +276,41 @@ func _on_stream_started():
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	stream_manager.bind_texture()
 	_bind_yuv_textures()
-	stream_manager.setup_audio()
+	_switch_to_comp_layer()
 	ui_visible = false
 	_set_ui_visible(false)
 	var starfield = get_node_or_null("Starfield")
 	if starfield:
 		starfield.emitting = false
 		starfield.visible = false
+
+func _switch_to_comp_layer():
+	if not comp_layer_available:
+		use_comp_layer = false
+		_log("[COMP] Not available, using mesh rendering")
+		return
+	if sbs_mode != 0 or ai_3d_mode != 0:
+		use_comp_layer = false
+		comp_layer.visible = false
+		_log("[COMP] Stereo mode active, using mesh rendering")
+		return
+	use_comp_layer = true
+	comp_layer.visible = true
+	comp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	screen_mesh.visible = false
+	_log("[COMP] Switched to composition layer (quad)")
+
+func _switch_to_mesh_rendering():
+	use_comp_layer = false
+	if comp_layer:
+		comp_layer.visible = false
+	if comp_viewport:
+		comp_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	screen_mesh.visible = true
+
+func _update_comp_layer_size():
+	if comp_layer and comp_layer is OpenXRCompositionLayerQuad:
+		comp_layer.set_quad_size(_mesh_size)
 
 func _on_stream_terminated(msg: String):
 	_log("[NF] _on_stream_terminated: auto=" + str(_auto_connect) + " restarting=" + str(_restarting_stream) + " msg=" + str(msg))
@@ -235,6 +332,8 @@ func _on_stream_terminated(msg: String):
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+	_switch_to_mesh_rendering()
+	_clear_comp_yuv_textures()
 	if mouse_captured_by_stream:
 		input_handler.release_stream_mouse()
 	audio_player.stop()
@@ -246,6 +345,15 @@ func _on_stream_terminated(msg: String):
 		starfield.visible = true
 	welcome_screen.update_welcome_info()
 	stream_manager.resize_stream_viewport(1920, 1080)
+
+func _clear_comp_yuv_textures():
+	if not comp_shader_mat:
+		return
+	comp_shader_mat.set_shader_parameter("tex_y", null)
+	comp_shader_mat.set_shader_parameter("tex_u", null)
+	comp_shader_mat.set_shader_parameter("tex_v", null)
+	comp_shader_mat.set_shader_parameter("yuv_mode", 0)
+	comp_shader_mat.set_shader_parameter("main_texture", null)
 
 func _ready():
 	OS.set_environment("CURL_CA_BUNDLE", "/system/etc/security/cacerts/")
@@ -335,6 +443,8 @@ func _ready():
 		settings_controller.apply_display_refresh_rate()
 
 		_create_starfield()
+
+		_setup_comp_layer()
 
 		await get_tree().create_timer(0.5).timeout
 		_reposition_screen_and_ui()
@@ -525,6 +635,9 @@ func _reposition_screen_and_ui():
 	screen_mesh.global_position.y = floor_y + 1.3
 	screen_mesh.rotation = Vector3.ZERO
 	screen_mesh.rotation.y = cam_yaw
+	if comp_layer:
+		comp_layer.global_position = screen_mesh.global_position
+		comp_layer.global_rotation = screen_mesh.global_rotation
 	ui_panel_3d.global_position = cam_pos + fwd_flat * 1.5 - right_flat * 1.2
 	ui_panel_3d.global_position.y = floor_y + 1.1
 	ui_panel_3d.rotation = Vector3.ZERO

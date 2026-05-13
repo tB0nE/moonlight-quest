@@ -169,6 +169,8 @@ func resize_screen_to_aspect(stream_w: int, stream_h: int):
 	update_corner_positions()
 	if main.bezel_mesh:
 		update_bezel_size()
+	if main.comp_layer and main.comp_layer is OpenXRCompositionLayerQuad:
+		main.comp_layer.set_quad_size(main._mesh_size)
 
 func cycle_curvature():
 	main.curvature = (main.curvature + 1) % 3

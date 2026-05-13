@@ -42,6 +42,11 @@ func apply_stereo():
 	if main.depth_estimator:
 		main.depth_estimator.set_enabled(mode >= 3)
 	main.stream_backend.set_depth_model(1 if mode == 4 else 0)
+	if main.is_streaming:
+		if mode > 0:
+			main._switch_to_mesh_rendering()
+		elif main.comp_layer_available:
+			main._switch_to_comp_layer()
 
 func toggle_passthrough():
 	if not main.is_xr_active:
