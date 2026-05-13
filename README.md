@@ -23,17 +23,16 @@ passthrough, and AI depth estimation, all built native on Godot 4 and OpenXR.
 
 - **VR-native streaming** - floating screen in 3D space with grab bars, corner resize, and curvature options
 - **HEVC hardware decoding** - NDK MediaCodec pipeline for low-latency H.265 on Quest 3/3S
-- **Stereoscopic 3D** - real-time AI depth conversion via MiDaS turns any 2D game into stereoscopic 3D, no server-side setup required
+- **AI Stereoscopic 3D** - real-time AI depth conversion via MiDaS turns any 2D game into stereoscopic 3D, no server-side setup required
 - **SBS support** - Stretch and Crop modes for native side-by-side 3D content
 - **Shader smoothing & sharpening** - Gaussian blur plus CAS adaptive sharpening on the stream
 - **Flexible stream configuration** - resolution presets (720p–4K including 4:3 and 21:9), 30–120 FPS, auto or manual bitrate, auto display refresh rate matching
 - **Touch-style pointer** - laser pointer with trigger-to-click, grip for right-click, thumbstick scroll; circle or arrow cursor
 - **Passthrough** - see your real room with the stream floating in front of you
-- **Curved screen** - flat, slight curve, or full curve with a single button press
+- **Curved screen** - toggle curvature from the menu; flat, slight curve, or full wrap with optional bezel
 - **Quest Touch Plus models** - real controller models instead of placeholder boxes
 - **Compatibility** - works with any GameStream-compatible server
 - **Ease of use** - pair and connect in seconds; AI 3D requires no additional server-side configuration
-- **Fake gamepad** - controller input emulation for scenarios where gamepad input is preferred over mouse/keyboard
 
 <div align="center">
 <img src="src/assets/nightfall_shot.png" width="720" alt="Nightfall running on Quest" />
@@ -58,6 +57,7 @@ Beyond gaming, a native streaming client on the Quest that works with any server
 - **Additional environments** - new background scenes beyond the default
 - **SBS game menu** - an in-VR game launcher for SBS content, paired with a companion PC app for managing game shortcuts
 - **Server processing layer** - a companion app running on the Sunshine server that offloads processing from the headset, similar to WiVRn's architecture; potential for significant quality and performance gains
+- **Fake gamepad** - controller input emulation for scenarios where gamepad input is preferred over mouse/keyboard
 
 ## Usage and Requirements
 
