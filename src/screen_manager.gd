@@ -149,8 +149,9 @@ func update_bezel_size():
 func toggle_bezel():
 	main.bezel_enabled = not main.bezel_enabled
 	if main.bezel_mesh:
-		main.bezel_mesh.visible = main.bezel_enabled
+		main.bezel_mesh.visible = main.bezel_enabled if not main.use_comp_layer else false
 	main.ui_controller.update_option_btn(main._ui_bezel_btn, "On" if main.bezel_enabled else "Off")
+	main._update_comp_bezel()
 	main.state_manager.save_state()
 
 func resize_screen_to_aspect(stream_w: int, stream_h: int):

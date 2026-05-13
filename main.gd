@@ -181,15 +181,26 @@ func _setup_comp_layer():
 
 	comp_yuv_rect = ColorRect.new()
 	comp_yuv_rect.name = "CompYuvRect"
+	comp_yuv_rect.color = Color(0, 0, 0, 1)
 	comp_yuv_rect.anchors_preset = 15
 	comp_yuv_rect.anchor_right = 1.0
 	comp_yuv_rect.anchor_bottom = 1.0
 	comp_yuv_rect.grow_horizontal = 2
 	comp_yuv_rect.grow_vertical = 2
+	comp_viewport.add_child(comp_yuv_rect)
+
+	var stream_rect = ColorRect.new()
+	stream_rect.name = "CompStreamRect"
+	stream_rect.anchors_preset = 15
+	stream_rect.anchor_right = 1.0
+	stream_rect.anchor_bottom = 1.0
+	stream_rect.grow_horizontal = 2
+	stream_rect.grow_vertical = 2
 	comp_shader_mat = ShaderMaterial.new()
 	comp_shader_mat.shader = load("res://src/shaders/yuv_display.gdshader")
-	comp_yuv_rect.material = comp_shader_mat
-	comp_viewport.add_child(comp_yuv_rect)
+	stream_rect.material = comp_shader_mat
+	comp_yuv_rect.add_child(stream_rect)
+	comp_yuv_rect = stream_rect
 
 	comp_layer.set_layer_viewport(comp_viewport)
 	comp_layer_available = true
@@ -199,6 +210,27 @@ func _setup_comp_layer():
 		_log("[COMP] Quad layer natively supported by runtime")
 	else:
 		_log("[COMP] Quad layer NOT natively supported, will use fallback mesh")
+
+func _update_comp_bezel():
+	if not comp_yuv_rect:
+		return
+	if bezel_enabled and use_comp_layer:
+		var px = 8
+		comp_yuv_rect.offset_left = px
+		comp_yuv_rect.offset_top = px
+		comp_yuv_rect.offset_right = -px
+		comp_yuv_rect.offset_bottom = -px
+		comp_yuv_rect.anchor_left = 0.0
+		comp_yuv_rect.anchor_top = 0.0
+		comp_yuv_rect.anchor_right = 1.0
+		comp_yuv_rect.anchor_bottom = 1.0
+		comp_yuv_rect.anchors_preset = 0
+	else:
+		comp_yuv_rect.offset_left = 0
+		comp_yuv_rect.offset_top = 0
+		comp_yuv_rect.offset_right = 0
+		comp_yuv_rect.offset_bottom = 0
+		comp_yuv_rect.anchors_preset = 15
 
 func exit_app():
 	get_tree().quit()
@@ -298,6 +330,8 @@ func _switch_to_comp_layer():
 	comp_layer.visible = true
 	comp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	screen_mesh.visible = false
+	bezel_mesh.visible = false
+	_update_comp_bezel()
 	_log("[COMP] Switched to composition layer (quad)")
 
 func _switch_to_mesh_rendering():
@@ -307,6 +341,7 @@ func _switch_to_mesh_rendering():
 	if comp_viewport:
 		comp_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	screen_mesh.visible = true
+	bezel_mesh.visible = bezel_enabled
 
 func _update_comp_layer_size():
 	if comp_layer and comp_layer is OpenXRCompositionLayerQuad:
