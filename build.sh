@@ -91,6 +91,7 @@ SIZE=$(ls -lh "$OUTPUT" | awk '{print $5}')
 echo "Exported $OUTPUT ($SIZE)"
 
 rm -rf "$SCRIPT_DIR/android/build"
+rm -f "$SCRIPT_DIR/openxr_action_map.tres"
 
 if [ "${INSTALL:-0}" = "1" ]; then
   echo "Installing on device..."
