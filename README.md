@@ -44,12 +44,13 @@ There is no native Moonlight client on the Quest. Existing options like Moonligh
 
 Nightfall is built from scratch as a native OpenXR application. The stream lives in 3D space - you can grab it, curve it, resize it, and place it wherever you want. AI depth estimation turns any 2D game into stereoscopic 3D in real-time, something flat clients simply cannot do because they don't have per-eye rendering access.
 
-Beyond gaming, a native streaming client on the Quest that works with any server - Windows, Mac, or Linux - becomes a serious desktop streaming tool. Pull up your IDE, terminal, or browser on a massive virtual screen with passthrough so you can still see your desk. The Quest becomes a portable workstation, not just a headset.
+Beyond gaming there is potential for Nightfall to become a useful streaming client for productivity too. With compatibility as it's strength, any server - Windows, Mac, or Linux - becomes a serious desktop streaming tool. Pull up your IDE, terminal, or browser on a massive virtual screen with passthrough so you can still see your desk.
 
 ### Roadmap
 
 - **Stream quality improvements** - higher fidelity at lower bandwidth through optimized encoding and rendering pipelines
 - **Stream performance improvements** - reduce latency and overhead throughout the capture, encode, decode, and display chain
+- **Wide mode for SBS** - when dynamic virtual desktop creation is supported, create a double-width desktop so SBS content renders at full per-eye resolution
 - **SBS auto-detection** - automatically detect side-by-side content and switch modes, then restore previous setting when SBS ends
 - **SBS mouse tracking** - resolve pointer positioning in SBS mode; evaluate ReShade filter integration or build a native solution
 - **Hand-tracked input devices** - use Quest hand tracking to track physical keyboard and mouse position; upload controller/keyboard/mouse 3D models for visual representation
