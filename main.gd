@@ -72,7 +72,7 @@ var passthrough_labels: Array = ["On", "Off", "Starfield"]
 var ui_visible: bool = false
 var bezel_enabled: bool = true
 var bezel_mesh: MeshInstance3D
-var curvature: int = 0
+var curvature: int = 2
 var curvature_labels: Array = ["Flat", "Slight Curve", "Curved"]
 var smooth_mode: int = 0
 var sharpen_mode: int = 0
@@ -92,7 +92,7 @@ var bitrates: Array = [5, 10, 15, 20, 30, 40, 50, 60, 80, 100, 120]
 var bitrate_labels: Array = ["Auto", "5", "10", "15", "20", "30", "40", "50", "60", "80", "100", "120"]
 var display_refresh_rate: float = 72.0
 
-var cursor_mode: int = 0
+var cursor_mode: int = 1
 var cursor_labels: Array = ["Circle", "Pointer"]
 var corner_handles: Array = []
 var grabbed_corner_idx: int = -1
@@ -517,17 +517,20 @@ func _reposition_screen_and_ui():
 	var cam_pos = xr_camera.global_position
 	var cam_fwd = -xr_camera.global_transform.basis.z
 	var cam_right = xr_camera.global_transform.basis.x
-	screen_mesh.global_position = cam_pos + cam_fwd * 4.0
-	var screen_to_cam = (cam_pos - screen_mesh.global_position).normalized()
+	var cam_yaw = atan2(-cam_fwd.x, -cam_fwd.z)
+	var fwd_flat = Vector3(-sin(cam_yaw), 0, -cos(cam_yaw)).normalized()
+	var right_flat = Vector3(cos(cam_yaw), 0, -sin(cam_yaw)).normalized()
+	var floor_y = xr_origin.global_position.y
+	screen_mesh.global_position = cam_pos + fwd_flat * 3.0
+	screen_mesh.global_position.y = floor_y + 1.3
 	screen_mesh.rotation = Vector3.ZERO
-	screen_mesh.rotation.y = atan2(screen_to_cam.x, screen_to_cam.z)
-	ui_panel_3d.global_position = cam_pos + cam_fwd * 1.5 - cam_right * 1.2
-	ui_panel_3d.global_position.y = cam_pos.y - 0.5
-	var ui_to_cam = (cam_pos - ui_panel_3d.global_position).normalized()
+	screen_mesh.rotation.y = cam_yaw
+	ui_panel_3d.global_position = cam_pos + fwd_flat * 1.5 - right_flat * 1.2
+	ui_panel_3d.global_position.y = floor_y + 1.1
 	ui_panel_3d.rotation = Vector3.ZERO
-	ui_panel_3d.rotation.y = atan2(ui_to_cam.x, ui_to_cam.z)
+	ui_panel_3d.rotation.y = cam_yaw
 	ui_panel_3d.rotation.x = -0.26
-	_log("[POS] Screen at %s, UI at %s, Cam at %s" % [str(screen_mesh.global_position), str(ui_panel_3d.global_position), str(cam_pos)])
+	_log("[POS] Screen at %s, UI at %s, Cam at %s floor_y=%s" % [str(screen_mesh.global_position), str(ui_panel_3d.global_position), str(cam_pos), str(floor_y)])
 
 func _load_controller_models():
 	var left_scene = load("res://models/controllers/MetaQuestTouchPlus_Left.fbx")

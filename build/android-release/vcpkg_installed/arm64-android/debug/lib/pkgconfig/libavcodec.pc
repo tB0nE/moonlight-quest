@@ -1,0 +1,13 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/../include
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 61.19.101
+Conflicts:
+
+Libs: "-L${libdir}" -lavcodec -pthread -lm -latomic "-L${prefix}/lib/pkgconfig/../../lib" -ldav1d -pthread "-L${prefix}/lib/pkgconfig/../../lib" -lopus -lm -landroid -lmediandk
+Requires: libswresample >= 5.3.100, libavutil >= 59.39.100 
+Cflags: "-I${includedir}"

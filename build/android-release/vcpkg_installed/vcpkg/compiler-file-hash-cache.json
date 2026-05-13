@@ -1,0 +1,26 @@
+{
+  "/home/linuxbrew/.linuxbrew/Caskroom/android-commandlinetools/14742923/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" : 
+  {
+    "hash" : "f484baa86ed3e1f89f81d84d6813bfb7352f59df",
+    "size" : 135211192,
+    "timestamp" : 1777234457
+  },
+  "/home/linuxbrew/.linuxbrew/Caskroom/android-commandlinetools/14742923/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++" : 
+  {
+    "hash" : "f484baa86ed3e1f89f81d84d6813bfb7352f59df",
+    "size" : 135211192,
+    "timestamp" : 1777234457
+  },
+  "/usr/bin/c++" : 
+  {
+    "hash" : "245114fc3c28098405e52d4b8556b701c7fcaa04",
+    "size" : 1508416,
+    "timestamp" : 0
+  },
+  "/usr/bin/cc" : 
+  {
+    "hash" : "69b70b31a8d2f5bd8e03032952f1686be7b76bcb",
+    "size" : 1504304,
+    "timestamp" : 0
+  }
+}

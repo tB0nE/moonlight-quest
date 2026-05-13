@@ -81,11 +81,11 @@ func load_state():
 		return
 
 	main.bezel_enabled = save.get_value("screen", "bezel", true)
-	main.curvature = save.get_value("screen", "curvature", 0)
+	main.curvature = save.get_value("screen", "curvature", 2)
 	main.passthrough_mode = save.get_value("screen", "passthrough", 0)
 	main.smooth_mode = save.get_value("screen", "smooth_mode", save.get_value("screen", "render_mode", 0))
 	main.sharpen_mode = save.get_value("screen", "sharpen_mode", 0)
-	main.cursor_mode = save.get_value("screen", "cursor_mode", 0)
+	main.cursor_mode = save.get_value("screen", "cursor_mode", 1)
 	if save.has_section_key("screen", "size_x"):
 		main._mesh_size = Vector2(save.get_value("screen", "size_x"), save.get_value("screen", "size_y"))
 		if main._mesh_size.x > 0.1 and main._mesh_size.y > 0.1:

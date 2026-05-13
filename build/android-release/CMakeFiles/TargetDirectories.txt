@@ -1,0 +1,3 @@
+/var/home/tyrone/Development/Personal/moonlight-quest/build/android-release/CMakeFiles/nightfall-stream.dir
+/var/home/tyrone/Development/Personal/moonlight-quest/build/android-release/CMakeFiles/edit_cache.dir
+/var/home/tyrone/Development/Personal/moonlight-quest/build/android-release/CMakeFiles/rebuild_cache.dir
