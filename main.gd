@@ -484,8 +484,9 @@ func _bind_yuv_textures():
 	if not mat:
 		_log("[YUV] No shader material from stream backend, using SubViewport path")
 		var stream_tex = stream_viewport.get_texture()
-		screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
-		screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
+		if not use_comp_layer:
+			screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
+			screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
 		_bind_comp_fallback_texture(stream_tex)
 		return
 	var tex_y = mat.get_shader_parameter("tex_y")
@@ -496,11 +497,6 @@ func _bind_yuv_textures():
 	var cmt = mat.get_shader_parameter("color_matrix_type")
 	var cr = mat.get_shader_parameter("color_range")
 	if tex_y:
-		screen_mesh.material_override.set_shader_parameter("tex_y", tex_y)
-		screen_mesh.material_override.set_shader_parameter("tex_u", tex_u)
-		screen_mesh.material_override.set_shader_parameter("tex_v", tex_v)
-		screen_mesh.material_override.set_shader_parameter("color_matrix_type", cmt)
-		screen_mesh.material_override.set_shader_parameter("color_range", cr)
 		var yuv_mode_val = 0
 		if is_nv12_rd:
 			yuv_mode_val = 1
@@ -508,13 +504,20 @@ func _bind_yuv_textures():
 			yuv_mode_val = 2
 		else:
 			yuv_mode_val = 3
-		screen_mesh.material_override.set_shader_parameter("yuv_mode", yuv_mode_val)
+		if not use_comp_layer:
+			screen_mesh.material_override.set_shader_parameter("tex_y", tex_y)
+			screen_mesh.material_override.set_shader_parameter("tex_u", tex_u)
+			screen_mesh.material_override.set_shader_parameter("tex_v", tex_v)
+			screen_mesh.material_override.set_shader_parameter("color_matrix_type", cmt)
+			screen_mesh.material_override.set_shader_parameter("color_range", cr)
+			screen_mesh.material_override.set_shader_parameter("yuv_mode", yuv_mode_val)
 		_log("[YUV] Direct YUV binding: mode=%d nv12_rd=%s semi_planar=%s" % [yuv_mode_val, str(is_nv12_rd), str(is_semi_planar)])
 		_bind_comp_yuv_textures(tex_y, tex_u, tex_v, yuv_mode_val, cmt, cr)
 	else:
 		var stream_tex = stream_viewport.get_texture()
-		screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
-		screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
+		if not use_comp_layer:
+			screen_mesh.material_override.set_shader_parameter("main_texture", stream_tex)
+			screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
 		_log("[YUV] No Y textures, falling back to SubViewport path")
 		_bind_comp_fallback_texture(stream_tex)
 
@@ -861,6 +864,8 @@ func _process(delta):
 		depth_estimator.process(delta)
 
 	if is_streaming:
+		if use_comp_layer and comp_shader_mat and comp_shader_mat.get_shader_parameter("yuv_mode") == 0:
+			_bind_yuv_textures()
 		stats_frame_times.append(delta)
 		stats_timer += delta
 		if stats_timer >= 0.5:
