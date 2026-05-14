@@ -64,3 +64,4 @@ addons/nightfall-stream/build/
 addons/nightfall-stream/build_android/
 openxr_action_map.tres
 *.unstripped
+STEREO_COMP_LAYER_PLAN.md
