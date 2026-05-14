@@ -8,8 +8,9 @@ var area: Area3D
 var collision_shape: CollisionShape3D
 var grab_bar: MeshInstance3D = null
 var grab_bar_area: Area3D = null
-var mesh_size := Vector2(0.8, 0.3)
-var viewport_size := Vector2i(1600, 600)
+var mesh_size := Vector2(0.82, 0.3)
+var viewport_size := Vector2i(1640, 600)
+var _key_area_width := 1600
 var _kb_root: Control
 var _key_data: Array = []
 var _held_keys: Dictionary = {}
@@ -43,9 +44,12 @@ func build():
 	_kb_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	viewport.add_child(_kb_root)
 
-	var kb_bg = ColorRect.new()
+	var kb_bg = PanelContainer.new()
 	kb_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	kb_bg.color = Color(0.04, 0.04, 0.1, 0.85)
+	var kb_style = StyleBoxFlat.new()
+	kb_style.bg_color = Color(0.04, 0.04, 0.1, 0.85)
+	kb_style.set_corner_radius_all(48)
+	kb_bg.add_theme_stylebox_override("panel", kb_style)
 	kb_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_kb_root.add_child(kb_bg)
 
@@ -124,10 +128,10 @@ func _build_keys():
 	var key_h = 72
 	var gap = 6
 	var start_y = 16
-	var base_w = (viewport_size.x - 12 - gap * 14) / 15.0
+	var base_w = (_key_area_width - 12 - gap * 14) / 15.0
 	for row_idx in range(_KEY_ROWS.size()):
 		var row = _KEY_ROWS[row_idx]
-		var x = 12
+		var x = 26
 		var y = start_y + row_idx * (key_h + gap)
 		for key_idx in range(row.size()):
 			var key_data = row[key_idx]
