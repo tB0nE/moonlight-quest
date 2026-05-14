@@ -111,7 +111,6 @@ var settings_controller: SettingsController
 var state_manager: StateManager
 var host_discovery: HostDiscovery
 
-var comp_quad: Node3D = null
 var comp_cylinder: Node3D = null
 var comp_layer: Node3D = null
 var comp_cursor: Node3D = null
@@ -168,32 +167,21 @@ func _flush_log():
 		f.close()
 
 func _setup_comp_layer():
-	if not ClassDB.class_exists("OpenXRCompositionLayerQuad"):
-		_log("[COMP] OpenXRCompositionLayerQuad not available")
+	if not ClassDB.class_exists("OpenXRCompositionLayerCylinder"):
+		_log("[COMP] OpenXRCompositionLayerCylinder not available")
 		return
 
-	comp_quad = OpenXRCompositionLayerQuad.new()
-	comp_quad.name = "CompQuadLayer"
-	comp_quad.set_sort_order(1)
-	comp_quad.set_enable_hole_punch(false)
-	comp_quad.set_alpha_blend(true)
-	comp_quad.set_quad_size(_mesh_size)
-	comp_quad.visible = false
-	xr_origin.add_child(comp_quad)
-
-	if ClassDB.class_exists("OpenXRCompositionLayerCylinder"):
-		comp_cylinder = OpenXRCompositionLayerCylinder.new()
-		comp_cylinder.name = "CompCylinderLayer"
-		comp_cylinder.set_sort_order(1)
-		comp_cylinder.set_enable_hole_punch(false)
-		comp_cylinder.set_alpha_blend(true)
-		comp_cylinder.visible = false
-		xr_origin.add_child(comp_cylinder)
-		_update_cylinder_params()
-		if comp_cylinder.is_natively_supported():
-			_log("[COMP] Cylinder layer natively supported")
-		else:
-			_log("[COMP] Cylinder layer NOT natively supported")
+	comp_cylinder = OpenXRCompositionLayerCylinder.new()
+	comp_cylinder.name = "CompCylinderLayer"
+	comp_cylinder.set_sort_order(1)
+	comp_cylinder.set_enable_hole_punch(false)
+	comp_cylinder.set_alpha_blend(true)
+	comp_cylinder.visible = false
+	xr_origin.add_child(comp_cylinder)
+	if comp_cylinder.is_natively_supported():
+		_log("[COMP] Cylinder layer natively supported")
+	else:
+		_log("[COMP] Cylinder layer NOT natively supported")
 
 	comp_viewport = SubViewport.new()
 	comp_viewport.name = "CompViewport"
@@ -278,17 +266,10 @@ func _setup_comp_layer():
 	comp_kb.set_layer_viewport(virtual_keyboard.viewport)
 	_log("[COMP] Keyboard composition layer created")
 
-	comp_layer = comp_quad
+	comp_layer = comp_cylinder
 	comp_layer.set_layer_viewport(comp_viewport)
-	if comp_cylinder:
-		comp_cylinder.set_layer_viewport(comp_viewport)
 	comp_layer_available = true
-	_log("[COMP] Composition layer quad created")
-
-	if comp_quad.is_natively_supported():
-		_log("[COMP] Quad layer natively supported by runtime")
-	else:
-		_log("[COMP] Quad layer NOT natively supported, will use fallback mesh")
+	_log("[COMP] Composition layer cylinder created")
 
 func _update_comp_bezel():
 	if not comp_yuv_rect:
@@ -318,20 +299,19 @@ func _update_cylinder_params():
 	var view_dist = cam_to_screen.length()
 	if view_dist < 0.5:
 		view_dist = 3.0
-	var radius = view_dist
+	var radius = view_dist * 100.0
 	if curvature == 1:
-		radius = view_dist * 2.5
+		radius = view_dist * 2.0
 	elif curvature == 2:
 		radius = view_dist * 1.0
-	var arc_angle = _mesh_size.x / radius
+	var screen_forward = -screen_mesh.global_transform.basis.z
 	comp_cylinder.set_radius(radius)
-	comp_cylinder.set_central_angle(arc_angle)
+	comp_cylinder.set_central_angle(_mesh_size.x / radius)
 	comp_cylinder.set_aspect_ratio(_mesh_size.x / _mesh_size.y)
-	if comp_cylinder.visible:
-		comp_cylinder.global_position = xr_camera.global_position
-		comp_cylinder.global_position.y = screen_mesh.global_position.y
-		comp_cylinder.global_rotation.y = screen_mesh.global_rotation.y
-	_log("[COMP] Cylinder params: radius=%.1f angle=%.3f aspect=%.2f curv=%d" % [radius, arc_angle, _mesh_size.x / _mesh_size.y, curvature])
+	comp_cylinder.global_position = screen_mesh.global_position - screen_forward * radius
+	comp_cylinder.global_position.y = screen_mesh.global_position.y
+	comp_cylinder.global_rotation.y = screen_mesh.global_rotation.y
+	_log("[COMP] Cylinder params: radius=%.1f angle=%.3f aspect=%.2f curv=%d" % [radius, _mesh_size.x / radius, _mesh_size.x / _mesh_size.y, curvature])
 
 func _make_screen_transparent():
 	_screen_mesh_saved_mat = screen_mesh.material_override
@@ -491,32 +471,20 @@ func _switch_to_comp_layer():
 		return
 	if sbs_mode != 0 or ai_3d_mode != 0:
 		use_comp_layer = false
-		if comp_quad: comp_quad.visible = false
 		if comp_cylinder: comp_cylinder.visible = false
 		_log("[COMP] Stereo mode active, using mesh rendering")
 		return
 	use_comp_layer = true
-	if comp_quad: comp_quad.visible = false
-	if comp_cylinder: comp_cylinder.visible = false
-	var use_cylinder = curvature > 0 and comp_cylinder and comp_cylinder.is_natively_supported()
-	_log("[COMP] curvature=%d comp_cylinder=%s natively_supported=%s" % [curvature, str(comp_cylinder != null), str(comp_cylinder.is_natively_supported() if comp_cylinder else false)])
-	if use_cylinder:
-		comp_quad.set_layer_viewport(null)
+	if comp_cylinder:
 		comp_layer = comp_cylinder
 		comp_layer.set_layer_viewport(comp_viewport)
 		comp_layer.visible = true
-		comp_cylinder.global_position = xr_camera.global_position
-		comp_cylinder.global_position.y = screen_mesh.global_position.y
-		comp_cylinder.global_rotation.y = screen_mesh.global_rotation.y
 		_update_cylinder_params()
-		_log("[COMP] Switched to composition layer (cylinder)")
+		_log("[COMP] Switched to composition layer (cylinder, curv=%d)" % curvature)
 	else:
-		if comp_cylinder:
-			comp_cylinder.set_layer_viewport(null)
-		comp_layer = comp_quad
 		comp_layer.set_layer_viewport(comp_viewport)
 		comp_layer.visible = true
-		_log("[COMP] Switched to composition layer (quad)")
+		_log("[COMP] Switched to composition layer (quad fallback)")
 	comp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_make_screen_transparent()
 	bezel_mesh.visible = false
@@ -524,7 +492,6 @@ func _switch_to_comp_layer():
 
 func _switch_to_mesh_rendering():
 	use_comp_layer = false
-	if comp_quad: comp_quad.visible = false
 	if comp_cylinder: comp_cylinder.visible = false
 	if comp_ui: comp_ui.visible = false
 	if comp_kb: comp_kb.visible = false
@@ -537,8 +504,6 @@ func _switch_to_mesh_rendering():
 	bezel_mesh.visible = bezel_enabled
 
 func _update_comp_layer_size():
-	if comp_quad and comp_quad is OpenXRCompositionLayerQuad:
-		comp_quad.set_quad_size(_mesh_size)
 	_update_cylinder_params()
 
 func _on_stream_terminated(msg: String):
@@ -680,6 +645,10 @@ func _ready():
 		_create_starfield()
 
 		_setup_comp_layer()
+		if comp_layer_available:
+			comp_shader_mat.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+			comp_shader_mat.set_shader_parameter("yuv_mode", 0)
+			comp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
 		await get_tree().create_timer(0.5).timeout
 		_reposition_screen_and_ui()
@@ -688,6 +657,9 @@ func _ready():
 		ui_panel_3d.extra_cull_margin = 10.0
 
 		state_manager.load_state()
+
+		if comp_layer_available:
+			_switch_to_comp_layer()
 
 		if passthrough_mode > 0:
 			var saved_pt = passthrough_mode
@@ -882,13 +854,8 @@ func _reposition_screen_and_ui():
 	screen_mesh.global_position.y = floor_y + 1.3
 	screen_mesh.rotation = Vector3.ZERO
 	screen_mesh.rotation.y = cam_yaw
-	if comp_quad:
-		comp_quad.global_position = screen_mesh.global_position
-		comp_quad.global_rotation = screen_mesh.global_rotation
 	if comp_cylinder and comp_cylinder.visible:
-		comp_cylinder.global_position = xr_camera.global_position
-		comp_cylinder.global_position.y = screen_mesh.global_position.y
-		comp_cylinder.global_rotation.y = screen_mesh.global_rotation.y
+		_update_cylinder_params()
 	ui_panel_3d.global_position = cam_pos + fwd_flat * 1.5 - right_flat * 1.2
 	ui_panel_3d.global_position.y = floor_y + 1.1
 	ui_panel_3d.rotation = Vector3.ZERO

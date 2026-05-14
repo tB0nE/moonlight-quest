@@ -269,13 +269,8 @@ func handle_grab():
 	main.grabbed_node.rotation.y = atan2(cam_pos.x - main.grabbed_node.global_position.x, cam_pos.z - main.grabbed_node.global_position.z)
 
 	if main.grabbed_node == main.screen_mesh:
-		if main.comp_quad:
-			main.comp_quad.global_position = main.screen_mesh.global_position
-			main.comp_quad.global_rotation = main.screen_mesh.global_rotation
 		if main.comp_cylinder and main.comp_cylinder.visible:
-			main.comp_cylinder.global_position = main.xr_camera.global_position
-			main.comp_cylinder.global_position.y = main.screen_mesh.global_position.y
-			main.comp_cylinder.global_rotation.y = main.screen_mesh.global_rotation.y
+			main._update_cylinder_params()
 
 	if main.is_xr_active and main.grab_start_hand_basis != Basis():
 		var hand_fwd = -active_raycast.global_transform.basis.z
@@ -291,10 +286,8 @@ func handle_grab():
 		main.grabbed_node.rotation = euler
 
 	if main.grabbed_node == main.screen_mesh:
-		if main.comp_quad:
-			main.comp_quad.global_rotation = main.screen_mesh.global_rotation
 		if main.comp_cylinder and main.comp_cylinder.visible:
-			main.comp_cylinder.global_rotation.y = main.screen_mesh.global_rotation.y
+			main._update_cylinder_params()
 
 	var still_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if not still_clicking:
