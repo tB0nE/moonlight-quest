@@ -9,6 +9,7 @@ uniform int color_range = 0;
 uniform sampler2D main_texture : source_color, filter_linear, repeat_disable;
 uniform int filter_mode = 0;
 uniform float sharpen = 0.0;
+uniform float blur_scale = 1.0;
 uniform int stereo_mode = 0;
 uniform int eye_index = 0;
 uniform sampler2D depth_texture : hint_default_white, filter_linear, repeat_disable;
@@ -75,41 +76,17 @@ vec3 sample_stream(vec2 uv) {
 	return texture(main_texture, uv).rgb;
 }
 
-vec3 cas_sharpen(vec2 uv, float strength) {
-	vec2 texel = 1.0 / vec2(textureSize(tex_y, 0));
-	if (yuv_mode == 0) {
-		texel = 1.0 / vec2(textureSize(main_texture, 0));
-	}
-	vec3 c = sample_stream(uv);
-	vec3 n = sample_stream(uv + vec2( 0.0, -texel.y));
-	vec3 w = sample_stream(uv + vec2(-texel.x,  0.0));
-	vec3 e = sample_stream(uv + vec2( texel.x,  0.0));
-	vec3 s = sample_stream(uv + vec2( 0.0,  texel.y));
-
-	vec3 mn = min(c, min(n, min(w, min(e, s))));
-	vec3 mx = max(c, max(n, max(w, max(e, s))));
-	vec3 range = mx - mn;
-
-	vec3 peak = max(mx, vec3(0.0001));
-	vec3 weight = vec3(strength) * clamp((peak - range) / peak, vec3(0.0), vec3(1.0));
-
-	vec3 avg = (n + w + e + s) * 0.25;
-	return c + weight * (c - avg);
-}
-
 vec3 filtered_stream(vec2 uv) {
 	vec3 original = sample_stream(uv);
-
 	if (filter_mode == 0 && sharpen <= 0.0) {
 		return original;
 	}
-
+	vec2 texel = 1.0 / vec2(textureSize(tex_y, 0)) * blur_scale;
+	if (yuv_mode == 0) {
+		texel = 1.0 / vec2(textureSize(main_texture, 0)) * blur_scale;
+	}
 	if (filter_mode > 0) {
-		vec2 texel = 1.0 / vec2(textureSize(tex_y, 0));
-		if (yuv_mode == 0) {
-			texel = 1.0 / vec2(textureSize(main_texture, 0));
-		}
-		float s = 0.125 * float(filter_mode) + 0.175;
+		float s = float(filter_mode) * 0.3;
 		vec3 blurred = original * 4.0;
 		blurred += sample_stream(uv + vec2(-1.0, -1.0) * texel * s);
 		blurred += sample_stream(uv + vec2( 1.0, -1.0) * texel * s);
@@ -125,12 +102,17 @@ vec3 filtered_stream(vec2 uv) {
 		}
 		return blurred;
 	}
-
-	if (yuv_mode > 0) {
-		return cas_sharpen(uv, sharpen);
-	}
-
-	return original;
+	vec3 n = sample_stream(uv + vec2( 0.0, -texel.y));
+	vec3 w = sample_stream(uv + vec2(-texel.x,  0.0));
+	vec3 e = sample_stream(uv + vec2( texel.x,  0.0));
+	vec3 s = sample_stream(uv + vec2( 0.0,  texel.y));
+	vec3 mn = min(original, min(n, min(w, min(e, s))));
+	vec3 mx = max(original, max(n, max(w, max(e, s))));
+	vec3 range = mx - mn;
+	vec3 peak = max(mx, vec3(0.0001));
+	vec3 weight = vec3(sharpen) * clamp((peak - range) / peak, vec3(0.0), vec3(1.0));
+	vec3 avg = (n + w + e + s) * 0.25;
+	return original + weight * (original - avg);
 }
 
 void fragment() {
@@ -189,8 +171,11 @@ void fragment() {
 		uv = vec2(clamp(uv.x - shift * eye_sign, 0.0, 1.0), uv.y);
 	}
 
-	if (yuv_mode > 0) {
-		COLOR = vec4(filtered_stream(uv), 1.0);
+	if (filter_mode > 0 || sharpen > 0.0) {
+		vec3 col = filtered_stream(uv);
+		COLOR = vec4(col, 1.0);
+	} else if (yuv_mode > 0) {
+		COLOR = vec4(yuv_to_rgb(uv), 1.0);
 	} else {
 		COLOR = texture(main_texture, uv);
 	}

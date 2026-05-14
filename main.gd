@@ -598,13 +598,13 @@ func _update_cursor_layer():
 			if pointer: pointer.visible = true
 			if circle: circle.visible = false
 			comp_cursor_viewport.size = Vector2i(40, 64)
-			comp_cursor.set_quad_size(Vector2(0.05, 0.08))
+			comp_cursor.set_quad_size(Vector2(0.04, 0.064))
 			comp_cursor.global_position = hit_point + to_cam * 0.002
 			comp_cursor.look_at(comp_cursor.global_position + to_cam, Vector3.UP)
 			comp_cursor.rotate_object_local(Vector3.UP, PI)
 			var right = comp_cursor.global_transform.basis.x
 			var up = comp_cursor.global_transform.basis.y
-			comp_cursor.global_position += right * 0.025 - up * 0.04
+			comp_cursor.global_position += right * 0.02 - up * 0.032
 		else:
 			if pointer: pointer.visible = false
 			if circle: circle.visible = true
@@ -768,6 +768,7 @@ func _switch_to_comp_layer():
 		_log("[COMP] Switched to composition layer (quad fallback)")
 	comp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	comp_shader_mat.set_shader_parameter("stereo_mode", 0)
+	settings_controller.apply_filter()
 	_make_screen_transparent()
 	bezel_mesh.visible = false
 	_update_comp_bezel()
@@ -1135,6 +1136,30 @@ func _process(delta):
 				need_bind = true
 			if need_bind:
 				_bind_yuv_textures()
+			if smooth_mode > 0 or sharpen_mode > 0:
+				var blur_s = float(host_resolution.x) / float(_xr_render_width) if _xr_render_width > 0 else 1.0
+				if comp_shader_mat:
+					comp_shader_mat.set_shader_parameter("filter_mode", smooth_mode)
+					comp_shader_mat.set_shader_parameter("sharpen", float(sharpen_mode) * 0.5)
+					comp_shader_mat.set_shader_parameter("blur_scale", blur_s)
+				if comp_shader_mat_left:
+					comp_shader_mat_left.set_shader_parameter("filter_mode", smooth_mode)
+					comp_shader_mat_left.set_shader_parameter("sharpen", float(sharpen_mode) * 0.5)
+					comp_shader_mat_left.set_shader_parameter("blur_scale", blur_s)
+				if comp_shader_mat_right:
+					comp_shader_mat_right.set_shader_parameter("filter_mode", smooth_mode)
+					comp_shader_mat_right.set_shader_parameter("sharpen", float(sharpen_mode) * 0.5)
+					comp_shader_mat_right.set_shader_parameter("blur_scale", blur_s)
+			else:
+				if comp_shader_mat:
+					comp_shader_mat.set_shader_parameter("filter_mode", 0)
+					comp_shader_mat.set_shader_parameter("sharpen", 0.0)
+				if comp_shader_mat_left:
+					comp_shader_mat_left.set_shader_parameter("filter_mode", 0)
+					comp_shader_mat_left.set_shader_parameter("sharpen", 0.0)
+				if comp_shader_mat_right:
+					comp_shader_mat_right.set_shader_parameter("filter_mode", 0)
+					comp_shader_mat_right.set_shader_parameter("sharpen", 0.0)
 		stats_frame_times.append(delta)
 		stats_timer += delta
 		if stats_timer >= 0.5:
@@ -1220,7 +1245,7 @@ func _reposition_screen_and_ui():
 	screen_mesh.rotation.y = cam_yaw
 	if (comp_cylinder and comp_cylinder.visible) or (comp_cylinder_left and comp_cylinder_left.visible):
 		_update_cylinder_params()
-	ui_panel_3d.global_position = cam_pos + fwd_flat * 1.5 - right_flat * 1.2
+	ui_panel_3d.global_position = cam_pos + fwd_flat * 0.9 - right_flat * 0.8
 	ui_panel_3d.global_position.y = floor_y + 1.1
 	ui_panel_3d.rotation = Vector3.ZERO
 	ui_panel_3d.rotation.y = cam_yaw

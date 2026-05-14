@@ -108,15 +108,20 @@ func cycle_sharpen_mode():
 func apply_filter():
 	if not main.is_xr_active:
 		return
+	var filter_val = main.smooth_mode
+	var sharp_val = float(main.sharpen_mode) * 0.5
+	var blur_scale_val = float(main.host_resolution.x) / float(main._xr_render_width) if main._xr_render_width > 0 else 1.0
 	var mat = main.screen_mesh.material_override
 	if mat:
-		mat.set_shader_parameter("filter_mode", main.smooth_mode)
-		mat.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.016)
+		mat.set_shader_parameter("filter_mode", filter_val)
+		mat.set_shader_parameter("sharpen", sharp_val)
+		mat.set_shader_parameter("blur_scale", blur_scale_val)
 	var comp_mats = [main.comp_shader_mat, main.comp_shader_mat_left, main.comp_shader_mat_right]
 	for cm in comp_mats:
 		if cm:
-			cm.set_shader_parameter("filter_mode", main.smooth_mode)
-			cm.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.016)
+			cm.set_shader_parameter("filter_mode", filter_val)
+			cm.set_shader_parameter("sharpen", sharp_val)
+			cm.set_shader_parameter("blur_scale", blur_scale_val)
 
 func apply_display_refresh_rate():
 	if not main.is_xr_active:

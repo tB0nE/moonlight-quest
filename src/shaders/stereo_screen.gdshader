@@ -132,7 +132,7 @@ vec3 filtered_stream(vec2 uv) {
 		}
 
 		if (filter_mode > 0) {
-			float s = 0.125 * float(filter_mode) + 0.175;
+		float s = float(filter_mode) * 4.0;
 			vec3 blurred = original * 4.0;
 			blurred += sample_stream(uv + vec2(-1.0, -1.0) * texel * s);
 			blurred += sample_stream(uv + vec2( 1.0, -1.0) * texel * s);
@@ -152,7 +152,7 @@ vec3 filtered_stream(vec2 uv) {
 		return cas_sharpen_stream(uv, sharpen);
 	}
 
-	vec2 texel = 1.0 / vec2(textureSize(main_texture, 0));
+	vec2 texel = 1.0 / vec2(textureSize(main_texture, 0)) * blur_scale;
 	vec3 original = texture(main_texture, uv).rgb;
 
 	if (filter_mode == 0 && sharpen <= 0.0) {
@@ -160,7 +160,7 @@ vec3 filtered_stream(vec2 uv) {
 	}
 
 	if (filter_mode > 0) {
-		float s = 0.125 * float(filter_mode) + 0.175;
+		float s = float(filter_mode) * 4.0;
 		vec3 blurred = original * 4.0;
 		blurred += texture(main_texture, uv + vec2(-1.0, -1.0) * texel * s).rgb;
 		blurred += texture(main_texture, uv + vec2( 1.0, -1.0) * texel * s).rgb;
