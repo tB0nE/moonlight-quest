@@ -176,6 +176,8 @@ func resize_screen_to_aspect(stream_w: int, stream_h: int):
 func cycle_curvature():
 	main.curvature = (main.curvature + 1) % 3
 	apply_curvature()
+	if main.is_streaming and main.use_comp_layer:
+		main._switch_to_comp_layer()
 	main.ui_controller.update_option_btn(main._ui_curve_btn, main.curvature_labels[main.curvature])
 	main.state_manager.save_state()
 
