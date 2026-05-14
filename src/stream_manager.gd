@@ -48,7 +48,7 @@ func _on_v2_launch_response(response: Dictionary):
 
 	var w = response.get("width", 1920)
 	var h = response.get("height", 1080)
-	var fps = response.get("fps", 60)
+	var fps = main.stream_fps
 	var br = response.get("bitrate", 20000)
 
 	var stream_config = {}

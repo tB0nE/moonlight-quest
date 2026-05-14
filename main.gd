@@ -539,6 +539,7 @@ func _bind_comp_fallback_texture(stream_tex):
 	comp_shader_mat.set_shader_parameter("yuv_mode", 0)
 
 func _on_stream_started():
+	var was_restarting = _restarting_stream
 	is_streaming = true
 	_restarting_stream = false
 	_ui_status_label.text = "Connecting..."
@@ -551,8 +552,11 @@ func _on_stream_started():
 	stream_manager.bind_texture()
 	_bind_yuv_textures()
 	_switch_to_comp_layer()
-	ui_visible = false
-	_set_ui_visible(false)
+	if not was_restarting:
+		ui_visible = false
+		_set_ui_visible(false)
+		if comp_ui:
+			comp_ui.visible = false
 	var starfield = get_node_or_null("Starfield")
 	if starfield:
 		starfield.emitting = false
@@ -613,11 +617,12 @@ func _on_stream_terminated(msg: String):
 	if _ui_disconnect_btn: _ui_disconnect_btn.visible = false
 	_log("[STREAM] Connection terminated: %s" % str(msg))
 	stream_manager.teardown_v2_yuv_rect()
-	_restore_screen_material()
-	screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
-	screen_mesh.material_override.set_shader_parameter("tex_y", null)
-	screen_mesh.material_override.set_shader_parameter("tex_u", null)
-	screen_mesh.material_override.set_shader_parameter("tex_v", null)
+	if not use_comp_layer:
+		_restore_screen_material()
+		screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
+		screen_mesh.material_override.set_shader_parameter("tex_y", null)
+		screen_mesh.material_override.set_shader_parameter("tex_u", null)
+		screen_mesh.material_override.set_shader_parameter("tex_v", null)
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_clear_comp_yuv_textures()
@@ -626,12 +631,16 @@ func _on_stream_terminated(msg: String):
 	if comp_layer_available and sbs_mode == 0 and ai_3d_mode == 0:
 		_switch_to_comp_layer()
 	else:
-		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+		if not use_comp_layer:
+			screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
 		_switch_to_mesh_rendering()
 	if mouse_captured_by_stream:
 		input_handler.release_stream_mouse()
 	audio_player.stop()
+	ui_visible = false
 	_set_ui_visible(false)
+	if comp_ui:
+		comp_ui.visible = false
 	welcome_screen.reset_connect_button()
 	var starfield = get_node_or_null("Starfield")
 	if starfield and passthrough_mode == 2:
