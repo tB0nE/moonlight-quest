@@ -296,6 +296,21 @@ func build_ui():
 	main._ui_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(main._ui_status_label)
 
+	var grab_bar = ColorRect.new()
+	grab_bar.name = "CompGrabBar"
+	grab_bar.color = Color(1, 1, 1, 1)
+	grab_bar.custom_minimum_size = Vector2(0, 14)
+	grab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grab_bar.material = ShaderMaterial.new()
+	grab_bar.material.shader = preload("res://src/shaders/grab_bar.gdshader")
+	grab_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(grab_bar)
+
+	var bottom_margin = Control.new()
+	bottom_margin.custom_minimum_size = Vector2(0, 4)
+	bottom_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(bottom_margin)
+
 	main._ui_exit_btn.button_down.connect(func(): main.exit_app())
 	main._ui_disconnect_btn.button_down.connect(func(): main.disconnect_stream())
 	main._ui_close_btn.button_down.connect(func(): main._toggle_ui())

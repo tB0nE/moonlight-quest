@@ -43,6 +43,20 @@ func build():
 	_kb_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	viewport.add_child(_kb_root)
 
+	var grab_bar = ColorRect.new()
+	grab_bar.name = "CompGrabBar"
+	grab_bar.color = Color(1, 1, 1, 1)
+	grab_bar.anchor_left = 0.25
+	grab_bar.anchor_right = 0.75
+	grab_bar.anchor_top = 0.0
+	grab_bar.anchor_bottom = 0.0
+	grab_bar.offset_top = 4
+	grab_bar.offset_bottom = 14
+	grab_bar.material = ShaderMaterial.new()
+	grab_bar.material.shader = preload("res://src/shaders/grab_bar.gdshader")
+	grab_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	viewport.add_child(grab_bar)
+
 	var kb_bg = ColorRect.new()
 	kb_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	kb_bg.color = Color(0.04, 0.04, 0.1, 0.85)

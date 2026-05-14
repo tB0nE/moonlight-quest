@@ -44,17 +44,17 @@ func handle_pointer_interaction():
 			main.was_right_clicking = false
 
 	main.get_node("%ScreenGrabBar").visible = true
-	main.get_node("%MenuGrabBar").visible = true
-	if main.virtual_keyboard:
+	if main.virtual_keyboard and main.virtual_keyboard.grab_bar:
 		main.virtual_keyboard.grab_bar.visible = main.virtual_keyboard.visible
 	for ch in main.corner_handles:
 		ch.visible = true
 
 	if not main.grabbed_node and main.grabbed_corner_idx < 0:
 		_set_grab_bar_color(main.get_node("%ScreenGrabBar"), Color.WHITE, 0.01)
-		_set_grab_bar_color(main.get_node("%MenuGrabBar"), Color.WHITE, 0.01)
+		main.set_comp_grab_bar_color(main.ui_viewport, Color(1, 1, 1, 0.08))
 		if main.virtual_keyboard and main.virtual_keyboard.visible:
 			_set_grab_bar_color(main.virtual_keyboard.grab_bar, Color.WHITE, 0.01)
+			main.set_comp_grab_bar_color(main.virtual_keyboard.viewport, Color(1, 1, 1, 0.08))
 		for ch in main.corner_handles:
 			_set_corner_color(ch, Color.WHITE, 0.0)
 	elif main.grabbed_node and main.grabbed_bar:
@@ -101,14 +101,19 @@ func handle_pointer_interaction():
 
 		if parent == main.get_node("%ScreenGrabBar") and parent != main.grabbed_bar:
 			_set_grab_bar_color(parent, Color.WHITE, 0.1)
-		if parent == main.get_node("%MenuGrabBar") and parent != main.grabbed_bar:
-			_set_grab_bar_color(parent, Color.WHITE, 0.1)
 		if main.virtual_keyboard and main.virtual_keyboard.grab_bar and parent == main.virtual_keyboard.grab_bar and parent != main.grabbed_bar:
 			_set_grab_bar_color(parent, Color.WHITE, 0.1)
+			main.set_comp_grab_bar_color(main.virtual_keyboard.viewport, Color(1, 1, 1, 0.25))
 
 		var is_now_clicking = main.right_hand.get_float("trigger") > 0.5 if main.is_xr_active else Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 
-		if parent == main.ui_panel_3d:
+		var hit_ui = false
+		if main.ui_visible and main.ui_panel_3d and main.ui_panel_3d.visible:
+			var area = main.ui_panel_3d.get_node_or_null("Area3D")
+			if area and area.monitoring and parent == main.ui_panel_3d:
+				hit_ui = true
+
+		if parent == main.ui_panel_3d or hit_ui:
 			var hit_pos = active_raycast.get_collision_point()
 			var local_pos = main.ui_panel_3d.to_local(hit_pos)
 			var half_w = main._ui_mesh_size.x / 2.0
@@ -117,18 +122,40 @@ func handle_pointer_interaction():
 			var ny = 1.0 - (local_pos.y / half_h + 1.0) / 2.0
 			var pixel_pos = Vector2(nx * main._ui_viewport_size.x, ny * main._ui_viewport_size.y)
 
-			var motion = InputEventMouseMotion.new()
-			motion.position = pixel_pos
-			motion.global_position = pixel_pos
-			motion.button_mask = MOUSE_BUTTON_MASK_LEFT if is_now_clicking else 0
-			main.ui_viewport.push_input(motion)
+			var is_grab_bar = _is_ui_grab_bar(pixel_pos)
+			if is_grab_bar and not main.grabbed_node and main.grabbed_corner_idx < 0:
+				main.set_comp_grab_bar_color(main.ui_viewport, Color(1, 1, 1, 0.25))
+				if is_now_clicking and not main.was_clicking:
+					main.grabbed_node = main.ui_panel_3d
+					main.grabbed_bar = null
+					var grab_point = active_raycast.get_collision_point()
+					main.grab_distance = (grab_point - active_raycast.global_position).length()
+					main.grab_offset = main.grabbed_node.global_position - grab_point
+					main.grab_start_hand_pos = active_raycast.global_position
+					main.grab_start_node_pos = main.grabbed_node.global_position
+					main.grab_forward = -active_raycast.global_transform.basis.z
+					if main.is_xr_active:
+						main.grab_start_hand_basis = active_raycast.global_transform.basis
+						main.grab_start_node_basis = main.grabbed_node.global_transform.basis
+						main.grab_start_node_euler = main.grabbed_node.rotation
+					main.was_clicking = true
+					return
+			else:
+				main.set_comp_grab_bar_color(main.ui_viewport, Color(1, 1, 1, 0.08))
 
-			if is_now_clicking and not main.was_clicking:
-				_push_ui_click(pixel_pos, true)
-				main.was_clicking = true
-			elif not is_now_clicking and main.was_clicking:
-				_push_ui_click(pixel_pos, false)
-				main.was_clicking = false
+			if not is_grab_bar:
+				var motion = InputEventMouseMotion.new()
+				motion.position = pixel_pos
+				motion.global_position = pixel_pos
+				motion.button_mask = MOUSE_BUTTON_MASK_LEFT if is_now_clicking else 0
+				main.ui_viewport.push_input(motion)
+
+				if is_now_clicking and not main.was_clicking:
+					_push_ui_click(pixel_pos, true)
+					main.was_clicking = true
+				elif not is_now_clicking and main.was_clicking:
+					_push_ui_click(pixel_pos, false)
+					main.was_clicking = false
 			return
 
 		if main.virtual_keyboard and main.virtual_keyboard.visible and parent == main.virtual_keyboard.mesh_instance:
@@ -233,7 +260,7 @@ func handle_pointer_interaction():
 				_set_corner_color(parent, Color.WHITE, 0.1)
 			return
 
-		elif parent == main.get_node("%ScreenGrabBar") or parent == main.get_node("%MenuGrabBar") or (main.virtual_keyboard and parent == main.virtual_keyboard.grab_bar):
+		elif parent == main.get_node("%ScreenGrabBar") or (main.virtual_keyboard and parent == main.virtual_keyboard.grab_bar):
 			if is_now_clicking and not main.grabbed_node and main.grabbed_corner_idx < 0:
 				main.grabbed_node = parent.get_parent()
 				main.grabbed_bar = parent
@@ -448,3 +475,10 @@ func handle_scroll():
 		var clicks = int(right_stick_y * 1.5)
 		if clicks != 0:
 			main.stream_backend.send_scroll_event(clicks)
+
+func _is_ui_grab_bar(pixel_pos: Vector2) -> bool:
+	var bar = main.ui_viewport.find_child("CompGrabBar", true, false)
+	if not bar or not bar is Control:
+		return false
+	var bar_rect = bar.get_global_rect()
+	return pixel_pos.y >= bar_rect.position.y and pixel_pos.y <= bar_rect.end.y

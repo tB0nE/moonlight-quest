@@ -128,8 +128,8 @@ var _ui_saved_mat: Material = null
 var _kb_saved_mat: Material = null
 
 var _log_lines: PackedStringArray = []
-var _ui_viewport_size := Vector2i(520, 260)
-var _ui_mesh_size := Vector2(1.04, 0.52)
+var _ui_viewport_size := Vector2i(520, 300)
+var _ui_mesh_size := Vector2(1.04, 0.6)
 var _ui_host_label: Label
 var _ui_status_label: Label
 var _ui_pt_btn: Button
@@ -217,7 +217,7 @@ func _setup_comp_layer():
 
 	comp_ui = OpenXRCompositionLayerQuad.new()
 	comp_ui.name = "CompUILayer"
-	comp_ui.set_sort_order(2)
+	comp_ui.set_sort_order(3)
 	comp_ui.set_enable_hole_punch(false)
 	comp_ui.set_alpha_blend(true)
 	comp_ui.set_quad_size(_ui_mesh_size)
@@ -228,7 +228,7 @@ func _setup_comp_layer():
 
 	comp_cursor = OpenXRCompositionLayerQuad.new()
 	comp_cursor.name = "CompCursorLayer"
-	comp_cursor.set_sort_order(3)
+	comp_cursor.set_sort_order(4)
 	comp_cursor.set_enable_hole_punch(false)
 	comp_cursor.set_alpha_blend(true)
 	comp_cursor.set_quad_size(Vector2(0.04, 0.04))
@@ -255,10 +255,9 @@ func _setup_comp_layer():
 
 	var circle = ColorRect.new()
 	circle.name = "CircleTexture"
-	var cx = 32
-	var cr = 8
-	circle.position = Vector2(cx - cr, cx - cr)
-	circle.size = Vector2(cr * 2, cr * 2)
+	circle.anchors_preset = 15
+	circle.anchor_right = 1.0
+	circle.anchor_bottom = 1.0
 	var circle_mat = ShaderMaterial.new()
 	circle_mat.shader = preload("res://src/shaders/circle_cursor.gdshader")
 	circle.material = circle_mat
@@ -270,7 +269,7 @@ func _setup_comp_layer():
 
 	comp_kb = OpenXRCompositionLayerQuad.new()
 	comp_kb.name = "CompKBLayer"
-	comp_kb.set_sort_order(4)
+	comp_kb.set_sort_order(2)
 	comp_kb.set_enable_hole_punch(false)
 	comp_kb.set_alpha_blend(true)
 	comp_kb.set_quad_size(virtual_keyboard.mesh_size)
@@ -356,6 +355,9 @@ func _make_screen_transparent():
 	mat.albedo_color = Color(0, 0, 0, 0)
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	screen_mesh.material_override = mat
+	var screen_bar = get_node_or_null("%ScreenGrabBar")
+	if screen_bar:
+		screen_bar.visible = false
 
 func _make_ui_transparent():
 	_ui_saved_mat = ui_panel_3d.material_override
@@ -374,11 +376,16 @@ func _make_kb_transparent():
 	mat.albedo_color = Color(0, 0, 0, 0)
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	virtual_keyboard.mesh_instance.material_override = mat
+	if virtual_keyboard.grab_bar:
+		virtual_keyboard.grab_bar.visible = false
 
 func _restore_screen_material():
 	if _screen_mesh_saved_mat:
 		screen_mesh.material_override = _screen_mesh_saved_mat
 		_screen_mesh_saved_mat = null
+	var screen_bar = get_node_or_null("%ScreenGrabBar")
+	if screen_bar:
+		screen_bar.visible = true
 
 func _restore_ui_material():
 	if _ui_saved_mat:
@@ -389,6 +396,8 @@ func _restore_kb_material():
 	if _kb_saved_mat and virtual_keyboard:
 		virtual_keyboard.mesh_instance.material_override = _kb_saved_mat
 		_kb_saved_mat = null
+	if virtual_keyboard and virtual_keyboard.grab_bar:
+		virtual_keyboard.grab_bar.visible = virtual_keyboard.visible
 
 func _update_cursor_layer():
 	if not comp_cursor or not use_comp_layer:
@@ -403,27 +412,36 @@ func _update_cursor_layer():
 		var par = col.get_parent() if col else null
 		on_screen = (par == screen_mesh)
 		var to_cam = (xr_camera.global_position - hit_point).normalized()
-		comp_cursor.global_position = hit_point + to_cam * 0.002
-		comp_cursor.look_at(comp_cursor.global_position + to_cam, Vector3.UP)
-		comp_cursor.rotate_object_local(Vector3.UP, PI)
-		comp_cursor.visible = true
 		var pointer = comp_cursor_viewport.get_node_or_null("PointerTexture")
 		var circle = comp_cursor_viewport.get_node_or_null("CircleTexture")
 		if cursor_mode == 0:
 			if pointer: pointer.visible = false
 			if circle: circle.visible = true
-			comp_cursor.set_quad_size(Vector2(0.04, 0.04))
+			comp_cursor_viewport.size = Vector2i(256, 256)
+			comp_cursor.set_quad_size(Vector2(0.035, 0.035))
+			comp_cursor.global_position = hit_point + to_cam * 0.002
+			comp_cursor.look_at(comp_cursor.global_position + to_cam, Vector3.UP)
+			comp_cursor.rotate_object_local(Vector3.UP, PI)
 		elif on_screen:
 			if pointer: pointer.visible = true
 			if circle: circle.visible = false
+			comp_cursor_viewport.size = Vector2i(40, 64)
 			comp_cursor.set_quad_size(Vector2(0.05, 0.08))
+			comp_cursor.global_position = hit_point + to_cam * 0.002
+			comp_cursor.look_at(comp_cursor.global_position + to_cam, Vector3.UP)
+			comp_cursor.rotate_object_local(Vector3.UP, PI)
 			var right = comp_cursor.global_transform.basis.x
 			var up = comp_cursor.global_transform.basis.y
 			comp_cursor.global_position += right * 0.025 - up * 0.04
 		else:
 			if pointer: pointer.visible = false
 			if circle: circle.visible = true
-			comp_cursor.set_quad_size(Vector2(0.04, 0.04))
+			comp_cursor_viewport.size = Vector2i(256, 256)
+			comp_cursor.set_quad_size(Vector2(0.035, 0.035))
+			comp_cursor.global_position = hit_point + to_cam * 0.002
+			comp_cursor.look_at(comp_cursor.global_position + to_cam, Vector3.UP)
+			comp_cursor.rotate_object_local(Vector3.UP, PI)
+		comp_cursor.visible = true
 	else:
 		comp_cursor.visible = false
 	if pointer_cursor:
@@ -437,9 +455,21 @@ func _update_cursor_layer():
 		comp_kb.global_position = virtual_keyboard.global_position
 		comp_kb.global_rotation = virtual_keyboard.global_rotation
 		comp_kb.visible = true
+		if not _kb_saved_mat:
+			_make_kb_transparent()
 	else:
 		if comp_kb:
 			comp_kb.visible = false
+		if virtual_keyboard and _kb_saved_mat:
+			virtual_keyboard.mesh_instance.material_override = _kb_saved_mat
+			_kb_saved_mat = null
+
+func set_comp_grab_bar_color(viewport: SubViewport, color: Color):
+	if not viewport:
+		return
+	var bar = viewport.get_node_or_null("CompGrabBar")
+	if bar and bar.material and bar.material is ShaderMaterial:
+		bar.material.set_shader_parameter("highlight_alpha", color.a)
 
 func exit_app():
 	get_tree().quit()
@@ -643,7 +673,6 @@ func _ready():
 	virtual_keyboard.build()
 
 	%ScreenGrabBar.material_override = %ScreenGrabBar.material_override.duplicate()
-	%MenuGrabBar.material_override = %MenuGrabBar.material_override.duplicate()
 	_mesh_size = screen_mesh.mesh.size
 	screen_manager.create_corner_handles()
 	screen_manager.create_bezel()
