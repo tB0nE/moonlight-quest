@@ -239,7 +239,7 @@ func _setup_comp_layer():
 	comp_cursor_viewport.name = "CompCursorViewport"
 	comp_cursor_viewport.disable_3d = true
 	comp_cursor_viewport.transparent_bg = true
-	comp_cursor_viewport.size = Vector2i(64, 64)
+	comp_cursor_viewport.size = Vector2i(40, 64)
 	comp_cursor_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(comp_cursor_viewport)
 
@@ -416,10 +416,10 @@ func _update_cursor_layer():
 		elif on_screen:
 			if pointer: pointer.visible = true
 			if circle: circle.visible = false
-			comp_cursor.set_quad_size(Vector2(0.06, 0.08))
+			comp_cursor.set_quad_size(Vector2(0.05, 0.08))
 			var right = comp_cursor.global_transform.basis.x
 			var up = comp_cursor.global_transform.basis.y
-			comp_cursor.global_position += right * 0.03 - up * 0.04
+			comp_cursor.global_position += right * 0.025 - up * 0.04
 		else:
 			if pointer: pointer.visible = false
 			if circle: circle.visible = true
