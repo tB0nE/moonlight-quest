@@ -107,6 +107,11 @@ func build():
 	grab_bar_area.add_child(bar_cs)
 
 	visible = false
+	grab_bar.visible = false
+	if area:
+		area.process_mode = Node.PROCESS_MODE_DISABLED
+		area.monitorable = false
+		area.monitoring = false
 
 func _build_keys():
 	var key_h = 72
@@ -267,8 +272,12 @@ func toggle():
 	grab_bar.visible = new_vis
 	if area:
 		area.process_mode = Node.PROCESS_MODE_INHERIT if new_vis else Node.PROCESS_MODE_DISABLED
+		area.monitorable = new_vis
+		area.monitoring = new_vis
 	if grab_bar_area:
 		grab_bar_area.process_mode = Node.PROCESS_MODE_INHERIT if new_vis else Node.PROCESS_MODE_DISABLED
+		grab_bar_area.monitorable = new_vis
+		grab_bar_area.monitoring = new_vis
 
 func _save_offset():
 	var scr_basis = main.screen_mesh.global_transform.basis.inverse()

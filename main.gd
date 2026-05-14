@@ -111,12 +111,21 @@ var settings_controller: SettingsController
 var state_manager: StateManager
 var host_discovery: HostDiscovery
 
+var comp_quad: Node3D = null
+var comp_cylinder: Node3D = null
 var comp_layer: Node3D = null
+var comp_cursor: Node3D = null
+var comp_ui: Node3D = null
+var comp_kb: Node3D = null
 var comp_viewport: SubViewport = null
+var comp_cursor_viewport: SubViewport = null
 var comp_yuv_rect: ColorRect = null
 var comp_shader_mat: ShaderMaterial = null
 var use_comp_layer: bool = false
 var comp_layer_available: bool = false
+var _screen_mesh_saved_mat: Material = null
+var _ui_saved_mat: Material = null
+var _kb_saved_mat: Material = null
 
 var _log_lines: PackedStringArray = []
 var _ui_viewport_size := Vector2i(520, 260)
@@ -162,14 +171,29 @@ func _setup_comp_layer():
 	if not ClassDB.class_exists("OpenXRCompositionLayerQuad"):
 		_log("[COMP] OpenXRCompositionLayerQuad not available")
 		return
-	comp_layer = OpenXRCompositionLayerQuad.new()
-	comp_layer.name = "CompQuadLayer"
-	comp_layer.set_sort_order(1)
-	comp_layer.set_enable_hole_punch(false)
-	comp_layer.set_alpha_blend(true)
-	comp_layer.set_quad_size(_mesh_size)
-	comp_layer.visible = false
-	xr_origin.add_child(comp_layer)
+
+	comp_quad = OpenXRCompositionLayerQuad.new()
+	comp_quad.name = "CompQuadLayer"
+	comp_quad.set_sort_order(1)
+	comp_quad.set_enable_hole_punch(false)
+	comp_quad.set_alpha_blend(true)
+	comp_quad.set_quad_size(_mesh_size)
+	comp_quad.visible = false
+	xr_origin.add_child(comp_quad)
+
+	if ClassDB.class_exists("OpenXRCompositionLayerCylinder"):
+		comp_cylinder = OpenXRCompositionLayerCylinder.new()
+		comp_cylinder.name = "CompCylinderLayer"
+		comp_cylinder.set_sort_order(1)
+		comp_cylinder.set_enable_hole_punch(false)
+		comp_cylinder.set_alpha_blend(true)
+		comp_cylinder.visible = false
+		xr_origin.add_child(comp_cylinder)
+		_update_cylinder_params()
+		if comp_cylinder.is_natively_supported():
+			_log("[COMP] Cylinder layer natively supported")
+		else:
+			_log("[COMP] Cylinder layer NOT natively supported")
 
 	comp_viewport = SubViewport.new()
 	comp_viewport.name = "CompViewport"
@@ -202,11 +226,66 @@ func _setup_comp_layer():
 	comp_yuv_rect.add_child(stream_rect)
 	comp_yuv_rect = stream_rect
 
+	comp_ui = OpenXRCompositionLayerQuad.new()
+	comp_ui.name = "CompUILayer"
+	comp_ui.set_sort_order(2)
+	comp_ui.set_enable_hole_punch(false)
+	comp_ui.set_alpha_blend(true)
+	comp_ui.set_quad_size(_ui_mesh_size)
+	comp_ui.visible = false
+	xr_origin.add_child(comp_ui)
+	comp_ui.set_layer_viewport(ui_viewport)
+	_log("[COMP] UI composition layer created")
+
+	comp_cursor = OpenXRCompositionLayerQuad.new()
+	comp_cursor.name = "CompCursorLayer"
+	comp_cursor.set_sort_order(3)
+	comp_cursor.set_enable_hole_punch(false)
+	comp_cursor.set_alpha_blend(true)
+	comp_cursor.set_quad_size(Vector2(0.06, 0.08))
+	comp_cursor.visible = false
+	xr_origin.add_child(comp_cursor)
+
+	comp_cursor_viewport = SubViewport.new()
+	comp_cursor_viewport.name = "CompCursorViewport"
+	comp_cursor_viewport.disable_3d = true
+	comp_cursor_viewport.transparent_bg = true
+	comp_cursor_viewport.size = Vector2i(64, 64)
+	comp_cursor_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(comp_cursor_viewport)
+
+	var cursor_rect = TextureRect.new()
+	cursor_rect.name = "CursorTexture"
+	cursor_rect.anchors_preset = 15
+	cursor_rect.anchor_right = 1.0
+	cursor_rect.anchor_bottom = 1.0
+	cursor_rect.expand_mode = 1
+	cursor_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	cursor_rect.texture = load("res://src/assets/mouse_pointer_01.png")
+	comp_cursor_viewport.add_child(cursor_rect)
+
+	comp_cursor.set_layer_viewport(comp_cursor_viewport)
+	_log("[COMP] Cursor composition layer created")
+
+	comp_kb = OpenXRCompositionLayerQuad.new()
+	comp_kb.name = "CompKBLayer"
+	comp_kb.set_sort_order(4)
+	comp_kb.set_enable_hole_punch(false)
+	comp_kb.set_alpha_blend(true)
+	comp_kb.set_quad_size(virtual_keyboard.mesh_size)
+	comp_kb.visible = false
+	xr_origin.add_child(comp_kb)
+	comp_kb.set_layer_viewport(virtual_keyboard.viewport)
+	_log("[COMP] Keyboard composition layer created")
+
+	comp_layer = comp_quad
 	comp_layer.set_layer_viewport(comp_viewport)
+	if comp_cylinder:
+		comp_cylinder.set_layer_viewport(comp_viewport)
 	comp_layer_available = true
 	_log("[COMP] Composition layer quad created")
 
-	if comp_layer.is_natively_supported():
+	if comp_quad.is_natively_supported():
 		_log("[COMP] Quad layer natively supported by runtime")
 	else:
 		_log("[COMP] Quad layer NOT natively supported, will use fallback mesh")
@@ -231,6 +310,95 @@ func _update_comp_bezel():
 		comp_yuv_rect.offset_right = 0
 		comp_yuv_rect.offset_bottom = 0
 		comp_yuv_rect.anchors_preset = 15
+
+func _update_cylinder_params():
+	if not comp_cylinder:
+		return
+	var cam_to_screen = screen_mesh.global_position - xr_camera.global_position
+	var view_dist = cam_to_screen.length()
+	if view_dist < 0.5:
+		view_dist = 3.0
+	var radius = view_dist
+	if curvature == 1:
+		radius = view_dist * 2.5
+	elif curvature == 2:
+		radius = view_dist * 1.0
+	var arc_angle = _mesh_size.x / radius
+	comp_cylinder.set_radius(radius)
+	comp_cylinder.set_central_angle(arc_angle)
+	comp_cylinder.set_aspect_ratio(_mesh_size.x / _mesh_size.y)
+	if comp_cylinder.visible:
+		comp_cylinder.global_position = xr_camera.global_position
+		comp_cylinder.global_position.y = screen_mesh.global_position.y
+		comp_cylinder.global_rotation.y = screen_mesh.global_rotation.y
+	_log("[COMP] Cylinder params: radius=%.1f angle=%.3f aspect=%.2f curv=%d" % [radius, arc_angle, _mesh_size.x / _mesh_size.y, curvature])
+
+func _make_screen_transparent():
+	_screen_mesh_saved_mat = screen_mesh.material_override
+	var mat = StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0, 0, 0, 0)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	screen_mesh.material_override = mat
+
+func _make_ui_transparent():
+	_ui_saved_mat = ui_panel_3d.material_override
+	var mat = StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0, 0, 0, 0)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ui_panel_3d.material_override = mat
+
+func _make_kb_transparent():
+	if not virtual_keyboard:
+		return
+	_kb_saved_mat = virtual_keyboard.mesh_instance.material_override
+	var mat = StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0, 0, 0, 0)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	virtual_keyboard.mesh_instance.material_override = mat
+
+func _restore_screen_material():
+	if _screen_mesh_saved_mat:
+		screen_mesh.material_override = _screen_mesh_saved_mat
+		_screen_mesh_saved_mat = null
+
+func _restore_ui_material():
+	if _ui_saved_mat:
+		ui_panel_3d.material_override = _ui_saved_mat
+		_ui_saved_mat = null
+
+func _restore_kb_material():
+	if _kb_saved_mat and virtual_keyboard:
+		virtual_keyboard.mesh_instance.material_override = _kb_saved_mat
+		_kb_saved_mat = null
+
+func _update_cursor_layer():
+	if not comp_cursor or not use_comp_layer or cursor_mode == 0:
+		if comp_cursor:
+			comp_cursor.visible = false
+		return
+	var active_raycast = hand_raycast if is_xr_active else mouse_raycast
+	if active_raycast.is_colliding():
+		var hit_point = active_raycast.get_collision_point()
+		var to_cam = (xr_camera.global_position - hit_point).normalized()
+		comp_cursor.global_position = hit_point + to_cam * 0.002
+		comp_cursor.look_at(comp_cursor.global_position + to_cam, Vector3.UP)
+		comp_cursor.rotate_object_local(Vector3.UP, PI)
+		comp_cursor.visible = true
+	else:
+		comp_cursor.visible = false
+	if comp_ui and comp_ui.visible:
+		comp_ui.global_position = ui_panel_3d.global_position
+		comp_ui.global_rotation = ui_panel_3d.global_rotation
+	if comp_kb and virtual_keyboard and virtual_keyboard.visible:
+		comp_kb.global_position = virtual_keyboard.global_position
+		comp_kb.global_rotation = virtual_keyboard.global_rotation
+		comp_kb.visible = true
+	else:
+		if comp_kb:
+			comp_kb.visible = false
 
 func exit_app():
 	get_tree().quit()
@@ -323,29 +491,55 @@ func _switch_to_comp_layer():
 		return
 	if sbs_mode != 0 or ai_3d_mode != 0:
 		use_comp_layer = false
-		comp_layer.visible = false
+		if comp_quad: comp_quad.visible = false
+		if comp_cylinder: comp_cylinder.visible = false
 		_log("[COMP] Stereo mode active, using mesh rendering")
 		return
 	use_comp_layer = true
-	comp_layer.visible = true
+	if comp_quad: comp_quad.visible = false
+	if comp_cylinder: comp_cylinder.visible = false
+	var use_cylinder = curvature > 0 and comp_cylinder and comp_cylinder.is_natively_supported()
+	_log("[COMP] curvature=%d comp_cylinder=%s natively_supported=%s" % [curvature, str(comp_cylinder != null), str(comp_cylinder.is_natively_supported() if comp_cylinder else false)])
+	if use_cylinder:
+		comp_quad.set_layer_viewport(null)
+		comp_layer = comp_cylinder
+		comp_layer.set_layer_viewport(comp_viewport)
+		comp_layer.visible = true
+		comp_cylinder.global_position = xr_camera.global_position
+		comp_cylinder.global_position.y = screen_mesh.global_position.y
+		comp_cylinder.global_rotation.y = screen_mesh.global_rotation.y
+		_update_cylinder_params()
+		_log("[COMP] Switched to composition layer (cylinder)")
+	else:
+		if comp_cylinder:
+			comp_cylinder.set_layer_viewport(null)
+		comp_layer = comp_quad
+		comp_layer.set_layer_viewport(comp_viewport)
+		comp_layer.visible = true
+		_log("[COMP] Switched to composition layer (quad)")
 	comp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	screen_mesh.visible = false
+	_make_screen_transparent()
 	bezel_mesh.visible = false
 	_update_comp_bezel()
-	_log("[COMP] Switched to composition layer (quad)")
 
 func _switch_to_mesh_rendering():
 	use_comp_layer = false
-	if comp_layer:
-		comp_layer.visible = false
+	if comp_quad: comp_quad.visible = false
+	if comp_cylinder: comp_cylinder.visible = false
+	if comp_ui: comp_ui.visible = false
+	if comp_kb: comp_kb.visible = false
+	if comp_cursor: comp_cursor.visible = false
 	if comp_viewport:
 		comp_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	screen_mesh.visible = true
+	_restore_screen_material()
+	_restore_ui_material()
+	_restore_kb_material()
 	bezel_mesh.visible = bezel_enabled
 
 func _update_comp_layer_size():
-	if comp_layer and comp_layer is OpenXRCompositionLayerQuad:
-		comp_layer.set_quad_size(_mesh_size)
+	if comp_quad and comp_quad is OpenXRCompositionLayerQuad:
+		comp_quad.set_quad_size(_mesh_size)
+	_update_cylinder_params()
 
 func _on_stream_terminated(msg: String):
 	_log("[NF] _on_stream_terminated: auto=" + str(_auto_connect) + " restarting=" + str(_restarting_stream) + " msg=" + str(msg))
@@ -360,15 +554,21 @@ func _on_stream_terminated(msg: String):
 	if _ui_disconnect_btn: _ui_disconnect_btn.visible = false
 	_log("[STREAM] Connection terminated: %s" % str(msg))
 	stream_manager.teardown_v2_yuv_rect()
+	_restore_screen_material()
 	screen_mesh.material_override.set_shader_parameter("yuv_mode", 0)
 	screen_mesh.material_override.set_shader_parameter("tex_y", null)
 	screen_mesh.material_override.set_shader_parameter("tex_u", null)
 	screen_mesh.material_override.set_shader_parameter("tex_v", null)
 	stream_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	welcome_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-	_switch_to_mesh_rendering()
 	_clear_comp_yuv_textures()
+	comp_shader_mat.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+	comp_shader_mat.set_shader_parameter("yuv_mode", 0)
+	if comp_layer_available and sbs_mode == 0 and ai_3d_mode == 0:
+		_switch_to_comp_layer()
+	else:
+		screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+		_switch_to_mesh_rendering()
 	if mouse_captured_by_stream:
 		input_handler.release_stream_mouse()
 	audio_player.stop()
@@ -587,6 +787,7 @@ func _process(delta):
 	if not mouse_captured_by_stream:
 		xr_interaction.handle_pointer_interaction()
 	xr_interaction.handle_scroll()
+	_update_cursor_layer()
 
 	var starfield = get_node_or_null("Starfield")
 	if starfield and is_xr_active:
@@ -628,8 +829,19 @@ func _toggle_ui():
 	ui_visible = not ui_visible
 	_set_ui_visible(ui_visible)
 	if ui_visible:
-		var ui_tex = ui_viewport.get_texture()
-		ui_panel_3d.material_override.albedo_texture = ui_tex
+		if comp_ui:
+			comp_ui.visible = true
+			comp_ui.global_position = ui_panel_3d.global_position
+			comp_ui.global_rotation = ui_panel_3d.global_rotation
+		if use_comp_layer:
+			_make_ui_transparent()
+		else:
+			var ui_tex = ui_viewport.get_texture()
+			ui_panel_3d.material_override.albedo_texture = ui_tex
+	else:
+		if comp_ui:
+			comp_ui.visible = false
+		_restore_ui_material()
 	if _ui_disconnect_btn:
 		_ui_disconnect_btn.visible = is_streaming
 
@@ -670,9 +882,13 @@ func _reposition_screen_and_ui():
 	screen_mesh.global_position.y = floor_y + 1.3
 	screen_mesh.rotation = Vector3.ZERO
 	screen_mesh.rotation.y = cam_yaw
-	if comp_layer:
-		comp_layer.global_position = screen_mesh.global_position
-		comp_layer.global_rotation = screen_mesh.global_rotation
+	if comp_quad:
+		comp_quad.global_position = screen_mesh.global_position
+		comp_quad.global_rotation = screen_mesh.global_rotation
+	if comp_cylinder and comp_cylinder.visible:
+		comp_cylinder.global_position = xr_camera.global_position
+		comp_cylinder.global_position.y = screen_mesh.global_position.y
+		comp_cylinder.global_rotation.y = screen_mesh.global_rotation.y
 	ui_panel_3d.global_position = cam_pos + fwd_flat * 1.5 - right_flat * 1.2
 	ui_panel_3d.global_position.y = floor_y + 1.1
 	ui_panel_3d.rotation = Vector3.ZERO
