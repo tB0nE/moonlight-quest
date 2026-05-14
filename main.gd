@@ -417,6 +417,9 @@ func _update_cursor_layer():
 			if pointer: pointer.visible = true
 			if circle: circle.visible = false
 			comp_cursor.set_quad_size(Vector2(0.06, 0.08))
+			var right = comp_cursor.global_transform.basis.x
+			var up = comp_cursor.global_transform.basis.y
+			comp_cursor.global_position += right * 0.03 - up * 0.04
 		else:
 			if pointer: pointer.visible = false
 			if circle: circle.visible = true
