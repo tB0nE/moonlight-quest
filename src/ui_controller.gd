@@ -296,15 +296,36 @@ func build_ui():
 	main._ui_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(main._ui_status_label)
 
-	var grab_bar = ColorRect.new()
+	var grab_gap = Control.new()
+	grab_gap.custom_minimum_size = Vector2(0, 8)
+	grab_gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(grab_gap)
+
+	var grab_bar_center = HBoxContainer.new()
+	grab_bar_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grab_bar_center.add_theme_constant_override("separation", 0)
+	vbox.add_child(grab_bar_center)
+
+	var grab_left_spacer = Control.new()
+	grab_left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grab_left_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grab_bar_center.add_child(grab_left_spacer)
+
+	var grab_bar = PanelContainer.new()
 	grab_bar.name = "CompGrabBar"
-	grab_bar.color = Color(1, 1, 1, 1)
-	grab_bar.custom_minimum_size = Vector2(0, 14)
+	grab_bar.custom_minimum_size = Vector2(0, 12)
 	grab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grab_bar.material = ShaderMaterial.new()
-	grab_bar.material.shader = preload("res://src/shaders/grab_bar.gdshader")
 	grab_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vbox.add_child(grab_bar)
+	var grab_style = StyleBoxFlat.new()
+	grab_style.bg_color = Color(1, 1, 1, 0.08)
+	grab_style.set_corner_radius_all(7)
+	grab_bar.add_theme_stylebox_override("panel", grab_style)
+	grab_bar_center.add_child(grab_bar)
+
+	var grab_right_spacer = Control.new()
+	grab_right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grab_right_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grab_bar_center.add_child(grab_right_spacer)
 
 	var bottom_margin = Control.new()
 	bottom_margin.custom_minimum_size = Vector2(0, 4)

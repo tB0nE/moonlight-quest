@@ -467,9 +467,13 @@ func _update_cursor_layer():
 func set_comp_grab_bar_color(viewport: SubViewport, color: Color):
 	if not viewport:
 		return
-	var bar = viewport.get_node_or_null("CompGrabBar")
-	if bar and bar.material and bar.material is ShaderMaterial:
-		bar.material.set_shader_parameter("highlight_alpha", color.a)
+	var bar = viewport.find_child("CompGrabBar", true, false)
+	if bar and bar is PanelContainer:
+		var style = bar.get_theme_stylebox("panel")
+		if style and style is StyleBoxFlat:
+			style = style.duplicate()
+			style.bg_color = Color(1, 1, 1, color.a)
+			bar.add_theme_stylebox_override("panel", style)
 
 func exit_app():
 	get_tree().quit()

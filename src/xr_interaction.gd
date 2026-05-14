@@ -59,6 +59,8 @@ func handle_pointer_interaction():
 			_set_corner_color(ch, Color.WHITE, 0.0)
 	elif main.grabbed_node and main.grabbed_bar:
 		_set_grab_bar_color(main.grabbed_bar, Color.WHITE, 0.3)
+	elif main.grabbed_node == main.ui_panel_3d:
+		main.set_comp_grab_bar_color(main.ui_viewport, Color(1, 1, 1, 0.8))
 	elif main.grabbed_corner_idx >= 0:
 		_set_corner_color(main.corner_handles[main.grabbed_corner_idx], Color.WHITE, 0.3)
 
@@ -123,7 +125,9 @@ func handle_pointer_interaction():
 			var pixel_pos = Vector2(nx * main._ui_viewport_size.x, ny * main._ui_viewport_size.y)
 
 			var is_grab_bar = _is_ui_grab_bar(pixel_pos)
-			if is_grab_bar and not main.grabbed_node and main.grabbed_corner_idx < 0:
+			if main.grabbed_node == main.ui_panel_3d:
+				main.set_comp_grab_bar_color(main.ui_viewport, Color(1, 1, 1, 0.8))
+			elif is_grab_bar and main.grabbed_corner_idx < 0:
 				main.set_comp_grab_bar_color(main.ui_viewport, Color(1, 1, 1, 0.25))
 				if is_now_clicking and not main.was_clicking:
 					main.grabbed_node = main.ui_panel_3d
@@ -321,6 +325,8 @@ func handle_grab():
 		if main.grabbed_bar:
 			_set_grab_bar_color(main.grabbed_bar, Color.WHITE, 0.01)
 			main.grabbed_bar = null
+		if main.grabbed_node == main.ui_panel_3d:
+			main.set_comp_grab_bar_color(main.ui_viewport, Color(1, 1, 1, 0.08))
 		main.grabbed_node = null
 		main.grab_start_hand_basis = Basis()
 		main.grab_start_node_basis = Basis()
@@ -481,4 +487,4 @@ func _is_ui_grab_bar(pixel_pos: Vector2) -> bool:
 	if not bar or not bar is Control:
 		return false
 	var bar_rect = bar.get_global_rect()
-	return pixel_pos.y >= bar_rect.position.y and pixel_pos.y <= bar_rect.end.y
+	return pixel_pos.x >= bar_rect.position.x and pixel_pos.x <= bar_rect.end.x and pixel_pos.y >= bar_rect.position.y and pixel_pos.y <= bar_rect.end.y
