@@ -376,8 +376,6 @@ func _make_kb_transparent():
 	mat.albedo_color = Color(0, 0, 0, 0)
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	virtual_keyboard.mesh_instance.material_override = mat
-	if virtual_keyboard.grab_bar:
-		virtual_keyboard.grab_bar.visible = false
 
 func _restore_screen_material():
 	if _screen_mesh_saved_mat:
@@ -396,8 +394,6 @@ func _restore_kb_material():
 	if _kb_saved_mat and virtual_keyboard:
 		virtual_keyboard.mesh_instance.material_override = _kb_saved_mat
 		_kb_saved_mat = null
-	if virtual_keyboard and virtual_keyboard.grab_bar:
-		virtual_keyboard.grab_bar.visible = virtual_keyboard.visible
 
 func _update_cursor_layer():
 	if not comp_cursor or not use_comp_layer:

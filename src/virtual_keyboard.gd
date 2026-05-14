@@ -6,10 +6,10 @@ var viewport: SubViewport
 var mesh_instance: MeshInstance3D
 var area: Area3D
 var collision_shape: CollisionShape3D
-var grab_bar: MeshInstance3D
-var grab_bar_area: Area3D
-var mesh_size := Vector2(0.8, 0.28)
-var viewport_size := Vector2i(1600, 560)
+var grab_bar: MeshInstance3D = null
+var grab_bar_area: Area3D = null
+var mesh_size := Vector2(0.8, 0.3)
+var viewport_size := Vector2i(1600, 600)
 var _kb_root: Control
 var _key_data: Array = []
 var _held_keys: Dictionary = {}
@@ -43,21 +43,6 @@ func build():
 	_kb_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	viewport.add_child(_kb_root)
 
-	var grab_bar = PanelContainer.new()
-	grab_bar.name = "CompGrabBar"
-	grab_bar.anchor_left = 0.3
-	grab_bar.anchor_right = 0.7
-	grab_bar.anchor_top = 0.0
-	grab_bar.anchor_bottom = 0.0
-	grab_bar.offset_top = 4
-	grab_bar.offset_bottom = 14
-	var grab_style = StyleBoxFlat.new()
-	grab_style.bg_color = Color(1, 1, 1, 0.08)
-	grab_style.set_corner_radius_all(4)
-	grab_bar.add_theme_stylebox_override("panel", grab_style)
-	grab_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	viewport.add_child(grab_bar)
-
 	var kb_bg = ColorRect.new()
 	kb_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	kb_bg.color = Color(0.04, 0.04, 0.1, 0.85)
@@ -65,6 +50,38 @@ func build():
 	_kb_root.add_child(kb_bg)
 
 	_build_keys()
+
+	var bottom_box = HBoxContainer.new()
+	bottom_box.anchor_left = 0.0
+	bottom_box.anchor_right = 1.0
+	bottom_box.anchor_top = 1.0
+	bottom_box.anchor_bottom = 1.0
+	bottom_box.offset_top = -79
+	bottom_box.offset_bottom = -37
+	bottom_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_box.add_theme_constant_override("separation", 0)
+	viewport.add_child(bottom_box)
+
+	var left_spacer = Control.new()
+	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_box.add_child(left_spacer)
+
+	var grab_bar = PanelContainer.new()
+	grab_bar.name = "CompGrabBar"
+	grab_bar.custom_minimum_size = Vector2(0, 38)
+	grab_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grab_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var grab_style = StyleBoxFlat.new()
+	grab_style.bg_color = Color(1, 1, 1, 0.08)
+	grab_style.set_corner_radius_all(19)
+	grab_bar.add_theme_stylebox_override("panel", grab_style)
+	bottom_box.add_child(grab_bar)
+
+	var right_spacer = Control.new()
+	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_box.add_child(right_spacer)
 
 	var quad = QuadMesh.new()
 	quad.size = mesh_size
@@ -94,32 +111,7 @@ func build():
 	collision_shape.position = Vector3(0, 0, 0.01)
 	area.add_child(collision_shape)
 
-	grab_bar = MeshInstance3D.new()
-	grab_bar.name = "KBGrabBar"
-	grab_bar.unique_name_in_owner = true
-	var bar_mesh = CylinderMesh.new()
-	bar_mesh.top_radius = 0.01
-	bar_mesh.bottom_radius = 0.01
-	bar_mesh.height = mesh_size.x * 0.6
-	grab_bar.mesh = bar_mesh
-	var bar_mat = StandardMaterial3D.new()
-	bar_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	bar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	bar_mat.albedo_color = Color(1, 1, 1, 0.01)
-	grab_bar.material_override = bar_mat
-	grab_bar.rotation_degrees = Vector3(0, 0, 90)
-	grab_bar.position = Vector3(0.0, -mesh_size.y / 2.0 - 0.04, 0.0)
-	grab_bar.visible = false
-	add_child(grab_bar)
-
-	grab_bar_area = Area3D.new()
-	grab_bar_area.collision_layer = 2
-	grab_bar.add_child(grab_bar_area)
-	var bar_shape = BoxShape3D.new()
-	bar_shape.size = Vector3(mesh_size.x * 0.15, 0.02, 0.02)
-	var bar_cs = CollisionShape3D.new()
-	bar_cs.shape = bar_shape
-	grab_bar_area.add_child(bar_cs)
+	grab_bar = null
 
 	visible = false
 	grab_bar.visible = false
@@ -284,15 +276,10 @@ func toggle():
 			_has_saved_offset = true
 		_save_offset()
 	visible = new_vis
-	grab_bar.visible = new_vis
 	if area:
 		area.process_mode = Node.PROCESS_MODE_INHERIT if new_vis else Node.PROCESS_MODE_DISABLED
 		area.monitorable = new_vis
 		area.monitoring = new_vis
-	if grab_bar_area:
-		grab_bar_area.process_mode = Node.PROCESS_MODE_INHERIT if new_vis else Node.PROCESS_MODE_DISABLED
-		grab_bar_area.monitorable = new_vis
-		grab_bar_area.monitoring = new_vis
 
 func _save_offset():
 	var scr_basis = main.screen_mesh.global_transform.basis.inverse()
