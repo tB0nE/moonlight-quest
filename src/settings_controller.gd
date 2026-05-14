@@ -38,15 +38,26 @@ func cycle_ai_3d_mode():
 
 func apply_stereo():
 	var mode = get_stereo_mode()
+	main._log("[STEREO] apply_stereo mode=%d use_comp=%s streaming=%s" % [mode, str(main.use_comp_layer), str(main.is_streaming)])
+	if main.comp_layer_available:
+		if mode > 0:
+			main._switch_to_stereo_comp_layer()
+		else:
+			main._switch_to_comp_layer()
+	else:
+		if mode > 0 and main.use_comp_layer:
+			main._switch_to_mesh_rendering()
+		elif mode == 0 and not main.use_comp_layer and main.is_streaming:
+			main._switch_to_comp_layer()
 	main.screen_mesh.material_override.set_shader_parameter("stereo_mode", mode)
 	if main.depth_estimator:
 		main.depth_estimator.set_enabled(mode >= 3)
+		if mode >= 3 and main.depth_estimator.depth_texture:
+			if main.comp_shader_mat_left:
+				main.comp_shader_mat_left.set_shader_parameter("depth_texture", main.depth_estimator.depth_texture)
+			if main.comp_shader_mat_right:
+				main.comp_shader_mat_right.set_shader_parameter("depth_texture", main.depth_estimator.depth_texture)
 	main.stream_backend.set_depth_model(1 if mode == 4 else 0)
-	if main.is_streaming:
-		if mode > 0:
-			main._switch_to_mesh_rendering()
-		elif main.comp_layer_available:
-			main._switch_to_comp_layer()
 
 func toggle_passthrough():
 	if not main.is_xr_active:
@@ -101,6 +112,11 @@ func apply_filter():
 	if mat:
 		mat.set_shader_parameter("filter_mode", main.smooth_mode)
 		mat.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.016)
+	var comp_mats = [main.comp_shader_mat, main.comp_shader_mat_left, main.comp_shader_mat_right]
+	for cm in comp_mats:
+		if cm:
+			cm.set_shader_parameter("filter_mode", main.smooth_mode)
+			cm.set_shader_parameter("sharpen", float(main.sharpen_mode) * 0.016)
 
 func apply_display_refresh_rate():
 	if not main.is_xr_active:

@@ -7,6 +7,13 @@ uniform int yuv_mode = 0;
 uniform int color_matrix_type = 1;
 uniform int color_range = 0;
 uniform sampler2D main_texture : source_color, filter_linear, repeat_disable;
+uniform int filter_mode = 0;
+uniform float sharpen = 0.0;
+uniform int stereo_mode = 0;
+uniform int eye_index = 0;
+uniform sampler2D depth_texture : hint_default_white, filter_linear, repeat_disable;
+uniform float convergence = 0.5;
+uniform float balance_shift = 0.5;
 
 vec3 yuv_to_rgb(vec2 uv) {
 	float y_raw = texture(tex_y, uv).r;
@@ -61,10 +68,129 @@ vec3 yuv_to_rgb(vec2 uv) {
 	return rgb;
 }
 
+vec3 sample_stream(vec2 uv) {
+	if (yuv_mode > 0) {
+		return yuv_to_rgb(uv);
+	}
+	return texture(main_texture, uv).rgb;
+}
+
+vec3 cas_sharpen(vec2 uv, float strength) {
+	vec2 texel = 1.0 / vec2(textureSize(tex_y, 0));
+	if (yuv_mode == 0) {
+		texel = 1.0 / vec2(textureSize(main_texture, 0));
+	}
+	vec3 c = sample_stream(uv);
+	vec3 n = sample_stream(uv + vec2( 0.0, -texel.y));
+	vec3 w = sample_stream(uv + vec2(-texel.x,  0.0));
+	vec3 e = sample_stream(uv + vec2( texel.x,  0.0));
+	vec3 s = sample_stream(uv + vec2( 0.0,  texel.y));
+
+	vec3 mn = min(c, min(n, min(w, min(e, s))));
+	vec3 mx = max(c, max(n, max(w, max(e, s))));
+	vec3 range = mx - mn;
+
+	vec3 peak = max(mx, vec3(0.0001));
+	vec3 weight = vec3(strength) * clamp((peak - range) / peak, vec3(0.0), vec3(1.0));
+
+	vec3 avg = (n + w + e + s) * 0.25;
+	return c + weight * (c - avg);
+}
+
+vec3 filtered_stream(vec2 uv) {
+	vec3 original = sample_stream(uv);
+
+	if (filter_mode == 0 && sharpen <= 0.0) {
+		return original;
+	}
+
+	if (filter_mode > 0) {
+		vec2 texel = 1.0 / vec2(textureSize(tex_y, 0));
+		if (yuv_mode == 0) {
+			texel = 1.0 / vec2(textureSize(main_texture, 0));
+		}
+		float s = 0.125 * float(filter_mode) + 0.175;
+		vec3 blurred = original * 4.0;
+		blurred += sample_stream(uv + vec2(-1.0, -1.0) * texel * s);
+		blurred += sample_stream(uv + vec2( 1.0, -1.0) * texel * s);
+		blurred += sample_stream(uv + vec2(-1.0,  1.0) * texel * s);
+		blurred += sample_stream(uv + vec2( 1.0,  1.0) * texel * s);
+		blurred += sample_stream(uv + vec2(-1.0,  0.0) * texel * s) * 2.0;
+		blurred += sample_stream(uv + vec2( 1.0,  0.0) * texel * s) * 2.0;
+		blurred += sample_stream(uv + vec2( 0.0, -1.0) * texel * s) * 2.0;
+		blurred += sample_stream(uv + vec2( 0.0,  1.0) * texel * s) * 2.0;
+		blurred /= 16.0;
+		if (sharpen > 0.0) {
+			return blurred + sharpen * (original - blurred);
+		}
+		return blurred;
+	}
+
+	if (yuv_mode > 0) {
+		return cas_sharpen(uv, sharpen);
+	}
+
+	return original;
+}
+
 void fragment() {
 	vec2 uv = clamp(UV, vec2(0.002), vec2(0.998));
+
+	if (stereo_mode == 1) {
+		if (eye_index == 1) {
+			uv = vec2(uv.x * 0.5, uv.y);
+		} else {
+			uv = vec2(uv.x * 0.5 + 0.5, uv.y);
+		}
+	} else if (stereo_mode == 2) {
+		if (eye_index == 1) {
+			uv = vec2(uv.x * 0.5, uv.y * 0.5 + 0.25);
+		} else {
+			uv = vec2(uv.x * 0.5 + 0.5, uv.y * 0.5 + 0.25);
+		}
+	} else if (stereo_mode >= 3) {
+		vec2 depth_texel = 1.0 / vec2(textureSize(depth_texture, 0));
+		float parallax = 0.042;
+		float half_parallax = parallax * 0.5;
+
+		vec2 depth_uv = uv - vec2(half_parallax, 0.0);
+		depth_uv = clamp(depth_uv, vec2(0.0), vec2(1.0));
+		float depth = texture(depth_texture, depth_uv).r;
+
+		float depth_diff = clamp(depth - convergence, -convergence, 1.0 - convergence);
+		float dist_from_convergence = abs(depth - convergence);
+		float zone_radius = 0.70;
+		float fade_multiplier = smoothstep(0.0, zone_radius, dist_from_convergence);
+		depth_diff *= fade_multiplier;
+
+		float shift = parallax * depth_diff;
+		bool is_left = (eye_index == 1);
+		float eye_sign = is_left ? -1.0 : 1.0;
+
+		if ((depth - convergence) < 0.0) {
+			shift *= is_left ? balance_shift : (1.0 - balance_shift);
+		} else {
+			shift *= is_left ? (1.0 - balance_shift) : balance_shift;
+		}
+
+		float edge_width = 3.0 * depth_texel.x;
+		float depth_left = texture(depth_texture, vec2(edge_width, 0.5)).r;
+		float depth_right = texture(depth_texture, vec2(1.0 - edge_width, 0.5)).r;
+		float max_edge_shift = max(abs(depth_left - convergence), abs(depth_right - convergence));
+		float max_shift_possible = parallax * max_edge_shift;
+		float vignette_bias = (convergence - 0.5) * 0.3;
+		float vignette_start = mix(0.7 - vignette_bias, 1.0 - vignette_bias, clamp(max_shift_possible / 0.05, 0.0, 1.0));
+
+		float h_dist = abs(uv.x - 0.5) * 2.0;
+		float vignette = 1.0 - smoothstep(vignette_start, 1.0, pow(h_dist, 1.5));
+
+		shift *= vignette;
+
+		uv = vec2(clamp(uv.x - shift * eye_sign, 0.0, 1.0), uv.y);
+	}
+
 	if (yuv_mode > 0) {
-		COLOR = vec4(yuv_to_rgb(uv), 1.0);
+		COLOR = vec4(filtered_stream(uv), 1.0);
 	} else {
 		COLOR = texture(main_texture, uv);
 	}

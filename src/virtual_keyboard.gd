@@ -118,7 +118,6 @@ func build():
 	grab_bar = null
 
 	visible = false
-	grab_bar.visible = false
 	if area:
 		area.process_mode = Node.PROCESS_MODE_DISABLED
 		area.monitorable = false

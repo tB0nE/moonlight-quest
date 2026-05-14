@@ -22,9 +22,9 @@ for arg in "$@"; do
   esac
 done
 
-GODOT="/var/home/tyrone/.local/share/Steam/steamapps/common/Godot Engine/godot.x11.opt.tools.64"
+GODOT="/var/home/tyrone/Applications/Godot_v4.7-beta2_linux.x86_64"
 JAVA_HOME="/home/linuxbrew/.linuxbrew/opt/openjdk@17"
-TEMPLATES="/var/home/tyrone/.local/share/Steam/steamapps/common/Godot Engine/editor_data/export_templates/4.6.2.stable/android_source.zip"
+TEMPLATES="/var/home/tyrone/.local/share/godot/export_templates/4.7.beta2/android_source.zip"
 
 CONFIG="export_presets.cfg"
 CONFIG_BACKUP="export_presets.cfg.bak"
@@ -60,18 +60,18 @@ rm -rf android/build
 mkdir -p android/build
 cd android/build
 unzip -q "$TEMPLATES"
-cp ../src/main/java/com/godot/game/GodotApp.java src/main/java/com/godot/game/GodotApp.java
-cp ../src/main/java/com/godot/game/DepthEstimator.java src/main/java/com/godot/game/DepthEstimator.java
-mkdir -p src/main/assets
-cp "$SCRIPT_DIR/android/src/main/assets/midas-midas-v2-w8a8.tflite" src/main/assets/
-cp "$SCRIPT_DIR/android/src/main/assets/depth-anything-v2-small.tflite" src/main/assets/ 2>/dev/null || true
-sed -i '/implementation "androidx.documentfile:documentfile/a\\n    implementation "org.tensorflow:tensorflow-lite:2.16.1"' build.gradle
-if [ "$PRESET" = "NightfallDev" ]; then
-  cp "$SCRIPT_DIR/addons/godotopenxrvendors/.bin/android/debug/godotopenxr-meta-debug.aar" libs/debug/ 2>/dev/null || true
-else
-  cp "$SCRIPT_DIR/addons/godotopenxrvendors/.bin/android/release/godotopenxr-meta-release.aar" libs/release/ 2>/dev/null || true
-fi
 cd "$SCRIPT_DIR"
+cp android/src/main/java/com/godot/game/GodotApp.java android/build/src/main/java/com/godot/game/GodotApp.java
+cp android/src/main/java/com/godot/game/DepthEstimator.java android/build/src/main/java/com/godot/game/DepthEstimator.java
+mkdir -p android/build/src/main/assets
+cp "$SCRIPT_DIR/android/src/main/assets/midas-midas-v2-w8a8.tflite" android/build/src/main/assets/
+cp "$SCRIPT_DIR/android/src/main/assets/depth-anything-v2-small.tflite" android/build/src/main/assets/ 2>/dev/null || true
+sed -i '/implementation "androidx.documentfile:documentfile/a\\n    implementation "org.tensorflow:tensorflow-lite:2.16.1"' android/build/build.gradle
+if [ "$PRESET" = "NightfallDev" ]; then
+  cp "$SCRIPT_DIR/addons/godotopenxrvendors/.bin/android/debug/godotopenxr-meta-debug.aar" android/build/libs/debug/ 2>/dev/null || true
+else
+  cp "$SCRIPT_DIR/addons/godotopenxrvendors/.bin/android/release/godotopenxr-meta-release.aar" android/build/libs/release/ 2>/dev/null || true
+fi
 
 echo "Exporting $PRESET..."
 EXPORT_FLAG="--export-debug"

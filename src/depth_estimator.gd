@@ -33,6 +33,10 @@ func setup():
 	var img = Image.create(model_size, model_size, false, Image.FORMAT_L8)
 	depth_texture = ImageTexture.create_from_image(img)
 	main.screen_mesh.material_override.set_shader_parameter("depth_texture", depth_texture)
+	if main.comp_shader_mat_left:
+		main.comp_shader_mat_left.set_shader_parameter("depth_texture", depth_texture)
+	if main.comp_shader_mat_right:
+		main.comp_shader_mat_right.set_shader_parameter("depth_texture", depth_texture)
 
 func bind_stream_texture():
 	if depth_target and main.stream_viewport:

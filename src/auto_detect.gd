@@ -62,5 +62,6 @@ func run():
 	if all_match and main.detection_history.size() >= 5 and detected_mode != current_sbs:
 		main.sbs_mode = detected_mode
 		main.ai_3d_mode = 0
+		main.settings_controller.apply_stereo()
 		main.ui_controller.update_stereo_shader()
 	main.auto_detect_running = false
