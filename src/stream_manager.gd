@@ -104,6 +104,7 @@ func resize_stream_viewport(w: int, h: int):
 		_v2_yuv_rect.custom_minimum_size = Vector2(w, h)
 	if main.comp_viewport:
 		main.comp_viewport.size = Vector2i(w, h)
+	main._comp_base_size = Vector2i(w, h)
 	if main.comp_layer and main.comp_layer is OpenXRCompositionLayerQuad:
 		main.comp_layer.set_quad_size(main._mesh_size)
 	main.screen_manager.resize_screen_to_aspect(w, h)

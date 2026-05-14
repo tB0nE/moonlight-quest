@@ -112,13 +112,14 @@ var state_manager: StateManager
 var host_discovery: HostDiscovery
 
 var comp_cylinder: Node3D = null
-var comp_layer: Node3D = null
 var comp_cursor: Node3D = null
 var comp_ui: Node3D = null
 var comp_kb: Node3D = null
-var comp_viewport: SubViewport = null
 var comp_cursor_viewport: SubViewport = null
+var comp_layer: Node3D = null
+var comp_viewport: SubViewport = null
 var comp_yuv_rect: ColorRect = null
+var comp_bezel_rect: ColorRect = null
 var comp_shader_mat: ShaderMaterial = null
 var use_comp_layer: bool = false
 var comp_layer_available: bool = false
@@ -188,31 +189,31 @@ func _setup_comp_layer():
 	comp_viewport.disable_3d = true
 	comp_viewport.transparent_bg = true
 	comp_viewport.size = Vector2i(1920, 1080)
+	_comp_base_size = Vector2i(1920, 1080)
 	comp_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(comp_viewport)
 
+	comp_bezel_rect = ColorRect.new()
+	comp_bezel_rect.name = "CompBezelRect"
+	comp_bezel_rect.color = Color(0, 0, 0, 1)
+	comp_bezel_rect.anchors_preset = 15
+	comp_bezel_rect.anchor_right = 1.0
+	comp_bezel_rect.anchor_bottom = 1.0
+	comp_bezel_rect.grow_horizontal = 2
+	comp_bezel_rect.grow_vertical = 2
+	comp_viewport.add_child(comp_bezel_rect)
+
 	comp_yuv_rect = ColorRect.new()
 	comp_yuv_rect.name = "CompYuvRect"
-	comp_yuv_rect.color = Color(0, 0, 0, 1)
 	comp_yuv_rect.anchors_preset = 15
 	comp_yuv_rect.anchor_right = 1.0
 	comp_yuv_rect.anchor_bottom = 1.0
 	comp_yuv_rect.grow_horizontal = 2
 	comp_yuv_rect.grow_vertical = 2
-	comp_viewport.add_child(comp_yuv_rect)
-
-	var stream_rect = ColorRect.new()
-	stream_rect.name = "CompStreamRect"
-	stream_rect.anchors_preset = 15
-	stream_rect.anchor_right = 1.0
-	stream_rect.anchor_bottom = 1.0
-	stream_rect.grow_horizontal = 2
-	stream_rect.grow_vertical = 2
 	comp_shader_mat = ShaderMaterial.new()
 	comp_shader_mat.shader = load("res://src/shaders/yuv_display.gdshader")
-	stream_rect.material = comp_shader_mat
-	comp_yuv_rect.add_child(stream_rect)
-	comp_yuv_rect = stream_rect
+	comp_yuv_rect.material = comp_shader_mat
+	comp_bezel_rect.add_child(comp_yuv_rect)
 
 	comp_ui = OpenXRCompositionLayerQuad.new()
 	comp_ui.name = "CompUILayer"
@@ -271,11 +272,21 @@ func _setup_comp_layer():
 	comp_layer_available = true
 	_log("[COMP] Composition layer cylinder created")
 
+var _comp_base_size := Vector2i(1920, 1080)
+
 func _update_comp_bezel():
-	if not comp_yuv_rect:
+	if not comp_yuv_rect or not comp_bezel_rect:
 		return
+	var base_w = _comp_base_size.x
+	var base_h = _comp_base_size.y
 	if bezel_enabled and use_comp_layer:
 		var px = 8
+		comp_bezel_rect.color = Color(0, 0, 0, 1)
+		comp_bezel_rect.anchors_preset = 15
+		comp_bezel_rect.offset_left = 0
+		comp_bezel_rect.offset_top = 0
+		comp_bezel_rect.offset_right = 0
+		comp_bezel_rect.offset_bottom = 0
 		comp_yuv_rect.offset_left = px
 		comp_yuv_rect.offset_top = px
 		comp_yuv_rect.offset_right = -px
@@ -285,12 +296,26 @@ func _update_comp_bezel():
 		comp_yuv_rect.anchor_right = 1.0
 		comp_yuv_rect.anchor_bottom = 1.0
 		comp_yuv_rect.anchors_preset = 0
+		comp_viewport.size = Vector2i(base_w + px * 2, base_h + px * 2)
+		var bezel_x = _mesh_size.x * (1.0 + float(px * 2) / float(base_w))
+		var bezel_y = _mesh_size.y * (1.0 + float(px * 2) / float(base_h))
+		if comp_cylinder:
+			comp_cylinder.set_aspect_ratio(bezel_x / bezel_y)
 	else:
+		comp_bezel_rect.color = Color(0, 0, 0, 0)
+		comp_bezel_rect.anchors_preset = 15
+		comp_bezel_rect.offset_left = 0
+		comp_bezel_rect.offset_top = 0
+		comp_bezel_rect.offset_right = 0
+		comp_bezel_rect.offset_bottom = 0
 		comp_yuv_rect.offset_left = 0
 		comp_yuv_rect.offset_top = 0
 		comp_yuv_rect.offset_right = 0
 		comp_yuv_rect.offset_bottom = 0
 		comp_yuv_rect.anchors_preset = 15
+		comp_viewport.size = Vector2i(base_w, base_h)
+		if comp_cylinder:
+			comp_cylinder.set_aspect_ratio(_mesh_size.x / _mesh_size.y)
 
 func _update_cylinder_params():
 	if not comp_cylinder:
@@ -309,8 +334,7 @@ func _update_cylinder_params():
 	comp_cylinder.set_central_angle(_mesh_size.x / radius)
 	comp_cylinder.set_aspect_ratio(_mesh_size.x / _mesh_size.y)
 	comp_cylinder.global_position = screen_mesh.global_position - screen_forward * radius
-	comp_cylinder.global_position.y = screen_mesh.global_position.y
-	comp_cylinder.global_rotation.y = screen_mesh.global_rotation.y
+	comp_cylinder.global_rotation = screen_mesh.global_rotation
 	_log("[COMP] Cylinder params: radius=%.1f angle=%.3f aspect=%.2f curv=%d" % [radius, _mesh_size.x / radius, _mesh_size.x / _mesh_size.y, curvature])
 
 func _make_screen_transparent():
@@ -850,7 +874,7 @@ func _reposition_screen_and_ui():
 	var fwd_flat = Vector3(-sin(cam_yaw), 0, -cos(cam_yaw)).normalized()
 	var right_flat = Vector3(cos(cam_yaw), 0, -sin(cam_yaw)).normalized()
 	var floor_y = xr_origin.global_position.y
-	screen_mesh.global_position = cam_pos + fwd_flat * 3.0
+	screen_mesh.global_position = cam_pos + fwd_flat * 1.8
 	screen_mesh.global_position.y = floor_y + 1.3
 	screen_mesh.rotation = Vector3.ZERO
 	screen_mesh.rotation.y = cam_yaw
