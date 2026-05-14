@@ -231,7 +231,7 @@ func _setup_comp_layer():
 	comp_cursor.set_sort_order(3)
 	comp_cursor.set_enable_hole_punch(false)
 	comp_cursor.set_alpha_blend(true)
-	comp_cursor.set_quad_size(Vector2(0.06, 0.08))
+	comp_cursor.set_quad_size(Vector2(0.04, 0.04))
 	comp_cursor.visible = false
 	xr_origin.add_child(comp_cursor)
 
@@ -243,15 +243,27 @@ func _setup_comp_layer():
 	comp_cursor_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(comp_cursor_viewport)
 
-	var cursor_rect = TextureRect.new()
-	cursor_rect.name = "CursorTexture"
-	cursor_rect.anchors_preset = 15
-	cursor_rect.anchor_right = 1.0
-	cursor_rect.anchor_bottom = 1.0
-	cursor_rect.expand_mode = 1
-	cursor_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	cursor_rect.texture = load("res://src/assets/mouse_pointer_01.png")
-	comp_cursor_viewport.add_child(cursor_rect)
+	var pointer_tex = TextureRect.new()
+	pointer_tex.name = "PointerTexture"
+	pointer_tex.anchors_preset = 15
+	pointer_tex.anchor_right = 1.0
+	pointer_tex.anchor_bottom = 1.0
+	pointer_tex.expand_mode = 1
+	pointer_tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pointer_tex.texture = load("res://src/assets/mouse_pointer_01.png")
+	comp_cursor_viewport.add_child(pointer_tex)
+
+	var circle = ColorRect.new()
+	circle.name = "CircleTexture"
+	var cx = 32
+	var cr = 8
+	circle.position = Vector2(cx - cr, cx - cr)
+	circle.size = Vector2(cr * 2, cr * 2)
+	var circle_mat = ShaderMaterial.new()
+	circle_mat.shader = preload("res://src/shaders/circle_cursor.gdshader")
+	circle.material = circle_mat
+	circle.visible = false
+	comp_cursor_viewport.add_child(circle)
 
 	comp_cursor.set_layer_viewport(comp_cursor_viewport)
 	_log("[COMP] Cursor composition layer created")
@@ -379,20 +391,42 @@ func _restore_kb_material():
 		_kb_saved_mat = null
 
 func _update_cursor_layer():
-	if not comp_cursor or not use_comp_layer or cursor_mode == 0:
+	if not comp_cursor or not use_comp_layer:
 		if comp_cursor:
 			comp_cursor.visible = false
 		return
 	var active_raycast = hand_raycast if is_xr_active else mouse_raycast
+	var on_screen = false
 	if active_raycast.is_colliding():
 		var hit_point = active_raycast.get_collision_point()
+		var col = active_raycast.get_collider()
+		var par = col.get_parent() if col else null
+		on_screen = (par == screen_mesh)
 		var to_cam = (xr_camera.global_position - hit_point).normalized()
 		comp_cursor.global_position = hit_point + to_cam * 0.002
 		comp_cursor.look_at(comp_cursor.global_position + to_cam, Vector3.UP)
 		comp_cursor.rotate_object_local(Vector3.UP, PI)
 		comp_cursor.visible = true
+		var pointer = comp_cursor_viewport.get_node_or_null("PointerTexture")
+		var circle = comp_cursor_viewport.get_node_or_null("CircleTexture")
+		if cursor_mode == 0:
+			if pointer: pointer.visible = false
+			if circle: circle.visible = true
+			comp_cursor.set_quad_size(Vector2(0.04, 0.04))
+		elif on_screen:
+			if pointer: pointer.visible = true
+			if circle: circle.visible = false
+			comp_cursor.set_quad_size(Vector2(0.06, 0.08))
+		else:
+			if pointer: pointer.visible = false
+			if circle: circle.visible = true
+			comp_cursor.set_quad_size(Vector2(0.04, 0.04))
 	else:
 		comp_cursor.visible = false
+	if pointer_cursor:
+		pointer_cursor.visible = false
+	if contact_dot:
+		contact_dot.visible = false
 	if comp_ui and comp_ui.visible:
 		comp_ui.global_position = ui_panel_3d.global_position
 		comp_ui.global_rotation = ui_panel_3d.global_rotation
