@@ -969,81 +969,81 @@ func _ready():
 		)
 
 	var interface = XRServer.find_interface("OpenXR")
-	if interface and interface.is_initialized():
-		var render_size = interface.get_render_target_size()
-		_xr_render_width = int(render_size.x)
-		_log("[XR] OpenXR render target: %dx%d" % [render_size.x, render_size.y])
-		_log("[XR] Blend modes: %s" % str(interface.get_supported_environment_blend_modes()))
+	if not interface or not interface.is_initialized():
+		_log("[XR] OpenXR not available - cannot run without VR runtime")
+		get_tree().quit()
+		return
 
-		var blend_modes = interface.get_supported_environment_blend_modes()
-		var has_alpha_blend = false
-		for bm in blend_modes:
-			if bm == XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND:
-				has_alpha_blend = true
-				break
+	var render_size = interface.get_render_target_size()
+	_xr_render_width = int(render_size.x)
+	_log("[XR] OpenXR render target: %dx%d" % [render_size.x, render_size.y])
+	_log("[XR] Blend modes: %s" % str(interface.get_supported_environment_blend_modes()))
 
-		if has_alpha_blend:
-			get_viewport().transparent_bg = true
-			world_env.environment.background_mode = Environment.BG_COLOR
-			world_env.environment.background_color = Color(0, 0, 0, 0)
-			interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
-			passthrough_labels = ["On", "Off", "Starfield"]
-		else:
-			world_env.environment.background_mode = Environment.BG_COLOR
-			world_env.environment.background_color = Color(0, 0, 0, 1)
-			interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
-			passthrough_mode = 1
-			passthrough_labels = ["Off", "Starfield"]
+	var blend_modes = interface.get_supported_environment_blend_modes()
+	var has_alpha_blend = false
+	for bm in blend_modes:
+		if bm == XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND:
+			has_alpha_blend = true
+			break
 
-		get_viewport().size = render_size
-		get_viewport().use_xr = true
-		get_viewport().msaa_3d = Viewport.MSAA_2X
-		_xr_base_render_scale = get_viewport().scaling_3d_scale
-		is_xr_active = true
-		sbs_mode = 0
-		ai_3d_mode = 0
-		passthrough_mode = 0
-
-		settings_controller.apply_display_refresh_rate()
-
-		_create_starfield()
-
-		_screen_mesh_original_mat = screen_mesh.material_override
-		_setup_comp_layer()
-		if comp_layer_available:
-			comp_shader_mat.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-			comp_shader_mat.set_shader_parameter("yuv_mode", 0)
-			if comp_shader_mat_left:
-				comp_shader_mat_left.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-				comp_shader_mat_left.set_shader_parameter("yuv_mode", 0)
-			if comp_shader_mat_right:
-				comp_shader_mat_right.set_shader_parameter("main_texture", welcome_viewport.get_texture())
-				comp_shader_mat_right.set_shader_parameter("yuv_mode", 0)
-			comp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-
-		await get_tree().create_timer(0.5).timeout
-		_reposition_screen_and_ui()
-
-		screen_mesh.extra_cull_margin = 10.0
-		ui_panel_3d.extra_cull_margin = 10.0
-
-		state_manager.load_state()
-
-		if comp_layer_available:
-			_switch_to_comp_layer()
-
-		if passthrough_mode > 0:
-			var saved_pt = passthrough_mode
-			passthrough_mode = 0
-			for i in range(saved_pt):
-				settings_controller.toggle_passthrough()
-
-		ui_visible = false
-		_set_ui_visible(false)
+	if has_alpha_blend:
+		get_viewport().transparent_bg = true
+		world_env.environment.background_mode = Environment.BG_COLOR
+		world_env.environment.background_color = Color(0, 0, 0, 0)
+		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+		passthrough_labels = ["On", "Off", "Starfield"]
 	else:
-		is_xr_active = false
-		sbs_mode = 0
-		ai_3d_mode = 0
+		world_env.environment.background_mode = Environment.BG_COLOR
+		world_env.environment.background_color = Color(0, 0, 0, 1)
+		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
+		passthrough_mode = 1
+		passthrough_labels = ["Off", "Starfield"]
+
+	get_viewport().size = render_size
+	get_viewport().use_xr = true
+	get_viewport().msaa_3d = Viewport.MSAA_2X
+	_xr_base_render_scale = get_viewport().scaling_3d_scale
+	is_xr_active = true
+	sbs_mode = 0
+	ai_3d_mode = 0
+	passthrough_mode = 0
+
+	settings_controller.apply_display_refresh_rate()
+
+	_create_starfield()
+
+	_screen_mesh_original_mat = screen_mesh.material_override
+	_setup_comp_layer()
+	if comp_layer_available:
+		comp_shader_mat.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+		comp_shader_mat.set_shader_parameter("yuv_mode", 0)
+		if comp_shader_mat_left:
+			comp_shader_mat_left.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+			comp_shader_mat_left.set_shader_parameter("yuv_mode", 0)
+		if comp_shader_mat_right:
+			comp_shader_mat_right.set_shader_parameter("main_texture", welcome_viewport.get_texture())
+			comp_shader_mat_right.set_shader_parameter("yuv_mode", 0)
+		comp_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+
+	await get_tree().create_timer(0.5).timeout
+	_reposition_screen_and_ui()
+
+	screen_mesh.extra_cull_margin = 10.0
+	ui_panel_3d.extra_cull_margin = 10.0
+
+	state_manager.load_state()
+
+	if comp_layer_available:
+		_switch_to_comp_layer()
+
+	if passthrough_mode > 0:
+		var saved_pt = passthrough_mode
+		passthrough_mode = 0
+		for i in range(saved_pt):
+			settings_controller.toggle_passthrough()
+
+	ui_visible = false
+	_set_ui_visible(false)
 
 	config_mgr.load_config()
 	var saved_ip = ""
