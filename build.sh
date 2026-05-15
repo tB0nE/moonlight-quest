@@ -38,9 +38,22 @@ CONFIG_BACKUP="export_presets.cfg.bak"
 
 if [ "$PLATFORM" = "linux" ] || [ "$PLATFORM" = "appimage" ]; then
   LINUX_TEMPLATE="$LINUX_TEMPLATE_RELEASE"
+  LINUX_SO="$SCRIPT_DIR/addons/nightfall-stream/bin/linux/libnightfall-stream.linux.template_release.x86_64.so"
 
   if [ ! -f "$LINUX_TEMPLATE" ]; then
     echo "Error: Linux template not found at $LINUX_TEMPLATE"
+    exit 1
+  fi
+
+  echo "Building Linux .so in Ubuntu 22.04 Docker container (glibc 2.35 compat)..."
+  if [ ! -f "$LINUX_SO" ]; then
+    bash "$SCRIPT_DIR/docker-build-linux.sh"
+  else
+    echo "Linux .so already exists, skipping Docker build"
+  fi
+
+  if [ ! -f "$LINUX_SO" ]; then
+    echo "Error: Linux .so build failed"
     exit 1
   fi
 

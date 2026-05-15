@@ -8,8 +8,8 @@ extends Node3D
 @onready var detection_viewport = %DetectionViewport
 @onready var detection_target = %DetectionTarget
 @onready var welcome_viewport = %WelcomeViewport
-@onready var config_mgr = NightfallConfigManager.new()
-@onready var comp_mgr = NightfallComputerManager.new()
+@onready var config_mgr = ClassDB.instantiate("NightfallConfigManager") if ClassDB.class_exists("NightfallConfigManager") else null
+@onready var comp_mgr = ClassDB.instantiate("NightfallComputerManager") if ClassDB.class_exists("NightfallComputerManager") else null
 var mdns
 var stream_backend: StreamBackend
 
@@ -947,26 +947,28 @@ func _ready():
 	%IPInput.gui_input.connect(func(e): ui_controller.on_ipinput_gui_input(e))
 	ui_controller.setup_numpad()
 
-	comp_mgr.set_config_manager(config_mgr)
-	var v2_node = null
-	if ClassDB.class_exists("NightfallStream"):
-		v2_node = ClassDB.instantiate("NightfallStream")
-		add_child(v2_node)
+	if config_mgr and comp_mgr:
+		comp_mgr.set_config_manager(config_mgr)
+	if not ClassDB.class_exists("NightfallStream"):
+		_log("[FATAL] NightfallStream GDExtension failed to load - missing .so or incompatible glibc")
+		get_tree().quit()
+		return
+	var v2_node = ClassDB.instantiate("NightfallStream")
+	add_child(v2_node)
 	stream_backend = StreamBackend.new(v2_node)
 	stream_backend.set_config_manager(config_mgr)
 	stream_backend.set_computer_manager(comp_mgr)
-	if v2_node:
-		v2_node.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
-		v2_node.stream_started.connect(func():
-			_on_stream_started()
-		)
-		v2_node.stream_terminated.connect(func(err_code, err_msg):
-			_on_stream_terminated(err_msg)
-		)
-		v2_node.log_message.connect(func(msg):
-			if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
-				stats_network_events += 1
-		)
+	v2_node.pair_completed.connect(func(s, m): stream_manager.on_pair_completed(s, m))
+	v2_node.stream_started.connect(func():
+		_on_stream_started()
+	)
+	v2_node.stream_terminated.connect(func(err_code, err_msg):
+		_on_stream_terminated(err_msg)
+	)
+	v2_node.log_message.connect(func(msg):
+		if "dropped" in msg or "Unrecoverable" in msg or "Waiting for IDR" in msg:
+			stats_network_events += 1
+	)
 
 	var interface = XRServer.find_interface("OpenXR")
 	if not interface or not interface.is_initialized():
@@ -1045,20 +1047,21 @@ func _ready():
 	ui_visible = false
 	_set_ui_visible(false)
 
-	config_mgr.load_config()
-	var saved_ip = ""
-	var save = ConfigFile.new()
-	if save.load("user://last_connection.cfg") == OK:
-		saved_ip = save.get_value("connection", "ip", "")
-		if saved_ip != "":
-			%IPInput.text = saved_ip
-			state_manager.load_host_state(saved_ip)
-			for h in config_mgr.get_hosts():
-				if h.has("localaddress") and h.localaddress == saved_ip:
-					current_host_id = h.id
-					break
-			ui_controller.update_host_label()
-			welcome_screen.update_welcome_info()
+	if config_mgr:
+		config_mgr.load_config()
+		var saved_ip = ""
+		var save = ConfigFile.new()
+		if save.load("user://last_connection.cfg") == OK:
+			saved_ip = save.get_value("connection", "ip", "")
+			if saved_ip != "":
+				%IPInput.text = saved_ip
+				state_manager.load_host_state(saved_ip)
+				for h in config_mgr.get_hosts():
+					if h.has("localaddress") and h.localaddress == saved_ip:
+						current_host_id = h.id
+						break
+				ui_controller.update_host_label()
+				welcome_screen.update_welcome_info()
 
 	stream_manager.bind_texture()
 	screen_mesh.material_override.set_shader_parameter("main_texture", welcome_viewport.get_texture())
