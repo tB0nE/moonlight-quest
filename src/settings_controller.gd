@@ -29,6 +29,8 @@ func cycle_sbs_mode():
 	main.state_manager.save_state()
 
 func cycle_ai_3d_mode():
+	if OS.get_name() != "Android":
+		return
 	if main.sbs_mode > 0:
 		return
 	main.ai_3d_mode = (main.ai_3d_mode + 1) % 2
@@ -65,17 +67,18 @@ func toggle_passthrough():
 	var interface = XRServer.find_interface("OpenXR")
 	if not interface:
 		return
-	main.passthrough_mode = (main.passthrough_mode + 1) % 3
+	main.passthrough_mode = (main.passthrough_mode + 1) % main.passthrough_labels.size()
 	var starfield = main.get_node_or_null("Starfield")
-	main._log("[PT] mode=%d starfield=%s" % [main.passthrough_mode, str(starfield != null)])
+	main._log("[PT] mode=%d starfield=%s labels=%s" % [main.passthrough_mode, str(starfield != null), str(main.passthrough_labels.size())])
 	main._flush_log()
-	if main.passthrough_mode == 0:
+	var has_alpha_blend = main.passthrough_labels.size() == 3
+	if has_alpha_blend and main.passthrough_mode == 0:
 		main.get_viewport().transparent_bg = true
 		main.world_env.environment.background_mode = Environment.BG_COLOR
 		main.world_env.environment.background_color = Color(0, 0, 0, 0)
 		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
 		if starfield: starfield.visible = false
-	elif main.passthrough_mode == 1:
+	elif (has_alpha_blend and main.passthrough_mode == 1) or (not has_alpha_blend and main.passthrough_mode == 0):
 		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
 		main.world_env.environment.background_color = Color(0, 0, 0, 1)
 		main.get_viewport().transparent_bg = false

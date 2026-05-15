@@ -899,8 +899,12 @@ func _clear_comp_yuv_textures():
 		mat.set_shader_parameter("depth_texture", null)
 
 func _ready():
-	OS.set_environment("CURL_CA_BUNDLE", "/system/etc/security/cacerts/")
-	OS.set_environment("SSL_CERT_FILE", "/system/etc/security/cacerts/")
+	if OS.get_name() == "Android":
+		OS.set_environment("CURL_CA_BUNDLE", "/system/etc/security/cacerts/")
+		OS.set_environment("SSL_CERT_FILE", "/system/etc/security/cacerts/")
+	else:
+		OS.set_environment("CURL_CA_BUNDLE", "/etc/ssl/certs/ca-certificates.crt")
+		OS.set_environment("SSL_CERT_FILE", "/etc/ssl/certs/")
 	_log("=== Nightfall started ===")
 	Engine.max_fps = 0
 
@@ -916,7 +920,8 @@ func _ready():
 	state_manager = StateManager.new(self)
 	host_discovery = HostDiscovery.new(self)
 
-	depth_estimator.setup()
+	if OS.get_name() == "Android":
+		depth_estimator.setup()
 	sbs_mode = clampi(sbs_mode, 0, 2)
 	ai_3d_mode = clampi(ai_3d_mode, 0, 1)
 
@@ -930,9 +935,11 @@ func _ready():
 	screen_manager.create_bezel()
 	_create_contact_dot()
 
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if OS.get_name() == "Android":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-	_load_controller_models()
+	if OS.get_name() == "Android":
+		_load_controller_models()
 
 	ui_controller.build_ui()
 	welcome_screen.build_welcome_ui()
@@ -968,10 +975,25 @@ func _ready():
 		_log("[XR] OpenXR render target: %dx%d" % [render_size.x, render_size.y])
 		_log("[XR] Blend modes: %s" % str(interface.get_supported_environment_blend_modes()))
 
-		get_viewport().transparent_bg = true
-		world_env.environment.background_mode = Environment.BG_COLOR
-		world_env.environment.background_color = Color(0, 0, 0, 0)
-		interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+		var blend_modes = interface.get_supported_environment_blend_modes()
+		var has_alpha_blend = false
+		for bm in blend_modes:
+			if bm == XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND:
+				has_alpha_blend = true
+				break
+
+		if has_alpha_blend:
+			get_viewport().transparent_bg = true
+			world_env.environment.background_mode = Environment.BG_COLOR
+			world_env.environment.background_color = Color(0, 0, 0, 0)
+			interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND
+			passthrough_labels = ["On", "Off", "Starfield"]
+		else:
+			world_env.environment.background_mode = Environment.BG_COLOR
+			world_env.environment.background_color = Color(0, 0, 0, 1)
+			interface.environment_blend_mode = XRInterface.XR_ENV_BLEND_MODE_OPAQUE
+			passthrough_mode = 1
+			passthrough_labels = ["Off", "Starfield"]
 
 		get_viewport().size = render_size
 		get_viewport().use_xr = true

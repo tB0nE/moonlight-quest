@@ -89,7 +89,8 @@ func capture_stream_mouse():
 
 func release_stream_mouse():
 	main.mouse_captured_by_stream = false
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if OS.get_name() == "Android":
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	main.ui_controller.update_ui()
 	print("[MOUSE] Released - back to pointer mode.")
 

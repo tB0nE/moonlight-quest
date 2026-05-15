@@ -6,17 +6,22 @@ cd "$SCRIPT_DIR"
 
 PRESET="NightfallDev"
 OUTPUT="Nightfall-Android-arm64-v8a-debug.apk"
+PLATFORM="android"
 
 for arg in "$@"; do
   case "$arg" in
     --release) PRESET="NightfallRelease"; OUTPUT="Nightfall-Android-arm64-v8a.apk" ;;
     --debug)   PRESET="NightfallDev";     OUTPUT="Nightfall-Android-arm64-v8a-debug.apk" ;;
+    --linux)   PLATFORM="linux"; OUTPUT="Nightfall-Linux-x86_64" ;;
+    --appimage) PLATFORM="appimage"; OUTPUT="Nightfall-x86_64.AppImage" ;;
     --install) INSTALL=1 ;;
     --help|-h)
-      echo "Usage: $0 [--debug|--release] [--install]"
-      echo "  --debug    Export debug APK (default)"
-      echo "  --release  Export release APK (requires .env keystore config)"
-      echo "  --install  Install APK via adb after export"
+      echo "Usage: $0 [--debug|--release] [--linux|--appimage] [--install]"
+      echo "  --debug     Export debug APK (default)"
+      echo "  --release   Export release APK (requires .env keystore config)"
+      echo "  --linux     Export Linux x86_64 binary"
+      echo "  --appimage  Export Linux x86_64 AppImage (implies --release for Linux)"
+      echo "  --install   Install APK via adb after export (Android only)"
       exit 0 ;;
     *) echo "Unknown option: $arg"; exit 1 ;;
   esac
@@ -25,9 +30,101 @@ done
 GODOT="/var/home/tyrone/Applications/Godot_v4.7-beta2_linux.x86_64"
 JAVA_HOME="/home/linuxbrew/.linuxbrew/opt/openjdk@17"
 TEMPLATES="/var/home/tyrone/.local/share/godot/export_templates/4.7.beta2/android_source.zip"
+LINUX_TEMPLATE_DEBUG="/var/home/tyrone/.local/share/godot/export_templates/4.7.beta2/linux_debug.x86_64"
+LINUX_TEMPLATE_RELEASE="/var/home/tyrone/.local/share/godot/export_templates/4.7.beta2/linux_release.x86_64"
 
 CONFIG="export_presets.cfg"
 CONFIG_BACKUP="export_presets.cfg.bak"
+
+if [ "$PLATFORM" = "linux" ] || [ "$PLATFORM" = "appimage" ]; then
+  LINUX_TEMPLATE="$LINUX_TEMPLATE_RELEASE"
+
+  if [ ! -f "$LINUX_TEMPLATE" ]; then
+    echo "Error: Linux template not found at $LINUX_TEMPLATE"
+    exit 1
+  fi
+
+  LINUX_BINARY="$SCRIPT_DIR/Nightfall-Linux-x86_64"
+  PCK_PATH="$SCRIPT_DIR/Nightfall-Linux.pck"
+  APPDIR="$SCRIPT_DIR/Nightfall.AppDir"
+  rm -f "$PCK_PATH" "$LINUX_BINARY"
+  rm -rf "$APPDIR"
+
+  echo "Exporting PCK for Linux (using Android preset for headless compatibility)..."
+  "$GODOT" --headless --path "$SCRIPT_DIR" --export-pack NightfallDev "$PCK_PATH" 2>&1
+
+  if [ ! -f "$PCK_PATH" ]; then
+    echo "Error: PCK export failed"
+    exit 1
+  fi
+
+  echo "Assembling Linux binary from template + PCK..."
+  cp "$LINUX_TEMPLATE" "$LINUX_BINARY"
+  cat "$PCK_PATH" >> "$LINUX_BINARY"
+  chmod +x "$LINUX_BINARY"
+
+  SIZE=$(ls -lh "$LINUX_BINARY" | awk '{print $5}')
+  echo "Assembled Linux binary ($SIZE)"
+
+  rm -f "$SCRIPT_DIR/openxr_action_map.tres"
+
+  if [ "$PLATFORM" = "appimage" ]; then
+    APPDIR="$SCRIPT_DIR/Nightfall.AppDir"
+    rm -rf "$APPDIR"
+    mkdir -p "$APPDIR/usr/bin"
+    mkdir -p "$APPDIR/usr/share/applications"
+    mkdir -p "$APPDIR/usr/share/icons/hicolor/732x732/apps"
+
+    cp "$LINUX_TEMPLATE" "$APPDIR/usr/bin/nightfall-quest"
+    cp "$PCK_PATH" "$APPDIR/usr/bin/nightfall-quest.pck"
+    chmod +x "$APPDIR/usr/bin/nightfall-quest"
+
+    mkdir -p "$APPDIR/usr/bin/addons/nightfall-stream/bin/linux"
+    mkdir -p "$APPDIR/usr/bin/addons/godotopenxrvendors/.bin/linux/template_release/x86_64"
+    cp "$SCRIPT_DIR/addons/nightfall-stream/bin/linux/libnightfall-stream.linux.template_release.x86_64.so" "$APPDIR/usr/bin/addons/nightfall-stream/bin/linux/"
+    cp "$SCRIPT_DIR/addons/godotopenxrvendors/.bin/linux/template_release/x86_64/libgodotopenxrvendors.so" "$APPDIR/usr/bin/addons/godotopenxrvendors/.bin/linux/template_release/x86_64/"
+    cp "$SCRIPT_DIR/addons/godotopenxrvendors/plugin.gdextension" "$APPDIR/usr/bin/addons/godotopenxrvendors/"
+    cp "$SCRIPT_DIR/nightfall-quest.desktop" "$APPDIR/nightfall-quest.desktop"
+    cp "$SCRIPT_DIR/nightfall-quest.desktop" "$APPDIR/usr/share/applications/nightfall-quest.desktop"
+    cp "$SCRIPT_DIR/src/assets/nightfall_icon_v1.png" "$APPDIR/usr/share/icons/hicolor/732x732/apps/nightfall-quest.png"
+    cp "$SCRIPT_DIR/src/assets/nightfall_icon_v1.png" "$APPDIR/nightfall-quest.png"
+
+    cat > "$APPDIR/AppRun" << 'APPRUN'
+#!/usr/bin/env bash
+APPDIR="$(dirname "$(readlink -f "$0")")"
+export APPDIR
+cd "$APPDIR/usr/bin"
+exec ./nightfall-quest "$@"
+APPRUN
+    chmod +x "$APPDIR/AppRun"
+
+    echo "Building AppImage..."
+    APPIMAGETOOL="/tmp/appimagetool"
+    if [ ! -f "$APPIMAGETOOL" ]; then
+      echo "Downloading appimagetool..."
+      curl -L -o "$APPIMAGETOOL" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage"
+      chmod +x "$APPIMAGETOOL"
+    fi
+
+    ARCH=x86_64 "$APPIMAGETOOL" "$APPDIR" "$SCRIPT_DIR/$OUTPUT" 2>&1
+
+    if [ ! -f "$SCRIPT_DIR/$OUTPUT" ]; then
+      echo "Error: AppImage creation failed"
+      rm -rf "$APPDIR"
+      exit 1
+    fi
+
+    chmod +x "$SCRIPT_DIR/$OUTPUT"
+    SIZE=$(ls -lh "$SCRIPT_DIR/$OUTPUT" | awk '{print $5}')
+    echo "Exported $OUTPUT ($SIZE)"
+
+    rm -rf "$APPDIR"
+    rm -f "$PCK_PATH"
+  fi
+
+  rm -f "$PCK_PATH"
+  exit 0
+fi
 
 if [ "$PRESET" = "NightfallRelease" ]; then
   if [ ! -f .env ]; then

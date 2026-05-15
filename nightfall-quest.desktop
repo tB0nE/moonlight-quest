@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Nightfall
+Comment=VR GameStream Client
+Exec=nightfall-quest
+Icon=nightfall-quest
+Type=Application
+Categories=Game;X-VR;
+X-WiVRn-VR=true
+Terminal=false

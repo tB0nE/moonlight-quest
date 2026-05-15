@@ -10,10 +10,16 @@ var submit_timer: float = 0.0
 var submit_interval: float = 0.1
 var model_size: int = 256
 
+var _platform: String
+
 func _init(owner: Node3D):
 	main = owner
+	_platform = OS.get_name()
 
 func setup():
+	if _platform != "Android":
+		main._log("[DEPTH] Depth estimation disabled on " + _platform)
+		return
 	depth_viewport = SubViewport.new()
 	depth_viewport.name = "DepthViewport"
 	depth_viewport.size = Vector2i(model_size, model_size)
