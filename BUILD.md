@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Godot 4.6.2** (editor + export templates)
+- **Godot 4.7 Beta 2** (editor + export templates)
 - **Android NDK 27.0.12077973**
 - **JDK 17**
 - **vcpkg** (for GDExtension dependency management)
@@ -56,6 +56,20 @@ ninja -C build/android
 
 > **Size comparison**: Debug ~162MB, Release (stripped) ~35MB.
 
+### Linux Build
+
+```bash
+cd <project-root>/addons/nightfall-stream
+
+export VCPKG_ROOT=~/Development/Personal/vcpkg
+export VCPKG_DEFAULT_TRIPLET=x64-linux
+
+cmake --preset linux -DCMAKE_BUILD_TYPE=Release
+ninja -C build/linux-release
+```
+
+This produces `bin/linux/libnightfall-stream.linux.template_release.x86_64.so`. AI 3D / depth estimation is stubbed on Linux.
+
 ## 2. Export the APK
 
 The `build.sh` script handles everything:
@@ -70,6 +84,9 @@ The `build.sh` script handles everything:
 # Build and install via ADB
 ./build.sh --debug --install
 ./build.sh --release --install
+
+# Linux AppImage
+./build.sh --appimage
 ```
 
 What `build.sh` does:
@@ -81,6 +98,12 @@ What `build.sh` does:
 6. Exports APK via Godot headless
 7. Cleans up `android/build/` (prevents Godot editor duplicate class errors)
 8. Optionally installs via ADB
+
+For Linux AppImage (`--appimage`):
+1. Exports PCK via Godot headless (using Android preset workaround)
+2. Assembles Linux binary from release template + PCK
+3. Creates AppDir with binary, PCK, .so files, plugin.gdextension, desktop entry, and icon
+4. Builds AppImage via `appimagetool` (auto-downloaded to `/tmp/`)
 
 ### Generate Depth Anything V2 Model
 
@@ -143,8 +166,9 @@ adb install -r Nightfall-Android-arm64-v8a-debug.apk
 |---|---|---|---|---|
 | `NightfallDev` | `app.nightfall.quest.debug` | yes | no | no |
 | `NightfallRelease` | `app.nightfall.quest` | no | yes | yes |
+| `NightfallLinux` | N/A (Linux Desktop) | N/A | N/A | N/A |
 
-Both presets can coexist on the same device since they use different package names.
+Both Android presets can coexist on the same device since they use different package names. The Linux preset is not usable directly (Godot headless doesn't register LinuxBSD export platform); `build.sh --appimage` works around this via PCK export.
 
 ## Key Architecture Notes
 

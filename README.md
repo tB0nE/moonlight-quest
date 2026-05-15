@@ -4,10 +4,10 @@
 
 # Nightfall
 
-**VR-first GameStream client for Meta Quest.**
+**VR-first GameStream client for Meta Quest and Linux PCVR.**
 
 Stream your PC games into a virtual living room - repositionable screens, stereoscopic 3D,
-passthrough, and AI depth estimation, all built native on Godot 4 and OpenXR.
+passthrough, and AI depth estimation, all built native on Godot 4.7 and OpenXR.
 
 [![Stars](https://img.shields.io/github/stars/tB0nE/nightfall?style=for-the-badge&color=7c73ff&labelColor=1a1a2e)](https://github.com/tB0nE/nightfall/stargazers)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue?style=for-the-badge&color=4c5265&labelColor=1a1a2e)](LICENSE)
@@ -22,15 +22,16 @@ passthrough, and AI depth estimation, all built native on Godot 4 and OpenXR.
 ## Features
 
 - **VR-native streaming** - floating screen in 3D space with grab bars, corner resize, and curvature options
-- **HEVC hardware decoding** - NDK MediaCodec pipeline for low-latency H.265 on Quest 3/3S
-- **AI Stereoscopic 3D** - real-time AI depth conversion via MiDaS turns any 2D game into stereoscopic 3D, no server-side setup required
+- **HEVC hardware decoding** - NDK MediaCodec pipeline for low-latency H.265 on Quest 3/3S; VAAPI HEVC decode on Linux
+- **AI Stereoscopic 3D** - real-time AI depth conversion via MiDaS turns any 2D game into stereoscopic 3D, no server-side setup required (Quest only)
 - **SBS support** - Stretch and Crop modes for native side-by-side 3D content
 - **Shader smoothing & sharpening** - Gaussian blur plus CAS adaptive sharpening on the stream
 - **Flexible stream configuration** - resolution presets (720p–4K including 4:3 and 21:9), 30–120 FPS, auto or manual bitrate, auto display refresh rate matching
 - **Touch-style pointer** - laser pointer with trigger-to-click, grip for right-click, thumbstick scroll; circle or arrow cursor
 - **Passthrough** - see your real room with the stream floating in front of you
 - **Curved screen** - toggle curvature from the menu; flat, slight curve, or full wrap with optional bezel
-- **Quest Touch Plus models** - real controller models instead of placeholder boxes
+- **Quest Touch Plus models** - real controller models instead of placeholder boxes (Quest only)
+- **Linux PCVR** - AppImage release for WiVRn/Monado with passthrough, composition layers, and SBS support
 - **Compatibility** - works with any GameStream-compatible server
 - **Ease of use** - pair and connect in seconds; AI 3D requires no additional server-side configuration
 
@@ -85,6 +86,14 @@ Setup:
 5. Enter the displayed PIN in your server's web UI
 6. The stream starts automatically
 
+### Client (Linux PCVR)
+
+1. Download the `Nightfall-x86_64.AppImage` from the [latest release](https://github.com/tB0nE/nightfall/releases/latest)
+2. Ensure [WiVRn](https://github.com/WiVRn/WiVRn) is running on your PC with your headset connected
+3. Run `chmod +x Nightfall-x86_64.AppImage && ./Nightfall-x86_64.AppImage`
+4. The app launches into VR via WiVRn/Monado OpenXR runtime
+5. Controls and streaming work the same as Quest (AI 3D not available on Linux yet)
+
 ### Controls
 
 | Input | Action |
@@ -103,10 +112,11 @@ See [BUILD.md](BUILD.md) for full build instructions including:
 
 - GDExtension compilation (cmake + ninja, not manual clang++)
 - vcpkg dependency setup
-- APK export via Godot headless
+- Android APK export via Godot headless
+- Linux binary and AppImage export
 - Quest deployment via ADB
 
-Quick start:
+Quick start (Android):
 
 ```bash
 # 1. Build the GDExtension
@@ -119,6 +129,19 @@ ninja -C build/android
 
 # 3. Install to Quest
 adb install -r Nightfall-Android-arm64-v8a-debug.apk
+```
+
+Quick start (Linux AppImage):
+
+```bash
+# 1. Build the GDExtension
+cd addons/nightfall-stream
+VCPKG_ROOT=~/Development/Personal/vcpkg VCPKG_DEFAULT_TRIPLET=x64-linux \
+  cmake --preset linux -DCMAKE_BUILD_TYPE=Release
+ninja -C build/linux-release
+
+# 2. Export the AppImage
+./build.sh --appimage
 ```
 
 > [!WARNING]
